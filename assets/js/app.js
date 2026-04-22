@@ -6119,6 +6119,17 @@
     row.className = "row " + (isMe ? "me" : "other");
     row.dataset.id = m.id;
     row.dataset.userId = m.sender_id;
+    // Store username so reconcileNameHeaders() can recreate a `.name-small`
+    // header if the original header-bearing row is deleted. Mirrors the
+    // same attribute set on public/group rows.
+    {
+      const _uname = isMe
+        ? (me && me.username ? me.username : "")
+        : (m.username
+            || (currentDmRoom && currentDmRoom.otherProfile && m.sender_id === currentDmRoom.otherId && currentDmRoom.otherProfile.username)
+            || "");
+      if (_uname) row.dataset.username = _uname;
+    }
 
     if (!isMe) {
       const avBtn = document.createElement("button");
@@ -6337,6 +6348,15 @@
       if (row) row.remove();
       dmRowsById.delete(m.id);
       dmMessagesById.delete(m.id);
+      // Fix 4 (DM): drop any orphaned `.name-small` above the removed row
+      // and promote a header onto whatever row is now first-of-run. Also
+      // re-derive dmLastSenderId so the next incoming message decides
+      // correctly whether it needs a fresh header.
+      if (dmRoomMessages) {
+        reconcileNameHeaders(dmRoomMessages);
+        const rs = dmRoomMessages.querySelectorAll(".row");
+        dmLastSenderId = rs.length ? (rs[rs.length - 1].dataset.userId || null) : null;
+      }
     } catch (err) {
       console.error("[Self] DM delete failed", err);
       toast("Could not delete: " + (err && err.message ? err.message : "error"), "error");
