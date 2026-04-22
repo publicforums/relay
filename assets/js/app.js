@@ -500,6 +500,27 @@
           n.setAttribute("role", "button");
           n.tabIndex = 0;
           n.title = "View profile";
+          // A reconstructed header must behave like the one renderMessage
+          // builds (app.js ~line 694): clicking it / pressing Enter or Space
+          // opens the sender's profile. CSS already paints `cursor: pointer`
+          // on `.name-small` so without these listeners the element would
+          // look interactive but do nothing. We can't pass the original `m`
+          // here, so we build a minimal subject from the row's dataset —
+          // openProfileFor only reads `user_id` (falls back to `id`) and
+          // `username` / `avatar_url`.
+          const subject = {
+            id: uid,
+            user_id: uid,
+            username: uname,
+            avatar_url: el.dataset.avatarUrl || "",
+          };
+          n.addEventListener("click", () => openProfileFor(subject));
+          n.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              openProfileFor(subject);
+            }
+          });
           el.parentNode.insertBefore(n, el);
         }
       } else if (!needsHead && hasHead) {
