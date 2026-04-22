@@ -963,44 +963,46 @@
   .bubble.has-image .msg-text { display: block; margin-top: 6px; }
 
   /* ---------- DM read receipts (Telegram-style ticks) ----------
-     Phase 3: receipts are now rendered as a sibling BELOW the bubble
-     (appended to `.stack` in buildDmRow) and left-aligned under the
-     bubble's start edge. This keeps the bubble's width/height stable
-     (no layout-push) while satisfying the "below bubble, left-aligned,
-     smaller, subtle" spec. Public/group rows never receive this element
-     because buildDmRow is DM-only. */
+     Fix 1: receipts now live INSIDE the `.bubble` (appended as the
+     last child of the bubble in buildDmRow). For text bubbles they
+     flow inline after the last word of .msg-text so the tick lands
+     in the bottom-right corner (Telegram style). For image-only
+     bubbles the tick is absolutely positioned over the corner of
+     the image with a subtle dark chip so it stays legible without
+     shifting the image. Height/width of the bubble stays stable in
+     both cases. Public / group rows never get this element because
+     buildDmRow is DM-scoped. */
   .dm-read-receipt {
     display: inline-flex;
     align-items: center;
     gap: 0;
-    margin: 2px 4px 0 4px;
+    margin: 0 0 0 6px;
     padding: 0;
-    color: var(--muted);
+    color: color-mix(in srgb, var(--bubble-me-text, #fff) 62%, transparent);
     opacity: 0;
-    transform: translateY(1px);
-    transition: opacity .18s ease, color .22s ease, transform .22s cubic-bezier(.2,.8,.2,1);
+    transition: opacity .18s ease, color .22s ease;
     pointer-events: none;
     line-height: 1;
-    flex: 0 0 auto;
-    /* Left-align even inside .row.me .stack (which sets align-items:flex-end). */
-    align-self: flex-start;
+    vertical-align: -1px; /* align with text baseline inside bubble */
     min-width: 14px;
     height: 11px;
     position: relative;
+    flex: 0 0 auto;
   }
-  .dm-read-receipt.show { opacity: 1; transform: none; }
+  .dm-read-receipt.show { opacity: 1; }
   .dm-read-receipt svg {
     width: 11px; height: 11px; display: block;
     stroke: currentColor; fill: none;
-    stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
-    filter: drop-shadow(0 0 0 transparent);
+    stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round;
   }
   /* Overlap the two ticks when seen = 2 ticks. */
   .dm-read-receipt .tick-2 { margin-left: -5px; }
   .dm-read-receipt[data-state="sent"] .tick-2 { display: none; }
-  .dm-read-receipt[data-state="seen"] { color: var(--accent-2, #7ecbff); }
+  .dm-read-receipt[data-state="seen"] {
+    color: var(--accent-2, #7ecbff);
+  }
   .dm-read-receipt[data-state="seen"] svg {
-    animation: dmSeenPop .28s cubic-bezier(.2,.8,.2,1) both;
+    animation: dmSeenPop .24s cubic-bezier(.2,.8,.2,1) both;
   }
   @keyframes dmSeenPop {
     0%   { transform: scale(.7); opacity: 0; }
@@ -1010,8 +1012,27 @@
   @media (prefers-reduced-motion: reduce) {
     .dm-read-receipt, .dm-read-receipt svg { transition: none; animation: none; }
   }
-  /* Make sure our footer row never overflows the bubble's max-width. */
-  #dm-room-backdrop .row.me .bubble { position: relative; }
+  /* Required so .image-only absolute-positioning of the receipt anchors
+     to the bubble and not the flex parent. */
+  #dm-room-backdrop .bubble { position: relative; }
+  /* Image-only bubbles have no padding/background; float the receipt
+     over the image bottom-right with a small dark chip so it's readable
+     against any image. */
+  #dm-room-backdrop .row.me .bubble.image-only .dm-read-receipt {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    margin: 0;
+    padding: 2px 5px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    height: auto;
+    min-width: 0;
+  }
+  #dm-room-backdrop .row.me .bubble.image-only .dm-read-receipt[data-state="seen"] {
+    color: #7ecbff;
+  }
 
   .bubble img.msg-image {
     display: block;
@@ -4363,14 +4384,20 @@
   }
 
   .appearance-section {
-    display: flex; flex-direction: column; gap: 22px;
-    padding: 4px 2px 20px;
+    /* Fix 2: Appearance UI polish — tighter vertical rhythm, generous
+       bottom padding so the last row never butts against the scroll
+       edge, and a consistent max-width + auto-margin so the panel
+       reads centered inside the Settings main column. */
+    display: flex; flex-direction: column; gap: 24px;
+    padding: 6px 4px 28px;
     max-width: 780px;
     margin: 0 auto;
     width: 100%;
+    min-width: 0;
   }
+  .appearance-section > * { min-width: 0; }
   .appearance-h {
-    margin: 0 0 6px;
+    margin: 0 0 8px;
     font-size: 13px;
     font-weight: 600;
     color: var(--muted);
@@ -4380,7 +4407,7 @@
   .appearance-sub {
     font-size: 12.5px;
     color: var(--muted);
-    margin: -2px 0 8px;
+    margin: 0 0 10px;
     line-height: 1.5;
   }
 
@@ -4390,7 +4417,10 @@
     gap: 12px;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 6px 2px 14px;
+    /* Extra right padding so the last card has breathing room at the
+       scroll edge; bottom padding so the focus/hover shadow isn't
+       clipped by the container. */
+    padding: 6px 8px 14px 2px;
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
@@ -4414,6 +4444,9 @@
     transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
     font: inherit;
     appearance: none;
+  }
+  @media (max-width: 420px) {
+    .appearance-preset-card { width: 134px; }
   }
   .appearance-preset-card:hover {
     transform: translateY(-1px);
@@ -4484,7 +4517,17 @@
     background: var(--_swatch-bg, #2873ce);
   }
   .appearance-color-inputs {
-    display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px; align-items: center;
+  }
+  @media (max-width: 380px) {
+    .appearance-color-inputs {
+      /* On very narrow viewports fall back to a 2-column layout so the
+         HEX input never truncates or pushes the color-picker off-screen. */
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+    .appearance-color-inputs input[type="color"] { grid-column: 1 / -1; justify-self: start; }
   }
   .appearance-color-inputs label {
     font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
