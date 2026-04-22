@@ -92,6 +92,14 @@ begin
        set status = 'accepted'
      where id = v_existing_receiver_to_sender.id;
     v_new_request_id := v_existing_receiver_to_sender.id;
+  elsif v_existing_receiver_to_sender.id is not null
+        and v_existing_receiver_to_sender.status = 'accepted' then
+    -- We're already friends (B->A = accepted) and no A->B row exists;
+    -- inserting a fresh `pending` row here would leave the table in a
+    -- contradictory state (accepted + pending for the same pair). Treat
+    -- this as a no-op dup the same way we do for self->them = pending.
+    raise exception 'friend request already pending or accepted'
+      using errcode = '23505';
   else
     insert into public.friend_requests (sender_id, receiver_id, status)
     values (v_sender, p_receiver, 'pending')

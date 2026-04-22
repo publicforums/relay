@@ -540,6 +540,11 @@
     row.dataset.id = m.id;
     row.dataset.userId = m.user_id;
     row.dataset.username = m.username || "User";
+    // Store avatar on the row so reconcileNameHeaders can hand a non-empty
+    // subject to openProfileFor when it rebuilds a `.name-small` — otherwise
+    // the reconstructed header briefly flashes the default avatar before the
+    // async profile fetch resolves.
+    if (m.avatar_url) row.dataset.avatarUrl = m.avatar_url;
 
     if (!isMe) {
       const avBtn = document.createElement("button");
@@ -5217,6 +5222,12 @@
       row.dataset.username = isMe
         ? ((me && me.username) || "")
         : (m.username || (_p && _p.username) || "");
+      // Mirror buildRow so a reconstructed header can pass a non-empty
+      // avatar_url through to openProfileFor (see reconcileNameHeaders).
+      const _av = isMe
+        ? ((me && me.avatar_url) || "")
+        : (m.avatar_url || (_p && _p.avatar_url) || "");
+      if (_av) row.dataset.avatarUrl = _av;
     }
 
     if (!isMe) {
@@ -6152,6 +6163,14 @@
             || (currentDmRoom && currentDmRoom.otherProfile && m.sender_id === currentDmRoom.otherId && currentDmRoom.otherProfile.username)
             || "");
       if (_uname) row.dataset.username = _uname;
+      // Mirror the other row builders: store avatar so a reconstructed
+      // `.name-small` hands a populated subject to openProfileFor.
+      const _av = isMe
+        ? ((me && me.avatar_url) || "")
+        : (m.avatar_url
+            || (currentDmRoom && currentDmRoom.otherProfile && m.sender_id === currentDmRoom.otherId && currentDmRoom.otherProfile.avatar_url)
+            || "");
+      if (_av) row.dataset.avatarUrl = _av;
     }
 
     if (!isMe) {
