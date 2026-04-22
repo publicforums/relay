@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Relay</title>
+<link rel="icon" type="image/png" href="logo.png" />
+<link rel="apple-touch-icon" href="logo.png" />
+<meta property="og:title" content="Relay" />
+<meta property="og:image" content="logo.png" />
+<meta name="twitter:title" content="Relay" />
+<meta name="twitter:image" content="logo.png" />
+<script>
+  // Boot theme (Phase 5): apply the persisted Relay appearance BEFORE the
+  // main stylesheet paints, so the user doesn't see a flash of the default
+  // palette. Reads `relay-appearance` from localStorage; silently tolerates
+  // quota/SecurityErrors (incognito, storage-blocked contexts).
+  (function(){
+    try {
+      var raw = localStorage.getItem("relay-appearance");
+      if (!raw) return;
+      var a = JSON.parse(raw);
+      var root = document.documentElement;
+      if (a && typeof a.theme === "string") root.setAttribute("data-theme", a.theme);
+      if (a && a.custom && typeof a.custom === "object") {
+        root.setAttribute("data-custom", "1");
+        if (typeof a.custom.primary === "string") root.style.setProperty("--custom-primary", a.custom.primary);
+        if (typeof a.custom.secondary === "string") root.style.setProperty("--custom-secondary", a.custom.secondary);
+      }
+      if (a && typeof a.font === "string") root.style.setProperty("--font-family", a.font);
+      if (a && typeof a.fontSize === "number" && a.fontSize >= 12 && a.fontSize <= 22) {
+        root.style.setProperty("--font-size-base", a.fontSize + "px");
+      }
+    } catch (_) {}
+  })();
+</script>
+<link rel="stylesheet" href="assets/css/app.min.css" />
+</head>
+<body data-page="app">
+<div id="app">
+  <section id="login">
+    <div class="login-brand" aria-label="Relay">
+      <img src="logo.png" alt="" onerror="this.style.display='none'" />
+      <span class="brand-name">Relay</span>
+    </div>
+    <div class="auth-card">
+      <h1 id="auth-title">Welcome back</h1>
+      <p id="auth-sub">Sign in to continue to Relay.</p>
+      <div class="auth-tabs" role="tablist">
+        <button class="auth-tab active" data-mode="signin" type="button" role="tab">Sign In</button>
+        <button class="auth-tab" data-mode="signup" type="button" role="tab">Sign Up</button>
+      </div>
+      <form id="auth-form" class="auth-form" autocomplete="on" novalidate>
+        <input id="auth-email" type="email" placeholder="Email" autocomplete="email" required />
+        <input id="auth-password" type="password" placeholder="Password (min 6)" autocomplete="current-password" required minlength="6" />
+        <label class="auth-remember" for="auth-remember">
+          <input id="auth-remember" type="checkbox" checked />
+          <span class="auth-remember-box" aria-hidden="true"></span>
+          <span class="auth-remember-text">Remember me on this device</span>
+        </label>
+        <label class="auth-terms" for="auth-terms-agree">
+          <input id="auth-terms-agree" type="checkbox" />
+          <span class="auth-terms-text">
+            I agree to the
+            <a href="terms.html" target="_blank" rel="noopener">Terms</a>,
+            <a href="privacy.html" target="_blank" rel="noopener">Privacy</a>, and
+            <a href="contact.html" target="_blank" rel="noopener">Contact</a> policies.
+          </span>
+        </label>
+        <div class="auth-terms-err" id="auth-terms-err" aria-live="polite"></div>
+        <button id="auth-submit" class="auth-submit" type="submit" disabled>Sign In</button>
+      </form>
+      <div class="auth-info" id="auth-info"></div>
+      <div class="auth-divider"><span>or</span></div>
+      <button id="login-btn" type="button" disabled>
+        <svg viewBox="0 0 48 48" aria-hidden="true">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          <path fill="none" d="M0 0h48v48H0z"/>
+        </svg>
+        <span id="login-label">Continue with Google</span>
+      </button>
+      <div class="err" id="login-err"></div>
+    </div>
+    <div class="auth-support">
+      Having trouble logging in or signing up?
+      <a id="auth-support-link" href="#" target="_blank" rel="noopener">Join our support server</a>
+      for assistance!
+    </div>
+  </section>
+
+  <section id="onboarding">
+    <div class="ob-brand" aria-label="Relay">
+      <img src="logo.png" alt="" onerror="this.style.display='none'" />
+      <span class="ob-brand-name">Relay</span>
+    </div>
+    <div class="ob-card">
+      <div class="ob-head">
+        <div class="ob-step-pills" id="ob-step-pills" aria-hidden="true"></div>
+        <div class="ob-progress"><div class="ob-progress-fill" id="ob-progress"></div></div>
+        <div class="step-label" id="ob-step-label">Step 1 of 5</div>
+        <h2 id="ob-title">Set up your profile</h2>
+        <div class="step-sub" id="ob-step-sub">A few quick details so people can recognize you in chat.</div>
+      </div>
+      <div class="ob-body">
+        <div class="ob-step" data-step="1">
+          <span class="ob-step-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </span>
+          <label>Profile photo</label>
+          <div class="ob-avatar">
+            <img id="ob-avatar-preview" alt="" />
+            <button id="ob-avatar-pick" type="button">Choose photo</button>
+            <input id="ob-avatar-input" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden />
+            <div class="hint">Optional — PNG, JPG, GIF or WEBP, up to 8 MB. You can change this later.</div>
+          </div>
+        </div>
+        <div class="ob-step" data-step="2">
+          <span class="ob-step-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </span>
+          <label>Username <span class="req">*</span></label>
+          <div class="ob-username-wrap">
+            <input id="ob-username" type="text" maxlength="32" placeholder="Choose a username" autocomplete="off" />
+            <span class="ob-username-state" id="ob-username-state" aria-hidden="true"></span>
+          </div>
+          <div class="ob-username-msg" id="ob-username-msg" aria-live="polite"></div>
+          <div class="hint">3–32 characters. Letters, numbers, symbols, and emoji are all allowed. Must be unique.</div>
+        </div>
+        <div class="ob-step" data-step="3">
+          <span class="ob-step-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>
+          </span>
+          <label>Bio</label>
+          <textarea id="ob-bio" maxlength="200" placeholder="Tell people a bit about yourself"></textarea>
+          <div class="hint">Optional — up to 200 characters. Shown on your public profile.</div>
+        </div>
+        <div class="ob-step" data-step="4">
+          <span class="ob-step-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+          </span>
+          <label>Pronouns</label>
+          <input id="ob-pronouns" type="text" maxlength="32" placeholder="e.g. she/her, he/him, they/them" autocomplete="off" list="pronouns-suggestions" />
+          <div class="hint">Optional — shown next to your username so others know how to refer to you.</div>
+        </div>
+        <div class="ob-step" data-step="5">
+          <span class="ob-step-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </span>
+          <label>Region</label>
+          <select id="ob-region" autocomplete="country-name"></select>
+          <div class="hint">Optional — helps people find friends nearby. You can leave this blank.</div>
+        </div>
+        <div class="ob-step" data-step="6">
+          <span class="ob-step-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </span>
+          <label>Create your password <span class="req">*</span></label>
+          <div class="pwd-field">
+            <div class="pwd-wrap">
+              <input id="ob-password" type="password" placeholder="Password" autocomplete="new-password" maxlength="128" />
+              <button type="button" class="pwd-toggle" id="ob-password-toggle" aria-label="Show password" title="Show / hide password">
+                <svg class="pwd-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <div class="pwd-wrap">
+              <input id="ob-password-confirm" type="password" placeholder="Confirm password" autocomplete="new-password" maxlength="128" />
+              <button type="button" class="pwd-toggle" id="ob-password-confirm-toggle" aria-label="Show password" title="Show / hide password">
+                <svg class="pwd-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+            <button type="button" class="pwd-generate" id="ob-password-generate">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>
+              Generate secure password
+            </button>
+            <div class="pwd-strength" aria-hidden="true">
+              <div class="pwd-strength-bar"><div class="pwd-strength-fill" id="ob-password-strength-fill"></div></div>
+              <div class="pwd-strength-label" id="ob-password-strength-label">Enter a password</div>
+            </div>
+            <ul class="pwd-checklist" id="ob-password-checklist" aria-live="polite">
+              <li data-rule="length"><span class="pwd-chk-icon" aria-hidden="true"></span>At least 8 characters</li>
+              <li data-rule="upper"><span class="pwd-chk-icon" aria-hidden="true"></span>One uppercase letter (A–Z)</li>
+              <li data-rule="lower"><span class="pwd-chk-icon" aria-hidden="true"></span>One lowercase letter (a–z)</li>
+              <li data-rule="number"><span class="pwd-chk-icon" aria-hidden="true"></span>One number (0–9)</li>
+              <li data-rule="special"><span class="pwd-chk-icon" aria-hidden="true"></span>One special character (!@#$…)</li>
+              <li data-rule="match"><span class="pwd-chk-icon" aria-hidden="true"></span>Passwords match</li>
+            </ul>
+            <label class="ob-checkbox" for="ob-newsletter">
+              <input id="ob-newsletter" type="checkbox" />
+              <span class="ob-checkbox-box" aria-hidden="true"></span>
+              <span class="ob-checkbox-text">Sign me up for updates &amp; newsletter</span>
+            </label>
+            <div class="hint">We'll use your password whenever you sign in with email. Your password is stored securely (hashed) by Supabase and never sent to us in plain text.</div>
+          </div>
+        </div>
+        <div class="ob-step" data-step="7">
+          <div class="ob-verify">
+            <span class="ob-verify-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            </span>
+            <h3>Verify your email</h3>
+            <p>We've sent a verification email to <span class="ob-verify-email" id="ob-verify-email"></span>. Please verify your email to start using Relay.</p>
+            <p class="hint">Can't find it? Check your spam folder or resend below. Once verified, this page updates automatically.</p>
+            <div class="ob-verify-actions">
+              <button type="button" class="ob-verify-resend" id="ob-verify-resend">Resend email</button>
+              <button type="button" class="ob-verify-refresh" id="ob-verify-refresh">I've verified</button>
+            </div>
+            <div class="ob-verify-status" id="ob-verify-status"></div>
+          </div>
+        </div>
+      </div>
+      <div class="ob-actions">
+        <button class="ob-back" id="ob-back" type="button">Back</button>
+        <button class="ob-next" id="ob-next" type="button">Next</button>
+      </div>
+      <button class="ob-skip" id="ob-skip" type="button">Skip for now</button>
+      <div class="err" id="ob-err"></div>
+    </div>
+  </section>
+
+  <datalist id="pronouns-suggestions">
+    <option value="she/her"></option>
+    <option value="he/him"></option>
+    <option value="they/them"></option>
+    <option value="she/they"></option>
+    <option value="he/they"></option>
+    <option value="any/all"></option>
+  </datalist>
+
+  <section id="chat">
+    <header class="bar">
+      <div class="brand" aria-label="Relay">
+        <img src="logo.png" alt="" onerror="this.style.display='none'" />
+        <span class="brand-name">Relay</span>
+      </div>
+      <button class="me" id="me-btn" type="button" aria-label="Open profile">
+        <img id="me-avatar" alt="" />
+        <span class="name" id="me-name"></span>
+      </button>
+      <button class="header-icon-btn" id="dm-btn" type="button" aria-label="Direct messages" title="Direct messages">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12a8 8 0 0 1-11.6 7.14L4 21l1.86-5.4A8 8 0 1 1 21 12Z"/>
+        </svg>
+        <span class="badge" id="dm-badge" hidden>0</span>
+      </button>
+      <button class="header-icon-btn" id="inbox-btn" type="button" aria-label="Notifications" title="Notifications">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M22 13h-6l-2 3h-4l-2-3H2"/>
+          <path d="M5.45 5.11 2 13v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-7.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+        </svg>
+        <span class="badge" id="inbox-badge" hidden>0</span>
+      </button>
+      <button class="header-logout-btn" id="profile-logout" type="button" aria-label="Log out" title="Log out">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </button>
+    </header>
+
+    <div class="shell-inner">
+      <div class="chat-col">
+        <div id="messages"><div class="loading">Loading messages…</div></div>
+
+        <div class="restriction" id="restriction">
+          <span id="restriction-text"></span>
+          &nbsp;·&nbsp;
+          <a id="support-link" href="https://discord.gg/dFv2tYRNH8/dFv2tYRNH8/" target="_blank" rel="noopener noreferrer">Support server</a>
+        </div>
+
+        <div class="composer-wrap">
+          <div class="typing-indicator" id="typing-indicator" role="status" aria-live="polite" aria-atomic="true">
+            <span class="typing-text" id="typing-text"></span>
+            <span class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+          </div>
+          <div class="composer-inner">
+            <div class="reply-preview" id="reply-preview">
+              <div class="bar-left"></div>
+              <div class="rp-body">
+                <div class="rp-name" id="rp-name"></div>
+                <div class="rp-text" id="rp-text"></div>
+              </div>
+              <button class="rp-close" id="rp-close" type="button" aria-label="Cancel reply">×</button>
+            </div>
+
+            <footer class="composer">
+              <button class="emoji-btn" id="main-emoji-btn" type="button" data-emoji-open="main" title="Emoji" aria-label="Emoji">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg>
+              </button>
+              <button class="icon-btn" id="upload-btn" type="button" data-attach-open="main" title="Add attachment" aria-label="Add attachment">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+              <input type="file" id="file-input" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none" />
+
+              <div class="input-wrap">
+                <div class="preview" id="preview">
+                  <img id="preview-img" alt="" />
+                  <button class="rm" id="preview-rm" type="button" aria-label="Remove image">×</button>
+                </div>
+                <input id="input" type="text" placeholder="Message..." autocomplete="off" maxlength="2000" />
+                <div class="mention-box" id="mention-box" role="listbox" hidden></div>
+              </div>
+
+              <button id="send" type="button" disabled>Send</button>
+            </footer>
+          </div>
+        </div>
+      </div>
+
+      <aside class="dm-side-panel" id="dm-side-panel" aria-label="Direct messages">
+        <div class="dm-side-head">
+          <div class="dm-side-title">
+            <svg class="dm-side-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.3A8 8 0 1 1 21 12z"/></svg>
+            Messages
+          </div>
+          <div class="dm-side-tabs" role="tablist">
+            <button type="button" class="dm-side-tab active" data-side-tab="all" role="tab" aria-selected="true">All</button>
+            <button type="button" class="dm-side-tab" data-side-tab="requests" role="tab" aria-selected="false">
+              Requests <span class="dm-side-tab-badge" id="dm-side-requests-badge" hidden>0</span>
+            </button>
+            <button type="button" class="dm-side-tab" data-side-tab="groups" role="tab" aria-selected="false">Groups</button>
+            <button type="button" class="dm-side-new-group" id="dm-side-new-group" aria-label="Create group" title="Create group" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="dm-side-body" id="dm-side-body">
+          <div class="dm-side-empty">Sign in to see your messages.</div>
+        </div>
+      </aside>
+    </div>
+  </section>
+</div>
+
+<!-- Profile modal -->
+<div class="modal-backdrop" id="profile-backdrop" role="dialog" aria-modal="true">
+  <div class="modal profile-card" id="profile-modal">
+    <button class="profile-close-x" id="profile-close-x" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+    </button>
+    <div class="profile-banner" id="profile-banner"></div>
+    <div class="profile-banner-actions">
+      <button class="edit-icon" id="profile-edit" type="button" aria-label="Edit profile" title="Edit profile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      </button>
+      <button class="profile-menu-btn" id="profile-menu-btn" type="button" aria-label="More options" aria-haspopup="menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+      </button>
+      <div class="profile-menu" id="profile-menu" role="menu" hidden>
+        <button type="button" role="menuitem" data-act="copy-uid">Copy User ID</button>
+        <button type="button" role="menuitem" data-act="copy-username">Copy Username</button>
+        <button type="button" role="menuitem" data-act="report" id="profile-menu-report">Report User</button>
+      </div>
+    </div>
+    <div class="profile-avatar-wrap">
+      <span class="profile-avatar-inner">
+        <img class="profile-avatar" id="profile-avatar" alt="" />
+        <span class="presence-dot offline" id="profile-presence-dot" data-user-id="" aria-hidden="true"></span>
+      </span>
+    </div>
+    <div class="profile-body">
+      <div class="profile-head">
+        <h2 id="profile-name"></h2>
+        <div class="sub" id="profile-sub"></div>
+      </div>
+      <div class="profile-actions" id="profile-actions" hidden>
+        <button class="pa-btn" id="profile-dm" type="button" aria-label="Message">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12a8 8 0 0 1-11.6 7.14L4 21l1.86-5.4A8 8 0 1 1 21 12Z"/>
+          </svg>
+          <span>Message</span>
+        </button>
+        <button class="pa-btn" id="profile-add-friend" type="button" aria-label="Add friend">
+          <svg id="profile-add-friend-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <line x1="19" y1="8" x2="19" y2="14"/>
+            <line x1="16" y1="11" x2="22" y2="11"/>
+          </svg>
+          <span id="profile-add-friend-label">Add Friend</span>
+        </button>
+      </div>
+      <div class="profile-section" id="profile-bio-section">
+        <div class="profile-section-title">
+          <svg class="profile-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          About Me
+        </div>
+        <div class="bio" id="profile-bio"></div>
+        <div class="member-since" id="profile-since">
+          <span class="ms-label">Member Since</span>
+          <span class="ms-value">
+            <img class="ms-icon" src="logo.png" alt="" onerror="this.style.display='none'" />
+            <span class="ms-date"></span>
+          </span>
+        </div>
+      </div>
+      <div class="profile-section" id="profile-linked-section" hidden>
+        <div class="profile-section-title">
+          <svg class="profile-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          Linked Accounts
+        </div>
+        <div class="discord-link" id="profile-discord" hidden>
+          <div class="dl-status" id="profile-discord-status"></div>
+          <div class="dl-actions">
+            <div class="dl-tip-wrap">
+              <button class="pill dl-link" id="profile-discord-link" type="button" aria-describedby="profile-discord-tip">Link Discord</button>
+              <span class="dl-tip" id="profile-discord-tip" role="tooltip">Linking your Discord account allows you to use your Discord profile information.</span>
+            </div>
+          </div>
+          <div class="dl-err" id="profile-discord-err"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Fix 4 — legacy hidden close button kept for backward JS compat; replaced visually by .profile-close-x -->
+    <button id="profile-close" type="button" hidden aria-hidden="true"></button>
+  </div>
+</div>
+
+<!-- Edit profile modal
+     Fix 3 (2025-04-22) — restructured to mirror the .profile-card layout
+     (banner + overlapping circular avatar + section cards) so the edit
+     surface is visually indistinguishable from the read-only preview.
+     The existing field IDs (edit-username, edit-bio, edit-pronouns,
+     edit-region, edit-banner-color, edit-banner-color-text,
+     edit-banner-reset, edit-avatar-preview, edit-avatar-pick,
+     edit-avatar-input, edit-cancel, edit-save, edit-err) are preserved
+     so openEditProfile / editSave stay wired without JS changes. -->
+<div class="modal-backdrop" id="edit-backdrop" role="dialog" aria-modal="true">
+  <div class="modal profile-card edit-profile-card" id="edit-profile-card">
+    <button class="profile-close-x" id="edit-close-x" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+    </button>
+    <div class="profile-banner" id="edit-banner-preview"></div>
+    <div class="profile-avatar-wrap">
+      <span class="profile-avatar-inner">
+        <img class="profile-avatar" id="edit-avatar-preview" alt="" />
+        <!-- Fix 3 — upload icon, Discord-style, pinned to the top-right
+             of the avatar. Replaces the old "Change photo" pill button. -->
+        <button class="avatar-upload-btn" id="edit-avatar-pick" type="button" aria-label="Change profile photo" title="Change photo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </button>
+        <input id="edit-avatar-input" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden />
+      </span>
+    </div>
+    <div class="profile-body">
+      <div class="profile-head ep-head">
+        <div class="ep-field ep-field-name">
+          <label for="edit-username">
+            <span class="ep-label-text">Username</span>
+            <span class="hint" id="edit-username-hint"></span>
+          </label>
+          <input id="edit-username" class="ep-input ep-input-name" type="text" maxlength="32" autocomplete="off" />
+        </div>
+        <div class="ep-field ep-field-pronouns">
+          <label for="edit-pronouns"><span class="ep-label-text">Pronouns</span></label>
+          <input id="edit-pronouns" class="ep-input" type="text" maxlength="32" placeholder="e.g. she/her, he/him, they/them" autocomplete="off" list="pronouns-suggestions" />
+        </div>
+      </div>
+
+      <div class="profile-section ep-section">
+        <div class="profile-section-title">
+          <svg class="profile-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          About Me
+        </div>
+        <div class="ep-field">
+          <textarea id="edit-bio" class="ep-input ep-input-bio" maxlength="200" placeholder="Tell people a bit about yourself"></textarea>
+        </div>
+      </div>
+
+      <div class="profile-section ep-section">
+        <div class="profile-section-title">
+          <svg class="profile-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          Region
+        </div>
+        <div class="ep-field">
+          <select id="edit-region" class="ep-input"></select>
+        </div>
+      </div>
+
+      <div class="profile-section ep-section">
+        <div class="profile-section-title">
+          <svg class="profile-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10a2.5 2.5 0 0 0 2.5-2.5c0-.66-.26-1.27-.68-1.72-.4-.43-.64-1-.64-1.62a2.2 2.2 0 0 1 2.2-2.2H18a4 4 0 0 0 4-4c0-4.97-4.48-8-10-8z"/></svg>
+          Banner color
+        </div>
+        <div class="ep-field">
+          <div class="banner-color-row">
+            <input id="edit-banner-color" type="color" value="#2873ce" />
+            <input id="edit-banner-color-text" type="text" maxlength="7" placeholder="#2873ce" autocomplete="off" />
+            <button type="button" class="banner-reset" id="edit-banner-reset">Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="err" id="edit-err"></div>
+      <div class="actions ep-actions">
+        <button class="pill close-btn" id="edit-cancel" type="button">Cancel</button>
+        <button class="pill save-btn" id="edit-save" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Image viewer -->
+<div id="image-viewer" role="dialog" aria-modal="true" aria-label="Image preview">
+  <button class="close" id="iv-close" type="button" aria-label="Close image">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+  </button>
+  <button class="iv-download" id="iv-download" type="button" aria-label="Download image" title="Download image">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+  </button>
+  <img id="iv-img" alt="" />
+</div>
+
+<!-- Custom context menu (desktop right-click) -->
+<div class="ctx-menu" id="ctx-menu" role="menu">
+  <button data-act="react" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg>
+    React
+  </button>
+  <button data-act="reply" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17l-5-5 5-5"/><path d="M4 12h11a5 5 0 0 1 5 5v2"/></svg>
+    Reply
+  </button>
+  <button data-act="report" class="danger" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/></svg>
+    Report
+  </button>
+  <button data-act="self-delete" data-self-only="1" class="danger" type="button" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+    Delete message
+  </button>
+  <button data-act="mod-delete" data-mod-only="1" type="button" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+    Delete message <span class="mod-tag">mod</span>
+  </button>
+  <button data-act="mod-ban" data-mod-only="1" type="button" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg>
+    Ban user <span class="mod-tag">mod</span>
+  </button>
+</div>
+
+<!-- Mobile bottom drawer (3-dot menu) -->
+<div id="drawer" role="dialog" aria-modal="true" aria-label="Message actions">
+  <div class="scrim" data-close></div>
+  <div class="sheet">
+    <div class="grabber"></div>
+    <button class="row-btn" data-act="react" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg>
+      React
+    </button>
+    <button class="row-btn" data-act="reply" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17l-5-5 5-5"/><path d="M4 12h11a5 5 0 0 1 5 5v2"/></svg>
+      Reply
+    </button>
+    <button class="row-btn danger" data-act="report" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/></svg>
+      Report
+    </button>
+    <button class="row-btn danger" data-act="self-delete" data-self-only="1" type="button" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+      Delete message
+    </button>
+    <button class="row-btn" data-act="mod-delete" data-mod-only="1" type="button" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+      Delete message <span class="mod-tag">mod</span>
+    </button>
+    <button class="row-btn" data-act="mod-ban" data-mod-only="1" type="button" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg>
+      Ban user <span class="mod-tag">mod</span>
+    </button>
+  </div>
+</div>
+
+<!-- Reaction picker -->
+<div class="reaction-picker" id="reaction-picker" role="toolbar" aria-label="Reactions"></div>
+
+<!-- DM list popup -->
+<div class="modal-backdrop" id="dm-list-backdrop" role="dialog" aria-modal="true" aria-label="Direct messages">
+  <div class="popup-list" id="dm-list-modal">
+    <div class="popup-head">
+      <h3 class="popup-title">
+        <svg class="popup-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.3A8 8 0 1 1 21 12z"/></svg>
+        Messages
+      </h3>
+      <button class="popup-close" id="dm-list-close" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="popup-tabs" role="tablist" aria-label="Message categories">
+      <button class="popup-tab active" data-dm-tab="all"  role="tab" aria-selected="true"  type="button">All</button>
+      <button class="popup-tab"        data-dm-tab="requests" role="tab" aria-selected="false" type="button">
+        Requests <span class="popup-tab-badge" id="dm-requests-badge" hidden>0</span>
+      </button>
+      <button class="popup-tab"        data-dm-tab="groups"   role="tab" aria-selected="false" type="button">Groups</button>
+      <button type="button" class="popup-tab-add" id="dm-list-new-group" aria-label="Create group" title="Create group" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+    </div>
+    <div class="popup-body" id="dm-list-body">
+      <div class="popup-empty">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- DM room modal -->
+<div class="modal-backdrop" id="dm-room-backdrop" role="dialog" aria-modal="true" aria-label="Direct message">
+  <div class="modal dm-room" id="dm-room-modal">
+    <div class="dm-head">
+      <button class="dm-back" id="dm-room-back" type="button" aria-label="Back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <button class="dm-peer" id="dm-room-peer" type="button" aria-label="Open profile">
+        <img id="dm-room-avatar" alt="" />
+        <span class="dm-peer-name" id="dm-room-name"></span>
+      </button>
+    </div>
+    <div class="dm-request-bar" id="dm-request-bar" hidden>
+      <div class="drb-text" id="dm-request-text">Accept this message request to reply.</div>
+      <div class="drb-actions">
+        <button type="button" class="drb-accept" id="dm-request-accept">Accept</button>
+      </div>
+    </div>
+    <div class="dm-messages" id="dm-room-messages">
+      <div class="dm-loading">Loading…</div>
+    </div>
+    <div class="dm-composer-wrap">
+      <div class="typing-indicator" id="dm-typing-indicator" role="status" aria-live="polite" aria-atomic="true">
+        <span class="typing-text" id="dm-typing-text"></span>
+        <span class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+      </div>
+      <div class="dm-reply-preview" id="dm-reply-preview">
+        <div class="drp-bar"></div>
+        <div class="drp-body">
+          <div class="drp-name" id="dm-reply-name"></div>
+          <div class="drp-text" id="dm-reply-text"></div>
+        </div>
+        <button type="button" class="drp-close" id="dm-reply-close" aria-label="Cancel reply">×</button>
+      </div>
+      <div class="dm-image-preview" id="dm-image-preview">
+        <img id="dm-image-preview-img" alt="" />
+        <button type="button" class="dip-rm" id="dm-image-preview-rm" aria-label="Remove image">×</button>
+      </div>
+      <div class="dm-composer">
+        <button class="emoji-btn" id="dm-emoji-btn" type="button" data-emoji-open="dm" title="Emoji" aria-label="Emoji">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg>
+        </button>
+        <button type="button" class="dm-attach" id="dm-attach-btn" data-attach-open="dm" aria-label="Add attachment" title="Add attachment">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+        </button>
+        <input type="file" id="dm-file-input" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none" />
+        <textarea id="dm-room-input" rows="1" placeholder="Message" maxlength="4000"></textarea>
+        <button class="dm-send" id="dm-room-send" type="button" aria-label="Send" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Create Group modal -->
+<div class="modal-backdrop" id="group-create-backdrop" role="dialog" aria-modal="true" aria-label="Create group">
+  <div class="modal group-create" id="group-create-modal">
+    <div class="gc-head">
+      <h3 class="gc-title">New group</h3>
+      <button type="button" class="popup-close" id="group-create-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="gc-body">
+      <label class="gc-avatar-field">
+        <span class="gc-avatar-preview" id="group-create-avatar-preview">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </span>
+        <input type="file" id="group-create-image" accept="image/png,image/jpeg,image/gif,image/webp" hidden />
+        <span class="gc-avatar-label">Add group photo</span>
+      </label>
+      <label class="gc-field">
+        <span class="gc-field-label">Name</span>
+        <input type="text" id="group-create-name" maxlength="80" placeholder="Group name" />
+      </label>
+      <label class="gc-field">
+        <span class="gc-field-label">Description <span class="gc-optional">(optional)</span></span>
+        <textarea id="group-create-desc" rows="2" maxlength="300" placeholder="What's this group about?"></textarea>
+      </label>
+    </div>
+    <div class="gc-foot">
+      <button type="button" class="gc-btn secondary" id="group-create-cancel">Cancel</button>
+      <button type="button" class="gc-btn primary" id="group-create-submit" disabled>Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Group room modal -->
+<div class="modal-backdrop" id="group-room-backdrop" role="dialog" aria-modal="true" aria-label="Group chat">
+  <div class="modal dm-room" id="group-room-modal">
+    <div class="dm-head">
+      <button class="dm-back" id="group-room-back" type="button" aria-label="Back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <button class="dm-peer" id="group-room-peer" type="button" aria-label="Group info">
+        <img id="group-room-avatar" alt="" />
+        <span class="dm-peer-name" id="group-room-name"></span>
+      </button>
+      <button type="button" class="group-room-add" id="group-room-add" aria-label="Add member" title="Add member">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>
+      </button>
+    </div>
+    <div class="dm-messages" id="group-room-messages">
+      <div class="dm-loading">Loading…</div>
+    </div>
+    <div class="dm-composer-wrap">
+      <div class="typing-indicator" id="group-typing-indicator" role="status" aria-live="polite" aria-atomic="true">
+        <span class="typing-text" id="group-typing-text"></span>
+        <span class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+      </div>
+      <div class="dm-reply-preview" id="group-reply-preview">
+        <div class="drp-bar"></div>
+        <div class="drp-body">
+          <div class="drp-name" id="group-reply-name"></div>
+          <div class="drp-text" id="group-reply-text"></div>
+        </div>
+        <button type="button" class="drp-close" id="group-reply-close" aria-label="Cancel reply">×</button>
+      </div>
+      <div class="dm-image-preview" id="group-image-preview">
+        <img id="group-image-preview-img" alt="" />
+        <button type="button" class="dip-rm" id="group-image-preview-rm" aria-label="Remove image">×</button>
+      </div>
+      <div class="dm-composer">
+        <button class="emoji-btn" id="group-emoji-btn" type="button" data-emoji-open="group" title="Emoji" aria-label="Emoji">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg>
+        </button>
+        <button type="button" class="dm-attach" id="group-attach-btn" data-attach-open="group" aria-label="Add attachment" title="Add attachment">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <input type="file" id="group-file-input" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none" />
+        <textarea id="group-room-input" rows="1" placeholder="Message" maxlength="4000"></textarea>
+        <button class="dm-send" id="group-room-send" type="button" aria-label="Send" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add member overlay -->
+<div class="modal-backdrop" id="group-add-backdrop" role="dialog" aria-modal="true" aria-label="Add member">
+  <div class="popup-list" id="group-add-modal">
+    <div class="popup-head">
+      <h3 class="popup-title">
+        <svg class="popup-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>
+        Add member
+      </h3>
+      <button class="popup-close" id="group-add-close" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="popup-body" id="group-add-body">
+      <div class="popup-empty">Loading friends…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Group Settings modal (owner-only editing) -->
+<div class="modal-backdrop" id="group-settings-backdrop" role="dialog" aria-modal="true" aria-label="Group settings">
+  <div class="popup-list" id="group-settings-modal">
+    <div class="popup-head">
+      <h3 class="popup-title">
+        <svg class="popup-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Group settings
+      </h3>
+      <button class="popup-close" id="group-settings-close" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="popup-body" id="group-settings-body">
+      <div class="popup-empty">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Inbox popup -->
+<div class="modal-backdrop" id="inbox-backdrop" role="dialog" aria-modal="true" aria-label="Notifications">
+  <div class="popup-list" id="inbox-modal">
+    <div class="popup-head">
+      <h3 class="popup-title">
+        <svg class="popup-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 13h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 13v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-7.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+        Inbox
+      </h3>
+      <button class="popup-close" id="inbox-close" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="popup-body" id="inbox-body">
+      <div class="popup-empty">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Friends list popup -->
+<div class="modal-backdrop" id="friends-backdrop" role="dialog" aria-modal="true" aria-label="Friends list">
+  <div class="popup-list" id="friends-modal">
+    <div class="popup-head">
+      <h3 class="popup-title">
+        <svg class="popup-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Friends
+      </h3>
+      <button class="popup-close" id="friends-close" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="popup-tabs" role="tablist">
+      <button type="button" class="popup-tab active" id="friends-tab-friends" data-friends-tab="friends" role="tab" aria-selected="true">Friends</button>
+      <button type="button" class="popup-tab" id="friends-tab-requests" data-friends-tab="requests" role="tab" aria-selected="false">
+        Requests <span class="popup-tab-badge" id="friends-requests-badge" hidden>0</span>
+      </button>
+    </div>
+    <div class="popup-body" id="friends-body">
+      <div class="popup-empty">Loading…</div>
+    </div>
+    <div class="popup-body" id="friends-requests-body" hidden>
+      <div class="popup-empty">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Remove-friend confirm dialog -->
+<div class="modal-backdrop" id="confirm-remove-friend-backdrop" role="dialog" aria-modal="true" aria-label="Remove friend">
+  <div class="modal confirm-modal" id="confirm-remove-friend-modal">
+    <div class="confirm-head">Remove friend?</div>
+    <div class="confirm-body">
+      Are you sure you want to remove <strong id="confirm-remove-friend-name">this person</strong> from your friends?
+    </div>
+    <div class="confirm-foot">
+      <button type="button" class="confirm-btn cancel" id="confirm-remove-friend-cancel">Cancel</button>
+      <button type="button" class="confirm-btn danger" id="confirm-remove-friend-ok">Remove</button>
+    </div>
+  </div>
+</div>
+
+<!-- Accept friend-request confirm dialog -->
+<div class="modal-backdrop" id="confirm-accept-request-backdrop" role="dialog" aria-modal="true" aria-label="Accept friend request">
+  <div class="modal confirm-modal" id="confirm-accept-request-modal">
+    <div class="confirm-head">Accept friend request?</div>
+    <div class="confirm-body">
+      Accept the friend request from <strong id="confirm-accept-request-name">this person</strong>? They will be added to your friends list.
+    </div>
+    <div class="confirm-foot">
+      <button type="button" class="confirm-btn cancel" id="confirm-accept-request-cancel">Cancel</button>
+      <button type="button" class="confirm-btn primary" id="confirm-accept-request-ok">Accept</button>
+    </div>
+  </div>
+</div>
+
+<!-- Deny friend-request confirm dialog -->
+<div class="modal-backdrop" id="confirm-deny-request-backdrop" role="dialog" aria-modal="true" aria-label="Deny friend request">
+  <div class="modal confirm-modal" id="confirm-deny-request-modal">
+    <div class="confirm-head">Deny friend request?</div>
+    <div class="confirm-body">
+      Deny the friend request from <strong id="confirm-deny-request-name">this person</strong>? They will not be added to your friends list.
+    </div>
+    <div class="confirm-foot">
+      <button type="button" class="confirm-btn cancel" id="confirm-deny-request-cancel">Cancel</button>
+      <button type="button" class="confirm-btn danger" id="confirm-deny-request-ok">Deny</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     Account Center (fullscreen overlay) — additive feature.
+     Hidden by default. Mounted in DOM but only shown while signed in
+     and the user opens it from the 3-dot menu. Never shown logged-out.
+     ============================================================ -->
+<div id="ac-overlay" role="dialog" aria-modal="true" aria-labelledby="ac-title" aria-hidden="true">
+  <div class="ac-header">
+    <h2 id="ac-title">
+      <span class="ac-title-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="9" cy="9" r="3.4"/>
+          <path d="M2.5 20.5a6.5 6.5 0 0 1 13 0"/>
+          <circle cx="18" cy="6.5" r="2.2"/>
+          <circle cx="18" cy="14" r="2.2"/>
+          <circle cx="18" cy="21" r="2.2"/>
+        </svg>
+      </span>
+      <span class="ac-title-text">Account Center</span>
+    </h2>
+    <button type="button" class="ac-close-btn" id="ac-close" aria-label="Close Account Center" title="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="ac-body">
+    <div class="ac-wrap">
+      <section class="ac-section" aria-labelledby="ac-sec-accounts">
+        <h3 id="ac-sec-accounts">Your accounts on this device</h3>
+        <div id="ac-list" role="list"></div>
+      </section>
+      <section class="ac-section">
+        <div class="ac-row-actions">
+          <button type="button" class="ac-btn" id="ac-add-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            <span>Add another account</span>
+          </button>
+        </div>
+        <div class="ac-hint">Sign in to a different account without losing this one. You'll be able to switch between them instantly.</div>
+      </section>
+      <section class="ac-section" aria-labelledby="ac-sec-settings">
+        <h3 id="ac-sec-settings">Active account settings</h3>
+        <div class="ac-field">
+          <label for="ac-email">Email</label>
+          <input type="email" id="ac-email" autocomplete="email" inputmode="email" />
+        </div>
+        <div class="ac-row-actions">
+          <button type="button" class="ac-btn primary" id="ac-save-email">Update email</button>
+        </div>
+        <div class="ac-msg" id="ac-email-msg" aria-live="polite"></div>
+        <div style="height:14px"></div>
+        <div class="ac-field">
+          <label for="ac-pw-current">Current password</label>
+          <input type="password" id="ac-pw-current" autocomplete="current-password" />
+        </div>
+        <div class="ac-field">
+          <label for="ac-pw-new">New password</label>
+          <input type="password" id="ac-pw-new" autocomplete="new-password" />
+        </div>
+        <div class="ac-field">
+          <label for="ac-pw-confirm">Confirm new password</label>
+          <input type="password" id="ac-pw-confirm" autocomplete="new-password" />
+        </div>
+        <div class="ac-row-actions">
+          <button type="button" class="ac-btn primary" id="ac-save-pw">Update password</button>
+        </div>
+        <div class="ac-msg" id="ac-pw-msg" aria-live="polite"></div>
+      </section>
+      <section class="ac-section" aria-labelledby="ac-sec-danger">
+        <h3 id="ac-sec-danger">Danger zone</h3>
+        <div class="ac-hint">Removing an account from this device keeps your data on the server. Deleting your account is permanent and cannot be undone.</div>
+        <div class="ac-row-actions">
+          <button type="button" class="ac-btn" id="ac-signout-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            <span>Sign out of this account</span>
+          </button>
+          <button type="button" class="ac-btn danger" id="ac-delete-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
+            <span>Delete my account…</span>
+          </button>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+<div class="ac-modal-back" id="ac-confirm-back" role="dialog" aria-modal="true" aria-labelledby="ac-confirm-title" aria-hidden="true">
+  <div class="ac-modal">
+    <h3 id="ac-confirm-title">Delete account?</h3>
+    <p>This permanently deletes your account and all associated data from Relay. This action cannot be undone.</p>
+    <div class="ac-field">
+      <label for="ac-confirm-pw">Confirm your password</label>
+      <input type="password" id="ac-confirm-pw" autocomplete="current-password" />
+    </div>
+    <div class="ac-msg" id="ac-confirm-msg" aria-live="polite"></div>
+    <div class="ac-modal-actions">
+      <button type="button" class="ac-btn" id="ac-confirm-cancel">Cancel</button>
+      <button type="button" class="ac-btn danger" id="ac-confirm-ok">Delete account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     SETTINGS (fullscreen overlay)
+     Opened from the header 3-dot menu entry directly below
+     "Account Center". Two panes: collapsible left sidebar +
+     main content area (intentionally empty for now, ready to
+     receive settings panels later).
+     ============================================================ -->
+<div id="settings-overlay" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-hidden="true">
+  <aside class="settings-sidebar" id="settings-sidebar">
+    <div class="settings-sidebar-header">
+      <button type="button" class="settings-sidebar-toggle" id="settings-sidebar-toggle" aria-label="Collapse sidebar" title="Collapse sidebar" aria-expanded="true" aria-controls="settings-sidebar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="settings-sidebar-title">Settings</span>
+    </div>
+    <nav class="settings-nav" id="settings-nav" aria-label="Settings sections">
+      <div class="settings-nav-empty">No settings yet. More options coming soon.</div>
+    </nav>
+    <div class="settings-sidebar-footer">
+      <button type="button" class="settings-close-btn" id="settings-close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+        <span class="settings-close-label">Close</span>
+      </button>
+    </div>
+  </aside>
+  <main class="settings-main">
+    <header class="settings-main-header">
+      <h2 id="settings-title">
+        <span class="settings-title-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </span>
+        <span>Settings</span>
+      </h2>
+      <button type="button" class="settings-close-x" id="settings-close-x" aria-label="Close Settings" title="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+      </button>
+    </header>
+    <div class="settings-content">
+      <div class="settings-empty">
+        <div class="settings-empty-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </div>
+        <div class="settings-empty-title">Settings</div>
+        <div class="settings-empty-body">This is where you'll configure Relay. New options will appear here soon.</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ============================================================
+     MODERATOR PANEL (fullscreen overlay, Ctrl+Shift+M)
+     Mounted in DOM but gated by myIsModerator flag on the client
+     AND by RLS policies on the server. Non-moderators cannot open
+     it — the shortcut handler silently no-ops for them.
+     ============================================================ -->
+<div id="mod-overlay" role="dialog" aria-modal="true" aria-labelledby="mod-title" aria-hidden="true">
+  <div class="mod-header">
+    <h2 id="mod-title">
+      <span class="mod-title-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5l8-3z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+      </span>
+      <span class="mod-title-text">Moderator Panel</span>
+      <span class="mod-banner" aria-hidden="true">mods only</span>
+    </h2>
+    <button type="button" class="mod-close-btn" id="mod-close" aria-label="Close Moderator Panel" title="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="mod-body">
+    <div class="mod-wrap">
+
+      <!-- Text statistics -->
+      <section class="mod-section" aria-labelledby="mod-sec-stats">
+        <h3 id="mod-sec-stats">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 4 4 5-5"/></svg>
+          Overview
+        </h3>
+        <div class="mod-grid-4">
+          <div class="mod-stat"><div class="mod-stat-num" id="mod-stat-users">–</div><div class="mod-stat-lbl">Total users</div></div>
+          <div class="mod-stat"><div class="mod-stat-num" id="mod-stat-active">–</div><div class="mod-stat-lbl">Active (24h)</div></div>
+          <div class="mod-stat"><div class="mod-stat-num" id="mod-stat-messages">–</div><div class="mod-stat-lbl">Total messages</div></div>
+          <div class="mod-stat"><div class="mod-stat-num" id="mod-stat-actions">–</div><div class="mod-stat-lbl">Mod actions</div></div>
+        </div>
+      </section>
+
+      <!-- Charts -->
+      <section class="mod-section" aria-labelledby="mod-sec-charts">
+        <div class="mod-row-head">
+          <h3 id="mod-sec-charts">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="17" rx="1"/></svg>
+            Activity (last 14 days)
+          </h3>
+          <button type="button" class="mod-btn" id="mod-refresh" title="Refresh data">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3.2-6.9"/><path d="M21 3v6h-6"/></svg>
+            Refresh
+          </button>
+        </div>
+        <div class="mod-grid-3">
+          <div class="mod-chart-wrap"><canvas id="mod-chart-messages" aria-label="Messages per day"></canvas></div>
+          <div class="mod-chart-wrap"><canvas id="mod-chart-users"    aria-label="New users per day"></canvas></div>
+          <div class="mod-chart-wrap"><canvas id="mod-chart-actions"  aria-label="Moderation actions per day"></canvas></div>
+        </div>
+      </section>
+
+      <div class="mod-grid-2">
+        <!-- Moderator Notes -->
+        <section class="mod-section" aria-labelledby="mod-sec-notes">
+          <h3 id="mod-sec-notes">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12l4 4v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M16 4v4h4"/><path d="M8 13h8"/><path d="M8 17h6"/></svg>
+            Shared notes
+          </h3>
+          <div class="mod-field">
+            <textarea id="mod-note-input" class="mod-textarea" maxlength="4000" placeholder="Write a note for the moderation team…"></textarea>
+          </div>
+          <div class="mod-row-head" style="margin-top:8px">
+            <span class="mod-stat-lbl" id="mod-note-count" style="letter-spacing:0.04em">0 notes</span>
+            <button type="button" class="mod-btn primary" id="mod-note-submit">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+              Post note
+            </button>
+          </div>
+          <div class="mod-list" id="mod-notes-list" style="margin-top:10px"></div>
+        </section>
+
+        <!-- Moderator Logs -->
+        <section class="mod-section" aria-labelledby="mod-sec-logs">
+          <h3 id="mod-sec-logs">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>
+            Moderation logs
+            <span id="mod-log-live" class="mod-banner" style="margin-left:6px;background:rgba(45,161,93,0.15);color:#2da15d">live</span>
+          </h3>
+          <div class="mod-list" id="mod-logs-list"></div>
+        </section>
+      </div>
+
+      <!-- User checker -->
+      <section class="mod-section" aria-labelledby="mod-sec-check">
+        <h3 id="mod-sec-check">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          User checker
+        </h3>
+        <div class="mod-check-input-row">
+          <input type="text" id="mod-check-input" class="mod-input" placeholder="Enter user UUID (auth user_id)" autocomplete="off" spellcheck="false" />
+          <button type="button" class="mod-btn primary" id="mod-check-submit">Look up</button>
+        </div>
+        <div id="mod-check-result"></div>
+      </section>
+
+      <!-- Moderator list -->
+      <section class="mod-section" aria-labelledby="mod-sec-mods">
+        <h3 id="mod-sec-mods">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3.4"/><path d="M2.5 20.5a6.5 6.5 0 0 1 13 0"/><circle cx="18" cy="6.5" r="2.2"/><circle cx="18" cy="14" r="2.2"/></svg>
+          Moderator team
+        </h3>
+        <div class="mod-mod-grid" id="mod-mods-list"></div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- Attachment drawer (upward popup) — shared across composers -->
+<div id="attach-drawer" role="menu" aria-label="Add attachment">
+  <button type="button" class="ad-item" id="attach-opt-photos">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M3 17l5-5 4 4 3-3 6 6"/></svg>
+    <span><strong>Photos &amp; Videos</strong><span class="ad-sub">Images, GIFs, video clips</span></span>
+  </button>
+  <button type="button" class="ad-item" id="attach-opt-files">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+    <span><strong>Files</strong><span class="ad-sub">Any file type</span></span>
+  </button>
+</div>
+<input type="file" id="attach-photos-input" accept="image/*,video/*" multiple style="display:none" />
+<input type="file" id="attach-files-input" multiple style="display:none" />
+
+<!-- Emoji picker -->
+<div id="emoji-picker" role="dialog" aria-label="Emoji picker">
+  <div class="ep-grid" id="ep-grid"></div>
+</div>
+
+<!-- Chat-row context menu (DM/group sidebar rows) -->
+<div id="chat-row-ctx" role="menu" aria-label="Chat options"></div>
+
+<!-- Disposed-chats 3-dot mini menu -->
+<div id="disposed-mini" role="menu" aria-label="Chats menu">
+  <button type="button" id="disposed-open-btn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+    <span>Disposed Chats</span>
+  </button>
+</div>
+
+<!-- Disposed chats overlay -->
+<div id="disposed-overlay" role="dialog" aria-modal="true" aria-label="Disposed chats">
+  <div class="disposed-card">
+    <div class="disposed-head">
+      <h3>Disposed Chats</h3>
+      <button type="button" class="disposed-close" id="disposed-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="disposed-body" id="disposed-body"></div>
+  </div>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+
+<!-- Fullscreen email-verification modal. Hard-locks the app while the signed-in
+     user's email is unverified. Cannot be dismissed; closes only when Supabase
+     reports `email_confirmed_at` is non-null. -->
+<div class="verify-modal" id="verify-modal" role="dialog" aria-modal="true" aria-labelledby="verify-modal-title" aria-describedby="verify-modal-desc">
+  <div class="verify-modal-panel">
+    <span class="verify-modal-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="5" width="18" height="14" rx="2"/>
+        <path d="m3 7 9 6 9-6"/>
+      </svg>
+    </span>
+    <h2 class="verify-modal-title" id="verify-modal-title">Verify your email to continue</h2>
+    <p class="verify-modal-desc" id="verify-modal-desc">To continue using Relay and start chatting, please check your inbox and verify your email.<br><span class="verify-modal-spam">Be sure to check your spam folder as well.</span></p>
+    <span class="verify-modal-email" id="verify-modal-email">your email</span>
+    <div class="verify-modal-actions">
+      <button type="button" class="vm-primary" id="verify-modal-verified">
+        <span class="vm-label">I've Verified</span>
+      </button>
+      <button type="button" class="vm-secondary" id="verify-modal-resend">
+        <span class="vm-resend-label">Resend Email</span>
+      </button>
+    </div>
+    <div class="verify-modal-status" id="verify-modal-status" role="status" aria-live="polite"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="assets/js/app.min.js"></script>
+</body>
+</html>

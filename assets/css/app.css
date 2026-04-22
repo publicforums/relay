@@ -20,6 +20,17 @@
     --content-w: 720px;
     --reveal: 0px;
     --reveal-max: 56px;
+    /* Theme-system tokens (Phases 4–6). These are the single source of truth
+       used by the app chrome, public/group/DM chat surfaces, and all preset
+       themes declared further below. Background-image usage has been removed
+       entirely; surfaces paint from --chat-bg / --app-bg instead. */
+    --accent: #2873ce;
+    --accent-2: #0a84ff;
+    --accent-text: #ffffff;
+    --app-bg: var(--bg);
+    --chat-bg: var(--bg);
+    --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-size-base: 15px;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -38,6 +49,101 @@
       --shadow-menu: 0 10px 30px rgba(0,0,0,0.6);
     }
   }
+  /* ====================================================================
+     APPEARANCE — preset themes. Applied by setting
+     html[data-theme="<name>"] (persisted in localStorage under
+     `relay-appearance`). Each preset overrides the palette only —
+     radii, shadows, motion, and layout stay identical across themes.
+     The app always falls back to the :root defaults if no theme is
+     set or the stored value is unknown.
+     ==================================================================== */
+  html[data-theme="light"] {
+    --bg:#f5f5f7;--panel:#ffffff;--panel-2:#fafafc;--text:#0b0b0f;--muted:#8a8a8f;--border:#e5e5ea;
+    --bubble-other:#e9e9eb;--bubble-me:#0a84ff;--bubble-me-text:#ffffff;--input-bg:#ffffff;
+    --accent:#2873ce;--accent-2:#0a84ff;--accent-text:#ffffff;
+  }
+  html[data-theme="midnight"] {
+    --bg:#0b0d14;--panel:#141824;--panel-2:#0e111a;--text:#e9ecff;--muted:#7f86a3;--border:#232838;
+    --bubble-other:#1c2130;--bubble-me:#5865f2;--bubble-me-text:#ffffff;--input-bg:#141824;
+    --accent:#5865f2;--accent-2:#8b93ff;--accent-text:#ffffff;
+  }
+  html[data-theme="dark"] {
+    --bg:#141416;--panel:#1c1c1e;--panel-2:#141416;--text:#f2f2f7;--muted:#8e8e93;--border:#2c2c2e;
+    --bubble-other:#2c2c2e;--bubble-me:#0a84ff;--bubble-me-text:#ffffff;--input-bg:#1c1c1e;
+    --accent:#0a84ff;--accent-2:#409cff;--accent-text:#ffffff;
+  }
+  html[data-theme="obsidian"] {
+    --bg:#060608;--panel:#0f0f13;--panel-2:#09090c;--text:#ededf2;--muted:#7a7a86;--border:#1a1a22;
+    --bubble-other:#16161c;--bubble-me:#b388ff;--bubble-me-text:#ffffff;--input-bg:#0f0f13;
+    --accent:#b388ff;--accent-2:#cea8ff;--accent-text:#0a0a10;
+  }
+  html[data-theme="nord"] {
+    --bg:#2e3440;--panel:#3b4252;--panel-2:#343a47;--text:#eceff4;--muted:#8792a3;--border:#434c5e;
+    --bubble-other:#434c5e;--bubble-me:#88c0d0;--bubble-me-text:#2e3440;--input-bg:#3b4252;
+    --accent:#88c0d0;--accent-2:#81a1c1;--accent-text:#2e3440;
+  }
+  html[data-theme="dracula"] {
+    --bg:#282a36;--panel:#343746;--panel-2:#2d2f3d;--text:#f8f8f2;--muted:#9ea0b3;--border:#44475a;
+    --bubble-other:#44475a;--bubble-me:#bd93f9;--bubble-me-text:#1b1c24;--input-bg:#343746;
+    --accent:#bd93f9;--accent-2:#ff79c6;--accent-text:#1b1c24;
+  }
+  html[data-theme="solarized"] {
+    --bg:#002b36;--panel:#073642;--panel-2:#04313c;--text:#eee8d5;--muted:#93a1a1;--border:#0a4a59;
+    --bubble-other:#0a4a59;--bubble-me:#b58900;--bubble-me-text:#002b36;--input-bg:#073642;
+    --accent:#b58900;--accent-2:#cb4b16;--accent-text:#002b36;
+  }
+  html[data-theme="rose-pine"] {
+    --bg:#191724;--panel:#1f1d2e;--panel-2:#191724;--text:#e0def4;--muted:#908caa;--border:#26233a;
+    --bubble-other:#26233a;--bubble-me:#eb6f92;--bubble-me-text:#191724;--input-bg:#1f1d2e;
+    --accent:#eb6f92;--accent-2:#c4a7e7;--accent-text:#191724;
+  }
+  html[data-theme="gruvbox"] {
+    --bg:#1d2021;--panel:#282828;--panel-2:#1b1b1b;--text:#ebdbb2;--muted:#a89984;--border:#3c3836;
+    --bubble-other:#3c3836;--bubble-me:#fe8019;--bubble-me-text:#1d2021;--input-bg:#282828;
+    --accent:#fe8019;--accent-2:#fabd2f;--accent-text:#1d2021;
+  }
+  html[data-theme="cyberpunk"] {
+    --bg:#0a0015;--panel:#160028;--panel-2:#0f001a;--text:#f2e6ff;--muted:#a890c5;--border:#2a0b40;
+    --bubble-other:#2a0b40;--bubble-me:#ff2ecf;--bubble-me-text:#ffffff;--input-bg:#160028;
+    --accent:#ff2ecf;--accent-2:#2cf2ff;--accent-text:#0a0015;
+  }
+  html[data-theme="forest"] {
+    --bg:#10201a;--panel:#172b23;--panel-2:#122720;--text:#e4f3e9;--muted:#86a396;--border:#213a2f;
+    --bubble-other:#213a2f;--bubble-me:#4caf7b;--bubble-me-text:#0a1612;--input-bg:#172b23;
+    --accent:#4caf7b;--accent-2:#82dbab;--accent-text:#0a1612;
+  }
+  html[data-theme="ocean"] {
+    --bg:#0a1624;--panel:#11243a;--panel-2:#0b1b2c;--text:#e6f1ff;--muted:#7f95b0;--border:#1c2e48;
+    --bubble-other:#1c2e48;--bubble-me:#38bdf8;--bubble-me-text:#0a1624;--input-bg:#11243a;
+    --accent:#38bdf8;--accent-2:#60a5fa;--accent-text:#0a1624;
+  }
+  /* Any dark preset keeps shadow weight consistent (used as chat depth
+     cue). We update only when the computed theme is demonstrably dark. */
+  html[data-theme="midnight"],
+  html[data-theme="dark"],
+  html[data-theme="obsidian"],
+  html[data-theme="nord"],
+  html[data-theme="dracula"],
+  html[data-theme="solarized"],
+  html[data-theme="rose-pine"],
+  html[data-theme="gruvbox"],
+  html[data-theme="cyberpunk"],
+  html[data-theme="forest"],
+  html[data-theme="ocean"] {
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    --shadow-lg: 0 20px 60px rgba(0,0,0,0.6);
+    --shadow-menu: 0 10px 30px rgba(0,0,0,0.6);
+  }
+  /* Custom theme: primary / secondary come from inline style on the root
+     element; the rest of the palette is inherited from the currently
+     applied preset. The only values the builder overrides are the accent
+     tokens and the user's own bubble color, which are the user-visible
+     "primary color / secondary color" they're choosing. */
+  html[data-custom="1"] {
+    --accent: var(--custom-primary, #2873ce);
+    --accent-2: var(--custom-secondary, #0a84ff);
+    --bubble-me: var(--custom-primary, #0a84ff);
+  }
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
@@ -45,10 +151,10 @@
     height: 100%;
     width: 100%;
     max-width: 100%;
-    background: var(--bg);
+    background: var(--app-bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    font-size: 15px;
+    font-family: var(--font-family);
+    font-size: var(--font-size-base);
     -webkit-font-smoothing: antialiased;
     -webkit-user-select: none;
     user-select: none;
@@ -665,20 +771,12 @@
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
     position: relative;
-    /* Public-chat background — device-specific, scoped to #messages only.
-       PC (>=768px) uses pc.png, mobile (<768px) uses mobile.png.
-       background-size: cover fills all 4 edges of the chat container
-       proportionally, no repeat, no stretch, no overflow, no viewport-fixed
-       attachment (image is sized to the chat container, not the viewport). */
-    background-image: url("pc.png");
-    background-size: cover;
-    background-position: center center;
-    background-repeat: no-repeat;
-  }
-  @media (max-width: 767px) {
-    #messages {
-      background-image: url("mobile.png");
-    }
+    /* Theme-driven chat background. The legacy pc.png / mobile.png
+       background-image system has been removed; chat surfaces now paint
+       from the current theme's `--chat-bg` token (driven by the
+       Appearance settings). No device-specific art assets, no empty
+       unstyled areas — the cascade always resolves to a valid color. */
+    background: var(--chat-bg, var(--bg));
   }
   .msg-col {
     width: 100%;
@@ -835,18 +933,21 @@
   .row.me .bubble-wrap { flex-direction: row-reverse; }
 
   .bubble {
-    padding: 8px 13px;
-    border-radius: 20px;
+    /* Phase 3: iPhone-style tight bubbles. Padding trimmed ~15% on the
+       vertical axis and ~8% horizontally, radius eased a touch so tight
+       messages still feel soft. No width/wrap changes — pure paint. */
+    padding: 6px 12px;
+    border-radius: 18px;
     background: var(--bubble-other);
     color: var(--text);
     word-wrap: break-word;
     overflow-wrap: anywhere;
     box-shadow: var(--shadow);
     position: relative;
-    min-height: 30px;
+    min-height: 28px;
     display: inline-block;
     max-width: 100%;
-    line-height: 1.4;
+    line-height: 1.35;
   }
   .row.me .bubble {
     background: var(--bubble-me);
@@ -862,39 +963,42 @@
   .bubble.has-image .msg-text { display: block; margin-top: 6px; }
 
   /* ---------- DM read receipts (Telegram-style ticks) ----------
-     Only rendered for the sender's own DM bubbles inside #dm-room-backdrop.
-     Public chat and group chat bubbles never get these ticks (scoped
-     selector). Layout is additive — ticks sit at the bottom-right of the
-     bubble without changing bubble width or message-row height. */
+     Phase 3: receipts are now rendered as a sibling BELOW the bubble
+     (appended to `.stack` in buildDmRow) and left-aligned under the
+     bubble's start edge. This keeps the bubble's width/height stable
+     (no layout-push) while satisfying the "below bubble, left-aligned,
+     smaller, subtle" spec. Public/group rows never receive this element
+     because buildDmRow is DM-only. */
   .dm-read-receipt {
     display: inline-flex;
     align-items: center;
     gap: 0;
-    margin: 4px 0 -2px auto;
-    padding-left: 8px;
-    color: rgba(255,255,255,0.72);
+    margin: 2px 4px 0 4px;
+    padding: 0;
+    color: var(--muted);
     opacity: 0;
-    transform: translateY(2px);
+    transform: translateY(1px);
     transition: opacity .18s ease, color .22s ease, transform .22s cubic-bezier(.2,.8,.2,1);
     pointer-events: none;
     line-height: 1;
     flex: 0 0 auto;
-    align-self: flex-end;
-    min-width: 18px;
-    height: 14px;
+    /* Left-align even inside .row.me .stack (which sets align-items:flex-end). */
+    align-self: flex-start;
+    min-width: 14px;
+    height: 11px;
     position: relative;
   }
   .dm-read-receipt.show { opacity: 1; transform: none; }
   .dm-read-receipt svg {
-    width: 14px; height: 14px; display: block;
+    width: 11px; height: 11px; display: block;
     stroke: currentColor; fill: none;
     stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
     filter: drop-shadow(0 0 0 transparent);
   }
   /* Overlap the two ticks when seen = 2 ticks. */
-  .dm-read-receipt .tick-2 { margin-left: -7px; }
+  .dm-read-receipt .tick-2 { margin-left: -5px; }
   .dm-read-receipt[data-state="sent"] .tick-2 { display: none; }
-  .dm-read-receipt[data-state="seen"] { color: #7ecbff; }
+  .dm-read-receipt[data-state="seen"] { color: var(--accent-2, #7ecbff); }
   .dm-read-receipt[data-state="seen"] svg {
     animation: dmSeenPop .28s cubic-bezier(.2,.8,.2,1) both;
   }
@@ -905,19 +1009,6 @@
   }
   @media (prefers-reduced-motion: reduce) {
     .dm-read-receipt, .dm-read-receipt svg { transition: none; animation: none; }
-  }
-  /* Image-only DM bubbles: float the ticks over the image corner so the
-     image-only layout (which has no padding/background) still shows
-     receipts cleanly without shifting layout. */
-  #dm-room-backdrop .bubble.image-only .dm-read-receipt {
-    position: absolute;
-    right: 8px; bottom: 8px;
-    margin: 0;
-    padding: 2px 6px;
-    background: rgba(0,0,0,0.45);
-    border-radius: 999px;
-    color: rgba(255,255,255,0.92);
-    height: auto;
   }
   /* Make sure our footer row never overflows the bubble's max-width. */
   #dm-room-backdrop .row.me .bubble { position: relative; }
@@ -2424,17 +2515,20 @@
   }
   .dm-row.me { justify-content: flex-end; }
   .dm-bubble {
-    max-width: min(78%, 420px);
-    padding: 8px 11px;
-    border-radius: 16px;
+    /* Phase 3: tighten DM panel bubbles the same way the public chat
+       bubbles were tightened. Max-width slightly reduced so long lines
+       wrap sooner (iPhone-like feel). */
+    max-width: min(74%, 400px);
+    padding: 6px 10px;
+    border-radius: 15px;
     background: var(--panel);
     border: 1px solid var(--border);
     color: var(--text);
-    font-size: 14px; line-height: 1.4;
+    font-size: 14px; line-height: 1.35;
     white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
   }
   .dm-row.me .dm-bubble {
-    background: #2873ce; color: #fff; border-color: #2873ce;
+    background: var(--accent, #2873ce); color: var(--accent-text, #fff); border-color: var(--accent, #2873ce);
     border-bottom-right-radius: 4px;
   }
   .dm-row:not(.me) .dm-bubble { border-bottom-left-radius: 4px; }
@@ -4226,3 +4320,272 @@
     #settings-overlay.collapsed .settings-sidebar { width: 56px; }
   }
 
+
+  /* ====================================================================
+     APPEARANCE TAB — Phase 6. Tab lives inside `#settings-overlay`'s
+     existing sidebar+main layout. The styles below are additive and
+     scoped to `.appearance-*` classes so they can never leak into any
+     other Settings section. Chosen radii/shadows/spacings match the
+     surrounding Settings chrome so the new tab feels native.
+     ==================================================================== */
+  .settings-nav .settings-nav-item {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--text);
+    text-align: left;
+    padding: 10px 12px;
+    margin: 0 0 2px;
+    border-radius: 10px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 14px;
+    transition: background .14s ease, color .14s ease;
+  }
+  .settings-nav .settings-nav-item:hover {
+    background: color-mix(in srgb, var(--accent, #2873ce) 10%, transparent);
+  }
+  .settings-nav .settings-nav-item.active {
+    background: color-mix(in srgb, var(--accent, #2873ce) 16%, transparent);
+    color: var(--text);
+  }
+  .settings-nav .settings-nav-item svg {
+    width: 16px; height: 16px; flex: none; stroke: currentColor;
+  }
+  #settings-overlay.collapsed .settings-nav .settings-nav-item {
+    justify-content: center;
+    padding: 10px 0;
+  }
+  #settings-overlay.collapsed .settings-nav .settings-nav-item span.label {
+    display: none;
+  }
+
+  .appearance-section {
+    display: flex; flex-direction: column; gap: 22px;
+    padding: 4px 2px 20px;
+    max-width: 780px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .appearance-h {
+    margin: 0 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .appearance-sub {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin: -2px 0 8px;
+    line-height: 1.5;
+  }
+
+  /* Theme preset cards — horizontal scroller. */
+  .appearance-presets {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 6px 2px 14px;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .appearance-presets::-webkit-scrollbar { height: 8px; }
+  .appearance-presets::-webkit-scrollbar-thumb {
+    background: var(--border); border-radius: 999px;
+  }
+  .appearance-preset-card {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    width: 148px;
+    padding: 8px 8px 10px;
+    border-radius: 14px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    text-align: left;
+    display: flex; flex-direction: column; gap: 6px;
+    transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+    font: inherit;
+    appearance: none;
+  }
+  .appearance-preset-card:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--accent, #2873ce) 35%, var(--border));
+    box-shadow: var(--shadow);
+  }
+  .appearance-preset-card.active {
+    border-color: var(--accent, #2873ce);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent, #2873ce) 30%, transparent);
+  }
+  .appearance-preset-card .ap-preview {
+    height: 84px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    padding: 8px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    gap: 6px;
+    overflow: hidden;
+    background: var(--ap-bg, #eee);
+    color: var(--ap-text, #111);
+    font-size: 11px;
+  }
+  .appearance-preset-card .ap-row {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .appearance-preset-card .ap-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--ap-accent, #0a84ff);
+    flex: none;
+  }
+  .appearance-preset-card .ap-pill {
+    height: 8px; border-radius: 999px;
+    background: var(--ap-panel, #fff);
+    border: 1px solid rgba(0,0,0,0.06);
+  }
+  .appearance-preset-card .ap-pill.wide { width: 80%; }
+  .appearance-preset-card .ap-pill.narrow { width: 50%; background: var(--ap-accent, #0a84ff); border-color: transparent; }
+  .appearance-preset-card .ap-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+  }
+
+  /* Custom theme builder. */
+  .appearance-custom {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 560px) {
+    .appearance-custom { grid-template-columns: 1fr; }
+  }
+  .appearance-color-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    background: var(--panel);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .appearance-color-title {
+    font-size: 12.5px; font-weight: 600; color: var(--text);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .appearance-color-swatch {
+    width: 18px; height: 18px; border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--_swatch-bg, #2873ce);
+  }
+  .appearance-color-inputs {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center;
+  }
+  .appearance-color-inputs label {
+    font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
+  }
+  .appearance-color-inputs input[type="text"] {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--text);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 13px;
+  }
+  .appearance-color-inputs input[type="color"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 36px; height: 28px;
+    padding: 0;
+    border: 1px solid var(--border);
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .appearance-color-inputs input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+  .appearance-color-inputs input[type="color"]::-webkit-color-swatch { border-radius: 6px; border: 0; }
+  .appearance-color-reset {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    padding: 6px 10px;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    align-self: flex-start;
+  }
+  .appearance-color-reset:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent, #2873ce) 40%, var(--border)); }
+
+  /* Typography controls. */
+  .appearance-typography {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 560px) {
+    .appearance-typography { grid-template-columns: 1fr; }
+  }
+  .appearance-field {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .appearance-field label {
+    font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
+  }
+  .appearance-field select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding: 9px 32px 9px 11px;
+    border: 1px solid var(--border);
+    background: var(--input-bg) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8a8f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") no-repeat right 10px center / 14px 14px;
+    color: var(--text);
+    border-radius: 10px;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .appearance-size-row {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .appearance-size-row input[type="range"] {
+    flex: 1 1 auto;
+    accent-color: var(--accent, #2873ce);
+  }
+  .appearance-size-readout {
+    font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 46px; text-align: right;
+  }
+  .appearance-preview {
+    margin-top: 10px;
+    padding: 14px 14px 12px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .appearance-preview .pv-bubble-me {
+    align-self: flex-end;
+    background: var(--accent, #2873ce);
+    color: var(--accent-text, #fff);
+    padding: 6px 12px;
+    border-radius: 18px;
+    max-width: 70%;
+    font-size: inherit;
+  }
+  .appearance-preview .pv-bubble-other {
+    align-self: flex-start;
+    background: var(--bubble-other);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: 18px;
+    max-width: 70%;
+    font-size: inherit;
+  }
+  .appearance-empty-spacer { display: none; }

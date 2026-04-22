@@ -6,1191 +6,2229 @@
 <title>Relay</title>
 <link rel="icon" type="image/png" href="logo.png" />
 <link rel="apple-touch-icon" href="logo.png" />
+<meta name="description" content="Relay is a modern messaging and chat platform for fast, secure, and focused conversations." />
 <meta property="og:title" content="Relay" />
+<meta property="og:description" content="Fast, secure, and focused conversations." />
 <meta property="og:image" content="logo.png" />
+<meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Relay" />
 <meta name="twitter:image" content="logo.png" />
-<link rel="stylesheet" href="assets/css/app.min.css" />
+<script>
+  (function(){
+    try {
+      var stored = localStorage.getItem('relay-theme');
+      var pref = (stored === 'light' || stored === 'dark')
+        ? stored
+        : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', pref);
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  })();
+</script>
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --panel: #ffffff;
+    --panel-2: #fafafc;
+    --text: #0b0b0f;
+    --muted: #8a8a8f;
+    --border: #e5e5ea;
+    --accent: #2873ce;
+    --accent-2: #0a84ff;
+    --shadow: 0 1px 2px rgba(0,0,0,0.05), 0 1px 1px rgba(0,0,0,0.04);
+    --shadow-lg: 0 20px 60px rgba(0,0,0,0.12);
+    --shadow-xl: 0 30px 80px rgba(40,115,206,0.18);
+    --content-w: 1120px;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e0e10;
+      --panel: #1c1c1e;
+      --panel-2: #141416;
+      --text: #f2f2f7;
+      --muted: #8e8e93;
+      --border: #2c2c2e;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+      --shadow-lg: 0 20px 60px rgba(0,0,0,0.6);
+      --shadow-xl: 0 30px 80px rgba(10,132,255,0.25);
+    }
+  }
+  html[data-theme="light"] {
+    --bg: #f5f5f7;
+    --panel: #ffffff;
+    --panel-2: #fafafc;
+    --text: #0b0b0f;
+    --muted: #8a8a8f;
+    --border: #e5e5ea;
+    --shadow: 0 1px 2px rgba(0,0,0,0.05), 0 1px 1px rgba(0,0,0,0.04);
+    --shadow-lg: 0 20px 60px rgba(0,0,0,0.12);
+    --shadow-xl: 0 30px 80px rgba(40,115,206,0.18);
+  }
+  html[data-theme="dark"] {
+    --bg: #0e0e10;
+    --panel: #1c1c1e;
+    --panel-2: #141416;
+    --text: #f2f2f7;
+    --muted: #8e8e93;
+    --border: #2c2c2e;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    --shadow-lg: 0 20px 60px rgba(0,0,0,0.6);
+    --shadow-xl: 0 30px 80px rgba(10,132,255,0.25);
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15.5px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+    overflow-x: hidden;
+  }
+  body { min-height: 100dvh; display: flex; flex-direction: column; }
+  a { color: inherit; text-decoration: none; }
+
+  img { max-width: 100%; display: block; }
+
+  .bg-aura {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .bg-aura::before,
+  .bg-aura::after {
+    content: "";
+    position: absolute;
+    width: 52vw;
+    height: 52vw;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.55;
+    animation: drift 22s var(--ease) infinite alternate;
+  }
+  .bg-aura::before {
+    top: -20vw;
+    left: -10vw;
+    background: radial-gradient(circle, rgba(40,115,206,0.55), transparent 60%);
+  }
+  .bg-aura::after {
+    bottom: -22vw;
+    right: -12vw;
+    background: radial-gradient(circle, rgba(10,132,255,0.35), transparent 60%);
+    animation-delay: -6s;
+  }
+  @media (prefers-color-scheme: dark) {
+    .bg-aura::before { opacity: 0.35; }
+    .bg-aura::after { opacity: 0.25; }
+  }
+  @keyframes drift {
+    0%   { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(8vw, 6vw) scale(1.1); }
+  }
+
+  header.page-bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: color-mix(in srgb, var(--panel) 80%, transparent);
+    backdrop-filter: saturate(180%) blur(18px);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+    border-bottom: 1px solid var(--border);
+  }
+  .page-bar-inner {
+    max-width: var(--max-w);
+    margin: 0 auto;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .page-bar-inner > .brand { margin-right: auto; }
+  .page-bar-inner > nav.primary { margin-left: auto; display: inline-flex; align-items: center; }
+  @media (max-width: 680px) {
+    .page-bar-inner { padding: 10px 14px; gap: 8px; }
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    overflow: visible;
+    transition: transform .25s var(--ease);
+  }
+  .brand:hover { transform: translateY(-1px); }
+  .brand img {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    object-fit: contain;
+    display: block;
+  }
+  @media (max-width: 680px) {
+    .brand img { width: 42px; height: 42px; border-radius: 10px; }
+  }
+  .brand .brand-name {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: var(--accent);
+    padding: 2px 6px 3px;
+    line-height: 1.1;
+    text-shadow:
+      0 0 18px rgba(40,115,206,0.45),
+      0 0 10px rgba(40,115,206,0.35),
+      0 0 3px  rgba(40,115,206,0.30);
+  }
+  nav.primary a {
+    color: var(--muted);
+    font-size: 13.5px;
+    font-weight: 600;
+    margin-left: 22px;
+    position: relative;
+    transition: color .2s ease;
+  }
+  nav.primary a::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -6px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform .3s var(--ease);
+  }
+  nav.primary a:hover { color: var(--text); }
+  nav.primary a:hover::after { transform: scaleX(1); }
+  nav.primary a.cta-top::after { display: none; }
+  .cta-top,
+  nav.primary a.cta-top,
+  nav.primary a.cta-top:link,
+  nav.primary a.cta-top:visited,
+  nav.primary a.cta-top:hover,
+  nav.primary a.cta-top:focus,
+  nav.primary a.cta-top:focus-visible,
+  nav.primary a.cta-top:active {
+    color: #ffffff;
+    opacity: 1;
+  }
+  .cta-top {
+    margin-left: 22px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--accent);
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 13px;
+    box-shadow: 0 4px 14px rgba(40,115,206,0.35);
+    transition: transform .2s var(--ease), box-shadow .2s var(--ease), filter .2s ease;
+  }
+  .cta-top:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(40,115,206,0.45); filter: brightness(1.05); }
+  .cta-top:active { transform: translateY(0); }
+  .cta-top .icon { display: inline-flex; align-items: center; justify-content: center; transition: transform .25s var(--ease); }
+  .cta-top:hover .icon { transform: translateX(3px); }
+  .cta-top .icon img { width: 14px; height: 14px; filter: brightness(0) invert(1); }
+  .cta-top .icon svg { width: 14px; height: 14px; display: block; color: currentColor; }
+  .header-menu {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    margin-left: 14px;
+  }
+  .header-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background .2s ease, color .2s ease, transform .2s var(--ease);
+  }
+  .header-menu-btn:hover { background: var(--border); color: var(--accent); }
+  .header-menu-btn:active { transform: scale(0.94); }
+  .header-menu-btn svg { width: 18px; height: 18px; display: block; }
+  .header-menu-drawer {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 160px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-4px) scale(0.98);
+    transform-origin: top right;
+    transition: opacity .18s ease, transform .18s var(--ease);
+    z-index: 20;
+  }
+  .header-menu-drawer.open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+  }
+  .header-menu-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 13.5px;
+    font-weight: 600;
+    text-decoration: none;
+    margin: 0 !important;
+    transition: background .15s ease, color .15s ease;
+  }
+  .header-menu-item::after { display: none !important; }
+  .header-menu-item:hover { background: var(--border); color: var(--accent); }
+  .header-menu-item .hm-ico {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex: none;
+    color: var(--muted);
+    transition: color .15s ease;
+  }
+  .header-menu-item:hover .hm-ico { color: var(--accent); }
+  .header-menu-item .hm-ico svg { width: 18px; height: 18px; display: block; }
+  .header-menu-sep {
+    height: 1px;
+    background: var(--border);
+    margin: 6px 4px;
+  }
+  .theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 10px 6px;
+    color: var(--muted);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .theme-toggle-switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    width: 46px;
+    height: 26px;
+    border-radius: 999px;
+    background: var(--border);
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    transition: background .25s var(--ease);
+    flex: none;
+  }
+  .theme-toggle-switch::before {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2), 0 1px 1px rgba(0,0,0,0.08);
+    transition: transform .28s var(--ease), background .25s var(--ease);
+    z-index: 2;
+  }
+  .theme-toggle-switch .tt-ico {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    opacity: 0.9;
+    pointer-events: none;
+    transition: opacity .2s ease;
+    z-index: 1;
+  }
+  .theme-toggle-switch .tt-ico svg { width: 14px; height: 14px; display: block; color: currentColor; }
+  .theme-toggle-switch .tt-ico.tt-sun { left: 6px; color: #ffb64d; }
+  .theme-toggle-switch .tt-ico.tt-moon { right: 6px; color: #cdd5ff; }
+  .theme-toggle-switch[aria-pressed="true"] { background: var(--accent); }
+  .theme-toggle-switch[aria-pressed="true"]::before { transform: translateX(20px); }
+  .header-discord {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 12px !important;
+    padding: 0 !important;
+    background: transparent;
+    color: #5865f2;
+    border-radius: 0;
+    box-shadow: none;
+    transition: color .2s ease, transform .2s var(--ease);
+  }
+  .header-discord::after { display: none !important; }
+  .header-discord svg { width: 26px; height: 26px; display: block; color: currentColor; }
+  .header-discord:hover { color: #4752c4; transform: translateY(-1px) scale(1.06); }
+  @media (max-width: 680px) {
+    nav.primary a { margin-left: 10px; }
+    nav.primary > a:not(.cta-top):not(.header-discord) { display: none; }
+    .cta-top { margin-left: 0; padding: 7px 12px; font-size: 12.5px; }
+    .cta-top .icon img { width: 12px; height: 12px; }
+    .cta-top .icon svg { width: 12px; height: 12px; }
+    nav.primary a.header-discord { display: inline-flex; margin-left: 8px !important; }
+    .header-discord svg { width: 22px; height: 22px; }
+    .header-menu { margin-left: 4px; }
+    .header-menu-btn { width: 30px; height: 30px; }
+    .header-menu-btn svg { width: 16px; height: 16px; }
+  }
+  @media (max-width: 380px) {
+    .brand .brand-name { display: none; }
+  }
+
+  main.page {
+    flex: 1;
+    width: 100%;
+    max-width: var(--content-w);
+    margin: 0 auto;
+    padding: 48px 24px 56px;
+  }
+  section + section { margin-top: 84px; }
+  @media (max-width: 720px) {
+    main.page { padding: 32px 18px 48px; }
+    section + section { margin-top: 64px; }
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 44px;
+    align-items: center;
+  }
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; gap: 32px; }
+  }
+  .hero h1 {
+    margin: 0 0 12px;
+    font-size: clamp(34px, 5.2vw, 56px);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+    animation: fadeUp .8s var(--ease) .05s both;
+  }
+  .hero h1 .static-line { display: block; }
+  .hero h1 .tw-line {
+    display: block;
+    min-height: 1.1em;
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    max-width: 100%;
+  }
+  .hero h1 .tw {
+    background: linear-gradient(120deg, var(--accent), var(--accent-2) 60%, #7aa7ff);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    display: inline;
+  }
+  .hero h1 .caret {
+    display: inline-block;
+    width: 3px;
+    height: 0.95em;
+    margin-left: 4px;
+    vertical-align: -0.08em;
+    background: var(--accent);
+    border-radius: 2px;
+    animation: caret-blink 1s steps(2) infinite;
+  }
+  @keyframes caret-blink {
+    0%, 50% { opacity: 1; }
+    50.01%, 100% { opacity: 0; }
+  }
+  .hero p.lead {
+    margin: 6px 0 26px;
+    font-size: 17px;
+    color: var(--muted);
+    max-width: 52ch;
+    animation: fadeUp .8s var(--ease) .12s both;
+  }
+  .hero-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    animation: fadeUp .8s var(--ease) .2s both;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 14.5px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform .22s var(--ease), box-shadow .22s var(--ease), background .22s ease, color .22s ease, border-color .22s ease, filter .22s ease;
+    will-change: transform;
+    line-height: 1;
+  }
+  .btn .icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    flex: none;
+    transition: transform .25s var(--ease);
+  }
+  .btn .icon img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+  }
+  .btn .icon svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    color: currentColor;
+  }
+  .btn .icon.icon-discord { width: 18px; height: 18px; }
+  .btn:hover .icon.icon-discord { transform: rotate(-6deg) scale(1.08); }
+  .cta-top .icon.icon-discord-top { width: 16px; height: 16px; }
+  .cta-top:hover .icon.icon-discord-top { transform: rotate(-6deg) scale(1.08); }
+  .btn-primary {
+    background: linear-gradient(135deg, #2f85e6, var(--accent) 55%, #1e5aa6);
+    color: #ffffff;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.25);
+    box-shadow: 0 10px 26px rgba(40,115,206,0.38), inset 0 1px 0 rgba(255,255,255,0.22);
+  }
+  .btn-primary .icon img { filter: brightness(0) invert(1); }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 34px rgba(40,115,206,0.48), inset 0 1px 0 rgba(255,255,255,0.28); filter: brightness(1.04); color: #ffffff; }
+  .btn-primary:hover .icon.icon-arrow { transform: translateX(3px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-discord {
+    background: #5865f2;
+    color: #ffffff;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.22);
+    box-shadow: 0 10px 26px rgba(88,101,242,0.40), inset 0 1px 0 rgba(255,255,255,0.22);
+    border-color: transparent;
+  }
+  .btn-discord .icon img { filter: brightness(0) invert(1); }
+  .btn-discord:hover { transform: translateY(-2px); background: #4752c4; color: #ffffff; box-shadow: 0 16px 34px rgba(88,101,242,0.50), inset 0 1px 0 rgba(255,255,255,0.28); }
+  .btn-discord:hover .icon.icon-discord { transform: rotate(-6deg) scale(1.08); }
+  .btn-discord:active { transform: translateY(0); }
+  .cta .btn-discord { background: #ffffff; color: #4752c4; text-shadow: none; box-shadow: 0 12px 30px rgba(0,0,0,0.15); }
+  .cta .btn-discord .icon img { filter: none; }
+  .cta .btn-discord:hover { background: #eef0ff; color: #4752c4; }
+  .btn-ghost {
+    background: var(--panel);
+    color: var(--text);
+    border-color: var(--border);
+    box-shadow: var(--shadow);
+  }
+  .btn-ghost:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+    color: var(--accent);
+    box-shadow: var(--shadow-lg);
+  }
+  .btn-ghost:hover .icon { transform: scale(1.08); }
+  .btn-ghost:active { transform: translateY(0); }
+
+  .hero-meta {
+    margin-top: 22px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    color: var(--muted);
+    font-size: 12.5px;
+    animation: fadeUp .8s var(--ease) .28s both;
+  }
+  .hero-meta > span { display: inline-flex; align-items: center; gap: 8px; }
+  @media (max-width: 640px) {
+    .hero-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 16px;
+      justify-items: center;
+      align-items: center;
+    }
+    .hero-meta > span:nth-child(5) {
+      grid-column: 1 / -1;
+      justify-self: center;
+    }
+  }
+  .hero-meta .tick {
+    width: 18px; height: 18px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    background: rgba(34, 197, 94, 0.14);
+    color: #16a34a;
+  }
+  .hero-meta .tick svg { width: 12px; height: 12px; display: block; }
+
+  /* -------- Inline Three.js globe -------- */
+  .hero-visual {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    max-width: 480px;
+    width: 100%;
+    margin-left: auto;
+    overflow: visible;
+    animation: fadeIn 1s var(--ease) .2s both;
+  }
+  @media (max-width: 900px) { .hero-visual { margin: 0 auto; } }
+  .globe-stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+  .globe-stage canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: visible;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  /* -------- Section header -------- */
+  .sec-head {
+    text-align: center;
+    max-width: 660px;
+    margin: 0 auto 40px;
+  }
+  .sec-head .tag {
+    display: block;
+    position: relative;
+    font-size: clamp(24px, 3vw, 32px);
+    font-style: italic;
+    font-weight: 800;
+    letter-spacing: -0.005em;
+    text-transform: none;
+    color: var(--accent);
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+            background-clip: text;
+    -webkit-text-fill-color: transparent;
+    border: 0;
+    padding: 0 0 10px;
+    border-radius: 0;
+    margin-bottom: 14px;
+  }
+  .sec-head .tag::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: 44px;
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  }
+  .sec-head h2 {
+    margin: 0 0 12px;
+    font-size: clamp(28px, 3.6vw, 38px);
+    font-weight: 800;
+    letter-spacing: -0.012em;
+    line-height: 1.15;
+  }
+  .sec-head p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.65;
+  }
+
+  /* -------- Stats counters -------- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+    position: relative;
+  }
+  @media (max-width: 720px) {
+    .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .stat-card { padding: 6px 4px; min-width: 0; }
+    .stat-value { font-size: clamp(22px, 7vw, 34px); }
+    .stat-label { font-size: 11px; letter-spacing: 0.08em; }
+  }
+  .stat-card {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 8px 10px;
+    box-shadow: none;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    transition: transform .35s var(--ease);
+  }
+  .stat-card:hover {
+    transform: translateY(-2px);
+  }
+  .stat-value {
+    font-size: clamp(30px, 4.2vw, 42px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    min-height: 1.1em;
+  }
+  .stat-label {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  /* -------- Features: open, fluid layout (no rigid containers) -------- */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 40px;
+    row-gap: 44px;
+    position: relative;
+  }
+  @media (max-width: 900px) { .features { grid-template-columns: repeat(2, 1fr); column-gap: 28px; row-gap: 32px; } }
+  @media (max-width: 600px) { .features { grid-template-columns: 1fr; row-gap: 28px; } }
+  .feature {
+    position: relative;
+    padding: 8px 4px 16px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity .7s var(--ease), transform .7s var(--ease);
+  }
+  .feature.reveal { opacity: 1; transform: translateY(0); }
+  .feature::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border) 18%, var(--border) 82%, transparent);
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .feature .icon-tile {
+    width: 44px;
+    height: 44px;
+    border-radius: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    margin-bottom: 10px;
+    transition: transform .55s var(--ease);
+    flex: none;
+    position: relative;
+  }
+  .feature .icon-tile::before { content: none; }
+  .feature:hover .icon-tile,
+  .feature:focus-within .icon-tile {
+    transform: translateY(-2px);
+  }
+  .feature .icon-tile img {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+    display: block;
+    transition: transform .55s var(--ease);
+  }
+  .feature:hover .icon-tile img { transform: scale(1.06); }
+  .feature .icon-tile svg {
+    width: 44px;
+    height: 44px;
+    display: block;
+    color: var(--accent);
+    transition: transform .55s var(--ease);
+  }
+  .feature:hover .icon-tile svg,
+  .feature:focus-within .icon-tile svg { transform: scale(1.06); }
+  .feature h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    position: relative;
+    display: inline-block;
+    padding-bottom: 4px;
+  }
+  .feature h3::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 28px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--accent);
+    transform: scaleX(0.6);
+    transform-origin: left center;
+    transition: transform .45s var(--ease), width .45s var(--ease);
+  }
+  .feature:hover h3::after,
+  .feature:focus-within h3::after { transform: scaleX(1); width: 48px; }
+  .feature p {
+    margin: 0;
+    font-size: 14.5px;
+    color: var(--muted);
+    line-height: 1.65;
+    max-width: 40ch;
+  }
+
+  /* -------- Why Relay (flowing, no wrapper) -------- */
+  .why-head {
+    max-width: 720px;
+    margin: 0 auto 28px;
+    text-align: center;
+    position: relative;
+  }
+  .why-head .tag {
+    display: block;
+    position: relative;
+    font-size: clamp(24px, 3vw, 32px);
+    font-style: italic;
+    font-weight: 800;
+    letter-spacing: -0.005em;
+    text-transform: none;
+    color: var(--accent);
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+            background-clip: text;
+    -webkit-text-fill-color: transparent;
+    padding: 0 0 10px;
+    border-radius: 0;
+    border: 0;
+    margin-bottom: 14px;
+  }
+  .why-head .tag::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    width: 44px;
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  }
+  .why-head h2 {
+    margin: 6px 0 10px;
+    font-size: clamp(26px, 3.4vw, 36px);
+    font-weight: 800;
+    letter-spacing: -0.012em;
+    line-height: 1.15;
+  }
+  .why-head p {
+    margin: 0 auto;
+    max-width: 60ch;
+    color: var(--muted);
+    font-size: 15.5px;
+    line-height: 1.65;
+  }
+  .why-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    column-gap: 36px;
+    row-gap: 40px;
+    margin-top: 28px;
+  }
+  @media (max-width: 900px) { .why-grid { grid-template-columns: repeat(2, 1fr); column-gap: 28px; row-gap: 32px; } }
+  @media (max-width: 600px) { .why-grid { grid-template-columns: 1fr; row-gap: 28px; } }
+  .why-card {
+    position: relative;
+    padding: 8px 4px 16px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    outline: none;
+    transition: transform .55s var(--ease);
+  }
+  .why-card::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border) 18%, var(--border) 82%, transparent);
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .why-card:hover,
+  .why-card:focus-visible {
+    transform: translateY(-2px);
+  }
+  .why-ico {
+    width: 44px;
+    height: 44px;
+    border-radius: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    margin-bottom: 10px;
+    transition: transform .55s var(--ease);
+    flex: none;
+    position: relative;
+  }
+  .why-ico::before { content: none; }
+  .why-card:hover .why-ico,
+  .why-card:focus-visible .why-ico {
+    transform: translateY(-2px);
+  }
+  .why-card:hover .why-ico::before,
+  .why-card:focus-visible .why-ico::before { opacity: 1; }
+  .why-ico img { width: 34px; height: 34px; display: block; object-fit: contain; transition: transform .55s var(--ease); }
+  .why-card:hover .why-ico img { transform: scale(1.06); }
+  .why-ico svg { width: 44px; height: 44px; display: block; color: var(--accent); transition: transform .55s var(--ease); }
+  .why-card:hover .why-ico svg,
+  .why-card:focus-visible .why-ico svg { transform: scale(1.06); }
+  .why-card h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    position: relative;
+    display: inline-block;
+    padding-bottom: 4px;
+  }
+  .why-card h3::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 28px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--accent);
+    transform: scaleX(0.6);
+    transform-origin: left center;
+    transition: transform .45s var(--ease), width .45s var(--ease);
+  }
+  .why-card:hover h3::after,
+  .why-card:focus-visible h3::after { transform: scaleX(1); width: 48px; }
+  .why-card p {
+    margin: 0;
+    font-size: 14.5px;
+    color: var(--muted);
+    line-height: 1.65;
+    max-width: 40ch;
+  }
+
+
+  .cta {
+    position: relative;
+    text-align: center;
+    padding: 48px 28px;
+    border-radius: 22px;
+    overflow: hidden;
+    color: #ffffff;
+    background:
+      radial-gradient(600px 320px at 80% 0%, rgba(255,255,255,0.18), transparent 60%),
+      radial-gradient(600px 320px at 0% 120%, rgba(255,255,255,0.14), transparent 60%),
+      linear-gradient(120deg, #1f62b8, var(--accent) 50%, var(--accent-2));
+    box-shadow: 0 30px 80px rgba(40,115,206,0.35);
+    max-width: 780px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .cta-logo {
+    display: block;
+    width: 144px;
+    height: auto;
+    margin: 0 auto 22px;
+    object-fit: contain;
+    filter: drop-shadow(0 14px 32px rgba(0,0,0,0.24));
+    transition: transform .45s var(--ease);
+  }
+  .cta:hover .cta-logo { transform: translateY(-4px) scale(1.04); }
+  @media (max-width: 640px) { .cta-logo { width: 116px; } }
+  .cta h2 {
+    margin: 0 0 10px;
+    font-size: clamp(26px, 3.6vw, 36px);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+  .cta p {
+    margin: 0 auto 22px;
+    max-width: 56ch;
+    color: rgba(255,255,255,0.88);
+    font-size: 15.5px;
+  }
+  .cta .btn-primary {
+    background: #ffffff;
+    color: var(--accent);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+  }
+  .cta .btn-primary .icon img { filter: none; }
+  .cta .btn-primary:hover { box-shadow: 0 18px 40px rgba(0,0,0,0.22); color: var(--accent); }
+  .cta .btn-ghost {
+    background: transparent;
+    color: #ffffff;
+    border-color: rgba(255,255,255,0.5);
+    box-shadow: none;
+  }
+  .cta .btn-ghost .icon img { filter: brightness(0) invert(1); }
+  .cta .btn-ghost:hover { background: rgba(255,255,255,0.12); color: #ffffff; border-color: #ffffff; }
+
+  footer.page-footer {
+    position: relative;
+    border-top: 1px solid var(--border);
+    background: linear-gradient(180deg, var(--panel-2), var(--bg));
+    margin-top: 96px;
+    overflow: hidden;
+  }
+  .page-footer::before {
+    content: "";
+    position: absolute;
+    top: -1px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 55%, transparent), transparent);
+    opacity: 0.7;
+  }
+  .page-footer-inner {
+    max-width: var(--content-w);
+    margin: 0 auto;
+    padding: 36px 24px 40px;
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    align-items: center;
+    gap: 22px;
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .footer-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .footer-brand img {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    object-fit: contain;
+    display: block;
+  }
+  .footer-brand-text { display: flex; flex-direction: column; line-height: 1.2; }
+  .footer-brand-text .fb-name {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+    text-shadow:
+      0 0 12px rgba(40,115,206,0.35),
+      0 0 6px rgba(40,115,206,0.28);
+  }
+  .footer-brand-text .fb-note {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .page-footer-inner nav {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 20px;
+    white-space: nowrap;
+  }
+  .page-footer-inner nav a {
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 13px;
+    position: relative;
+    transition: color .2s ease;
+  }
+  .page-footer-inner nav a::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -4px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform .3s var(--ease);
+  }
+  .page-footer-inner nav a:hover { color: var(--text); }
+  .page-footer-inner nav a:hover::after { transform: scaleX(1); }
+  .back-to-top {
+    margin: 18px auto 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color .2s ease, border-color .2s ease, background .2s ease, transform .2s var(--ease);
+  }
+  .back-to-top svg { width: 14px; height: 14px; display: block; transition: transform .25s var(--ease); }
+  .back-to-top:hover {
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 36%, var(--border));
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+  }
+  .back-to-top:hover svg { transform: translateY(-2px); }
+  .back-to-top:active { transform: scale(0.97); }
+  footer.page-footer { display: flex; flex-direction: column; align-items: center; }
+  .footer-legal {
+    grid-column: 1 / -1;
+    margin-top: 8px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+  }
+  @media (max-width: 640px) {
+    .page-footer-inner { grid-template-columns: 1fr; text-align: center; }
+    .page-footer-inner nav { justify-content: center; flex-wrap: wrap; white-space: normal; }
+    .footer-brand {
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      text-align: center;
+    }
+    .footer-brand img { width: 44px; height: 44px; }
+    .footer-brand-text { align-items: center; text-align: center; }
+  }
+
+  .reveal-item {
+    opacity: 0;
+    transform: translateY(24px) scale(0.985);
+    transition: opacity .85s var(--ease), transform .85s var(--ease);
+    will-change: opacity, transform;
+  }
+  .reveal-item.reveal-left { transform: translate3d(-28px, 0, 0) scale(0.99); }
+  .reveal-item.reveal-right { transform: translate3d(28px, 0, 0) scale(0.99); }
+  .reveal-item.reveal-zoom { transform: translateY(8px) scale(0.94); }
+  .reveal-item.in {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: .001ms !important;
+    }
+    .bg-aura::before, .bg-aura::after { animation: none; }
+  }
+
+  html.is-loading, html.is-loading body { overflow: hidden; }
+  .page-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    background:
+      radial-gradient(720px 420px at 50% 32%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%),
+      var(--bg);
+    transition: opacity .55s var(--ease), visibility .55s var(--ease);
+  }
+  .page-loader.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+  .page-loader__logo {
+    width: 108px;
+    height: auto;
+    display: block;
+    filter: drop-shadow(0 14px 32px rgba(40,115,206,0.22));
+    animation: relay-loader-logo 1.8s var(--ease) infinite;
+  }
+  .page-loader__name {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: var(--accent);
+    text-shadow: 0 0 14px rgba(40,115,206,0.28);
+    margin: 0;
+  }
+  .page-loader__spinner {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    margin-top: 2px;
+  }
+  .page-loader__spinner::before,
+  .page-loader__spinner::after,
+  .page-loader__spinner > span {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+  }
+  .page-loader__spinner::before {
+    border: 2px solid color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+  .page-loader__spinner::after {
+    background: conic-gradient(from 0deg, transparent 0deg, color-mix(in srgb, var(--accent) 25%, transparent) 120deg, var(--accent) 300deg, transparent 360deg);
+    -webkit-mask: radial-gradient(closest-side, transparent calc(50% - 3px), #000 calc(50% - 3px));
+            mask: radial-gradient(closest-side, transparent calc(50% - 3px), #000 calc(50% - 3px));
+    animation: relay-loader-spin 1.1s linear infinite;
+  }
+  .page-loader__spinner > span {
+    inset: 10px;
+    background: conic-gradient(from 180deg, transparent 0deg, var(--accent-2) 140deg, transparent 260deg);
+    -webkit-mask: radial-gradient(closest-side, transparent calc(50% - 2px), #000 calc(50% - 2px));
+            mask: radial-gradient(closest-side, transparent calc(50% - 2px), #000 calc(50% - 2px));
+    opacity: 0.75;
+    animation: relay-loader-spin-rev 1.6s linear infinite;
+  }
+  @keyframes relay-loader-spin { to { transform: rotate(360deg); } }
+  @keyframes relay-loader-spin-rev { to { transform: rotate(-360deg); } }
+  @keyframes relay-loader-logo {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-4px) scale(1.03); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .page-loader__logo,
+    .page-loader__spinner::after,
+    .page-loader__spinner > span { animation: none; }
+  }
+</style>
 </head>
 <body>
-<div id="app">
-  <section id="login">
-    <div class="login-brand" aria-label="Relay">
-      <img src="logo.png" alt="" onerror="this.style.display='none'" />
-      <span class="brand-name">Relay</span>
-    </div>
-    <div class="auth-card">
-      <h1 id="auth-title">Welcome back</h1>
-      <p id="auth-sub">Sign in to continue to Relay.</p>
-      <div class="auth-tabs" role="tablist">
-        <button class="auth-tab active" data-mode="signin" type="button" role="tab">Sign In</button>
-        <button class="auth-tab" data-mode="signup" type="button" role="tab">Sign Up</button>
-      </div>
-      <form id="auth-form" class="auth-form" autocomplete="on" novalidate>
-        <input id="auth-email" type="email" placeholder="Email" autocomplete="email" required />
-        <input id="auth-password" type="password" placeholder="Password (min 6)" autocomplete="current-password" required minlength="6" />
-        <label class="auth-remember" for="auth-remember">
-          <input id="auth-remember" type="checkbox" checked />
-          <span class="auth-remember-box" aria-hidden="true"></span>
-          <span class="auth-remember-text">Remember me on this device</span>
-        </label>
-        <label class="auth-terms" for="auth-terms-agree">
-          <input id="auth-terms-agree" type="checkbox" />
-          <span class="auth-terms-text">
-            I agree to the
-            <a href="terms.html" target="_blank" rel="noopener">Terms</a>,
-            <a href="privacy.html" target="_blank" rel="noopener">Privacy</a>, and
-            <a href="contact.html" target="_blank" rel="noopener">Contact</a> policies.
-          </span>
-        </label>
-        <div class="auth-terms-err" id="auth-terms-err" aria-live="polite"></div>
-        <button id="auth-submit" class="auth-submit" type="submit" disabled>Sign In</button>
-      </form>
-      <div class="auth-info" id="auth-info"></div>
-      <div class="auth-divider"><span>or</span></div>
-      <button id="login-btn" type="button" disabled>
-        <svg viewBox="0 0 48 48" aria-hidden="true">
-          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-          <path fill="none" d="M0 0h48v48H0z"/>
-        </svg>
-        <span id="login-label">Continue with Google</span>
-      </button>
-      <div class="err" id="login-err"></div>
-    </div>
-    <div class="auth-support">
-      Having trouble logging in or signing up?
-      <a id="auth-support-link" href="#" target="_blank" rel="noopener">Join our support server</a>
-      for assistance!
-    </div>
-  </section>
+  <script>document.documentElement.classList.add('is-loading');</script>
+  <div id="page-loader" class="page-loader" role="status" aria-live="polite" aria-label="Loading Relay">
+    <img class="page-loader__logo" src="logo.png" alt="" onerror="this.style.display='none'" />
+    <p class="page-loader__name">Relay</p>
+    <div class="page-loader__spinner" aria-hidden="true"><span></span></div>
+  </div>
+  <div class="bg-aura" aria-hidden="true"></div>
 
-  <section id="onboarding">
-    <div class="ob-brand" aria-label="Relay">
-      <img src="logo.png" alt="" onerror="this.style.display='none'" />
-      <span class="ob-brand-name">Relay</span>
-    </div>
-    <div class="ob-card">
-      <div class="ob-head">
-        <div class="ob-step-pills" id="ob-step-pills" aria-hidden="true"></div>
-        <div class="ob-progress"><div class="ob-progress-fill" id="ob-progress"></div></div>
-        <div class="step-label" id="ob-step-label">Step 1 of 5</div>
-        <h2 id="ob-title">Set up your profile</h2>
-        <div class="step-sub" id="ob-step-sub">A few quick details so people can recognize you in chat.</div>
-      </div>
-      <div class="ob-body">
-        <div class="ob-step" data-step="1">
-          <span class="ob-step-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          </span>
-          <label>Profile photo</label>
-          <div class="ob-avatar">
-            <img id="ob-avatar-preview" alt="" />
-            <button id="ob-avatar-pick" type="button">Choose photo</button>
-            <input id="ob-avatar-input" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden />
-            <div class="hint">Optional — PNG, JPG, GIF or WEBP, up to 8 MB. You can change this later.</div>
-          </div>
-        </div>
-        <div class="ob-step" data-step="2">
-          <span class="ob-step-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          </span>
-          <label>Username <span class="req">*</span></label>
-          <div class="ob-username-wrap">
-            <input id="ob-username" type="text" maxlength="32" placeholder="Choose a username" autocomplete="off" />
-            <span class="ob-username-state" id="ob-username-state" aria-hidden="true"></span>
-          </div>
-          <div class="ob-username-msg" id="ob-username-msg" aria-live="polite"></div>
-          <div class="hint">3–32 characters. Letters, numbers, symbols, and emoji are all allowed. Must be unique.</div>
-        </div>
-        <div class="ob-step" data-step="3">
-          <span class="ob-step-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg>
-          </span>
-          <label>Bio</label>
-          <textarea id="ob-bio" maxlength="200" placeholder="Tell people a bit about yourself"></textarea>
-          <div class="hint">Optional — up to 200 characters. Shown on your public profile.</div>
-        </div>
-        <div class="ob-step" data-step="4">
-          <span class="ob-step-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
-          </span>
-          <label>Pronouns</label>
-          <input id="ob-pronouns" type="text" maxlength="32" placeholder="e.g. she/her, he/him, they/them" autocomplete="off" list="pronouns-suggestions" />
-          <div class="hint">Optional — shown next to your username so others know how to refer to you.</div>
-        </div>
-        <div class="ob-step" data-step="5">
-          <span class="ob-step-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-          </span>
-          <label>Region</label>
-          <select id="ob-region" autocomplete="country-name"></select>
-          <div class="hint">Optional — helps people find friends nearby. You can leave this blank.</div>
-        </div>
-        <div class="ob-step" data-step="6">
-          <span class="ob-step-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          </span>
-          <label>Create your password <span class="req">*</span></label>
-          <div class="pwd-field">
-            <div class="pwd-wrap">
-              <input id="ob-password" type="password" placeholder="Password" autocomplete="new-password" maxlength="128" />
-              <button type="button" class="pwd-toggle" id="ob-password-toggle" aria-label="Show password" title="Show / hide password">
-                <svg class="pwd-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
-            </div>
-            <div class="pwd-wrap">
-              <input id="ob-password-confirm" type="password" placeholder="Confirm password" autocomplete="new-password" maxlength="128" />
-              <button type="button" class="pwd-toggle" id="ob-password-confirm-toggle" aria-label="Show password" title="Show / hide password">
-                <svg class="pwd-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
-              </button>
-            </div>
-            <button type="button" class="pwd-generate" id="ob-password-generate">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="M4.93 19.07l2.83-2.83"/><path d="M16.24 7.76l2.83-2.83"/></svg>
-              Generate secure password
-            </button>
-            <div class="pwd-strength" aria-hidden="true">
-              <div class="pwd-strength-bar"><div class="pwd-strength-fill" id="ob-password-strength-fill"></div></div>
-              <div class="pwd-strength-label" id="ob-password-strength-label">Enter a password</div>
-            </div>
-            <ul class="pwd-checklist" id="ob-password-checklist" aria-live="polite">
-              <li data-rule="length"><span class="pwd-chk-icon" aria-hidden="true"></span>At least 8 characters</li>
-              <li data-rule="upper"><span class="pwd-chk-icon" aria-hidden="true"></span>One uppercase letter (A–Z)</li>
-              <li data-rule="lower"><span class="pwd-chk-icon" aria-hidden="true"></span>One lowercase letter (a–z)</li>
-              <li data-rule="number"><span class="pwd-chk-icon" aria-hidden="true"></span>One number (0–9)</li>
-              <li data-rule="special"><span class="pwd-chk-icon" aria-hidden="true"></span>One special character (!@#$…)</li>
-              <li data-rule="match"><span class="pwd-chk-icon" aria-hidden="true"></span>Passwords match</li>
-            </ul>
-            <label class="ob-checkbox" for="ob-newsletter">
-              <input id="ob-newsletter" type="checkbox" />
-              <span class="ob-checkbox-box" aria-hidden="true"></span>
-              <span class="ob-checkbox-text">Sign me up for updates &amp; newsletter</span>
-            </label>
-            <div class="hint">We'll use your password whenever you sign in with email. Your password is stored securely (hashed) by Supabase and never sent to us in plain text.</div>
-          </div>
-        </div>
-        <div class="ob-step" data-step="7">
-          <div class="ob-verify">
-            <span class="ob-verify-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-            </span>
-            <h3>Verify your email</h3>
-            <p>We've sent a verification email to <span class="ob-verify-email" id="ob-verify-email"></span>. Please verify your email to start using Relay.</p>
-            <p class="hint">Can't find it? Check your spam folder or resend below. Once verified, this page updates automatically.</p>
-            <div class="ob-verify-actions">
-              <button type="button" class="ob-verify-resend" id="ob-verify-resend">Resend email</button>
-              <button type="button" class="ob-verify-refresh" id="ob-verify-refresh">I've verified</button>
-            </div>
-            <div class="ob-verify-status" id="ob-verify-status"></div>
-          </div>
-        </div>
-      </div>
-      <div class="ob-actions">
-        <button class="ob-back" id="ob-back" type="button">Back</button>
-        <button class="ob-next" id="ob-next" type="button">Next</button>
-      </div>
-      <button class="ob-skip" id="ob-skip" type="button">Skip for now</button>
-      <div class="err" id="ob-err"></div>
-    </div>
-  </section>
-
-  <datalist id="pronouns-suggestions">
-    <option value="she/her"></option>
-    <option value="he/him"></option>
-    <option value="they/them"></option>
-    <option value="she/they"></option>
-    <option value="he/they"></option>
-    <option value="any/all"></option>
-  </datalist>
-
-  <section id="chat">
-    <header class="bar">
-      <div class="brand" aria-label="Relay">
+  <header class="page-bar">
+    <div class="page-bar-inner">
+      <a class="brand" href="/" aria-label="Relay">
         <img src="logo.png" alt="" onerror="this.style.display='none'" />
         <span class="brand-name">Relay</span>
-      </div>
-      <button class="me" id="me-btn" type="button" aria-label="Open profile">
-        <img id="me-avatar" alt="" />
-        <span class="name" id="me-name"></span>
-      </button>
-      <button class="header-icon-btn" id="dm-btn" type="button" aria-label="Direct messages" title="Direct messages">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M21 12a8 8 0 0 1-11.6 7.14L4 21l1.86-5.4A8 8 0 1 1 21 12Z"/>
-        </svg>
-        <span class="badge" id="dm-badge" hidden>0</span>
-      </button>
-      <button class="header-icon-btn" id="inbox-btn" type="button" aria-label="Notifications" title="Notifications">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M22 13h-6l-2 3h-4l-2-3H2"/>
-          <path d="M5.45 5.11 2 13v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-7.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
-        </svg>
-        <span class="badge" id="inbox-badge" hidden>0</span>
-      </button>
-      <button class="header-logout-btn" id="profile-logout" type="button" aria-label="Log out" title="Log out">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-          <polyline points="16 17 21 12 16 7"/>
-          <line x1="21" y1="12" x2="9" y2="12"/>
-        </svg>
-      </button>
-    </header>
-
-    <div class="shell-inner">
-      <div class="chat-col">
-        <div id="messages"><div class="loading">Loading messages…</div></div>
-
-        <div class="restriction" id="restriction">
-          <span id="restriction-text"></span>
-          &nbsp;·&nbsp;
-          <a id="support-link" href="https://discord.gg/dFv2tYRNH8/dFv2tYRNH8/" target="_blank" rel="noopener noreferrer">Support server</a>
-        </div>
-
-        <div class="composer-wrap">
-          <div class="typing-indicator" id="typing-indicator" role="status" aria-live="polite" aria-atomic="true">
-            <span class="typing-text" id="typing-text"></span>
-            <span class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></span>
-          </div>
-          <div class="composer-inner">
-            <div class="reply-preview" id="reply-preview">
-              <div class="bar-left"></div>
-              <div class="rp-body">
-                <div class="rp-name" id="rp-name"></div>
-                <div class="rp-text" id="rp-text"></div>
-              </div>
-              <button class="rp-close" id="rp-close" type="button" aria-label="Cancel reply">×</button>
-            </div>
-
-            <footer class="composer">
-              <button class="emoji-btn" id="main-emoji-btn" type="button" data-emoji-open="main" title="Emoji" aria-label="Emoji">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg>
+      </a>
+      <nav class="primary" aria-label="Primary">
+        <a href="#features">Features</a>
+        <a href="#highlight">Why Relay?</a>
+        <a href="/contact.html">Contact</a>
+        <div class="header-menu" id="header-menu">
+          <button type="button" class="header-menu-btn" id="header-menu-btn" aria-label="More options" aria-haspopup="menu" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+          </button>
+          <div class="header-menu-drawer" id="header-menu-drawer" role="menu" aria-labelledby="header-menu-btn">
+            <a class="header-menu-item" href="/terms.html" role="menuitem">
+              <span class="hm-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg></span>
+              <span>Terms</span>
+            </a>
+            <a class="header-menu-item" href="/privacy.html" role="menuitem">
+              <span class="hm-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+              <span>Privacy</span>
+            </a>
+            <a class="header-menu-item" href="/contact.html" role="menuitem">
+              <span class="hm-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v12H4z"/><polyline points="4 7 12 13 20 7"/></svg></span>
+              <span>Contact</span>
+            </a>
+            <div class="header-menu-sep" aria-hidden="true"></div>
+            <div class="theme-toggle" role="none">
+              <span>Theme</span>
+              <button type="button" class="theme-toggle-switch" id="theme-toggle" role="switch" aria-checked="false" aria-pressed="false" aria-label="Toggle dark mode">
+                <span class="tt-ico tt-sun" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg></span>
+                <span class="tt-ico tt-moon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></span>
               </button>
-              <button class="icon-btn" id="upload-btn" type="button" data-attach-open="main" title="Add attachment" aria-label="Add attachment">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-              </button>
-              <input type="file" id="file-input" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none" />
-
-              <div class="input-wrap">
-                <div class="preview" id="preview">
-                  <img id="preview-img" alt="" />
-                  <button class="rm" id="preview-rm" type="button" aria-label="Remove image">×</button>
-                </div>
-                <input id="input" type="text" placeholder="Message..." autocomplete="off" maxlength="2000" />
-                <div class="mention-box" id="mention-box" role="listbox" hidden></div>
-              </div>
-
-              <button id="send" type="button" disabled>Send</button>
-            </footer>
-          </div>
-        </div>
-      </div>
-
-      <aside class="dm-side-panel" id="dm-side-panel" aria-label="Direct messages">
-        <div class="dm-side-head">
-          <div class="dm-side-title">
-            <svg class="dm-side-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.3A8 8 0 1 1 21 12z"/></svg>
-            Messages
-          </div>
-          <div class="dm-side-tabs" role="tablist">
-            <button type="button" class="dm-side-tab active" data-side-tab="all" role="tab" aria-selected="true">All</button>
-            <button type="button" class="dm-side-tab" data-side-tab="requests" role="tab" aria-selected="false">
-              Requests <span class="dm-side-tab-badge" id="dm-side-requests-badge" hidden>0</span>
-            </button>
-            <button type="button" class="dm-side-tab" data-side-tab="groups" role="tab" aria-selected="false">Groups</button>
-            <button type="button" class="dm-side-new-group" id="dm-side-new-group" aria-label="Create group" title="Create group" hidden>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-            </button>
-          </div>
-        </div>
-        <div class="dm-side-body" id="dm-side-body">
-          <div class="dm-side-empty">Sign in to see your messages.</div>
-        </div>
-      </aside>
-    </div>
-  </section>
-</div>
-
-<!-- Profile modal -->
-<div class="modal-backdrop" id="profile-backdrop" role="dialog" aria-modal="true">
-  <div class="modal profile-card" id="profile-modal">
-    <button class="profile-close-x" id="profile-close-x" type="button" aria-label="Close">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
-    </button>
-    <div class="profile-banner" id="profile-banner"></div>
-    <div class="profile-banner-actions">
-      <button class="edit-icon" id="profile-edit" type="button" aria-label="Edit profile" title="Edit profile">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-      </button>
-      <button class="profile-menu-btn" id="profile-menu-btn" type="button" aria-label="More options" aria-haspopup="menu" aria-expanded="false">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
-      </button>
-      <div class="profile-menu" id="profile-menu" role="menu" hidden>
-        <button type="button" role="menuitem" data-act="copy-uid">Copy User ID</button>
-        <button type="button" role="menuitem" data-act="copy-username">Copy Username</button>
-        <button type="button" role="menuitem" data-act="report" id="profile-menu-report">Report User</button>
-      </div>
-    </div>
-    <div class="profile-avatar-wrap">
-      <span class="profile-avatar-inner">
-        <img class="profile-avatar" id="profile-avatar" alt="" />
-        <span class="presence-dot offline" id="profile-presence-dot" data-user-id="" aria-hidden="true"></span>
-      </span>
-    </div>
-    <div class="profile-body">
-      <div class="profile-head">
-        <h2 id="profile-name"></h2>
-        <div class="sub" id="profile-sub"></div>
-      </div>
-      <div class="profile-actions" id="profile-actions" hidden>
-        <button class="pa-btn" id="profile-dm" type="button" aria-label="Message">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M21 12a8 8 0 0 1-11.6 7.14L4 21l1.86-5.4A8 8 0 1 1 21 12Z"/>
-          </svg>
-          <span>Message</span>
-        </button>
-        <button class="pa-btn" id="profile-add-friend" type="button" aria-label="Add friend">
-          <svg id="profile-add-friend-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-            <circle cx="9" cy="7" r="4"/>
-            <line x1="19" y1="8" x2="19" y2="14"/>
-            <line x1="16" y1="11" x2="22" y2="11"/>
-          </svg>
-          <span id="profile-add-friend-label">Add Friend</span>
-        </button>
-      </div>
-      <div class="profile-section" id="profile-bio-section">
-        <div class="profile-section-title">
-          <svg class="profile-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          About Me
-        </div>
-        <div class="bio" id="profile-bio"></div>
-        <div class="member-since" id="profile-since">
-          <span class="ms-label">Member Since</span>
-          <span class="ms-value">
-            <img class="ms-icon" src="logo.png" alt="" onerror="this.style.display='none'" />
-            <span class="ms-date"></span>
-          </span>
-        </div>
-      </div>
-      <div class="profile-section" id="profile-linked-section" hidden>
-        <div class="profile-section-title">
-          <svg class="profile-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          Linked Accounts
-        </div>
-        <div class="discord-link" id="profile-discord" hidden>
-          <div class="dl-status" id="profile-discord-status"></div>
-          <div class="dl-actions">
-            <div class="dl-tip-wrap">
-              <button class="pill dl-link" id="profile-discord-link" type="button" aria-describedby="profile-discord-tip">Link Discord</button>
-              <span class="dl-tip" id="profile-discord-tip" role="tooltip">Linking your Discord account allows you to use your Discord profile information.</span>
             </div>
           </div>
-          <div class="dl-err" id="profile-discord-err"></div>
         </div>
-      </div>
+        <a class="cta-top" href="#get-started">
+          <span>Get started!</span>
+          <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></span>
+        </a>
+        <a class="header-discord" href="https://discord.gg/dFv2tYRNH8" target="_blank" rel="noopener noreferrer" aria-label="Join the Relay Discord server">
+          <svg viewBox="0 0 127.14 96.36" aria-hidden="true" focusable="false"><path fill="currentColor" d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"/></svg>
+        </a>
+      </nav>
     </div>
-    <!-- Fix 4 — legacy hidden close button kept for backward JS compat; replaced visually by .profile-close-x -->
-    <button id="profile-close" type="button" hidden aria-hidden="true"></button>
-  </div>
-</div>
+  </header>
 
-<!-- Edit profile modal
-     Fix 3 (2025-04-22) — restructured to mirror the .profile-card layout
-     (banner + overlapping circular avatar + section cards) so the edit
-     surface is visually indistinguishable from the read-only preview.
-     The existing field IDs (edit-username, edit-bio, edit-pronouns,
-     edit-region, edit-banner-color, edit-banner-color-text,
-     edit-banner-reset, edit-avatar-preview, edit-avatar-pick,
-     edit-avatar-input, edit-cancel, edit-save, edit-err) are preserved
-     so openEditProfile / editSave stay wired without JS changes. -->
-<div class="modal-backdrop" id="edit-backdrop" role="dialog" aria-modal="true">
-  <div class="modal profile-card edit-profile-card" id="edit-profile-card">
-    <button class="profile-close-x" id="edit-close-x" type="button" aria-label="Close">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
-    </button>
-    <div class="profile-banner" id="edit-banner-preview"></div>
-    <div class="profile-avatar-wrap">
-      <span class="profile-avatar-inner">
-        <img class="profile-avatar" id="edit-avatar-preview" alt="" />
-        <!-- Fix 3 — upload icon, Discord-style, pinned to the top-right
-             of the avatar. Replaces the old "Change photo" pill button. -->
-        <button class="avatar-upload-btn" id="edit-avatar-pick" type="button" aria-label="Change profile photo" title="Change photo">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="17 8 12 3 7 8"/>
-            <line x1="12" y1="3" x2="12" y2="15"/>
-          </svg>
-        </button>
-        <input id="edit-avatar-input" type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden />
-      </span>
-    </div>
-    <div class="profile-body">
-      <div class="profile-head ep-head">
-        <div class="ep-field ep-field-name">
-          <label for="edit-username">
-            <span class="ep-label-text">Username</span>
-            <span class="hint" id="edit-username-hint"></span>
-          </label>
-          <input id="edit-username" class="ep-input ep-input-name" type="text" maxlength="32" autocomplete="off" />
+  <main class="page">
+
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <h1 id="hero-title">
+          <span class="static-line">Conversations that</span>
+          <span class="tw-line" aria-live="polite">feel&nbsp;<span class="tw" id="tw-word">instant</span><span class="caret" aria-hidden="true"></span></span>
+        </h1>
+<p class="lead">Relay is a messaging platform made for simple and clear conversations. Talk with others, create group spaces, and stay connected across all your devices.</p>
+        <div class="hero-actions">
+          <a href="#get-started" class="btn btn-primary">
+            <span>Get started!</span>
+            <span class="icon icon-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></span>
+          </a>
+          <a href="#features" class="btn btn-ghost">
+            <span>Explore features</span>
+            <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
+          </a>
         </div>
-        <div class="ep-field ep-field-pronouns">
-          <label for="edit-pronouns"><span class="ep-label-text">Pronouns</span></label>
-          <input id="edit-pronouns" class="ep-input" type="text" maxlength="32" placeholder="e.g. she/her, he/him, they/them" autocomplete="off" list="pronouns-suggestions" />
-        </div>
+<div class="hero-meta">
+  <span><span class="tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12.5 10 18 20 6"/></svg></span>End-to-End Encryption</span>
+  <span><span class="tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12.5 10 18 20 6"/></svg></span>Seamless Cross-Device Compatibility & syncing</span>
+  <span><span class="tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12.5 10 18 20 6"/></svg></span>Completely Confined (No AI Training Contribution)</span>
+  <span><span class="tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12.5 10 18 20 6"/></svg></span>Intuitive and User-Friendly Design</span>
+  <span><span class="tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12.5 10 18 20 6"/></svg></span>Completely Free with No Paywalls</span>
+</div>
       </div>
 
-      <div class="profile-section ep-section">
-        <div class="profile-section-title">
-          <svg class="profile-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          About Me
+      <div class="hero-visual">
+        <div class="globe-stage" id="globe-stage" aria-label="Animated globe showing message paths across the Relay network"></div>
+      </div>
+    </section>
+
+    <section id="stats" aria-label="Relay by the numbers">
+      <div class="stats" role="list">
+        <div class="stat-card reveal-item" role="listitem">
+          <div class="stat-value" data-stat="registered_users" aria-live="polite">0</div>
+          <div class="stat-label">Registered users</div>
         </div>
-        <div class="ep-field">
-          <textarea id="edit-bio" class="ep-input ep-input-bio" maxlength="200" placeholder="Tell people a bit about yourself"></textarea>
+        <div class="stat-card reveal-item" role="listitem">
+          <div class="stat-value" data-stat="online_users" aria-live="polite">0</div>
+          <div class="stat-label">Online now</div>
+        </div>
+        <div class="stat-card reveal-item" role="listitem">
+          <div class="stat-value" data-stat="total_messages" aria-live="polite">0</div>
+          <div class="stat-label">Messages sent</div>
         </div>
       </div>
+    </section>
 
-      <div class="profile-section ep-section">
-        <div class="profile-section-title">
-          <svg class="profile-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-          Region
-        </div>
-        <div class="ep-field">
-          <select id="edit-region" class="ep-input"></select>
+    <section id="features" aria-labelledby="features-title">
+      <div class="sec-head reveal-item">
+        <span class="tag">Features</span>
+       <h2 id="features-title">Everything you need to have real and focused conversations.</h2>
+<p>Relay is made to be simple and easy to use. It gives you the main features you need so you can talk, share, and stay connected without it feeling complicated.</p>
+</div>
+<div class="features">
+  <article class="feature" tabindex="0">
+    <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></svg></div>
+    <h3>Public chat</h3>
+    <p>Chat within the public chat room where anyone on Relay can talk in one place. Meet new people, join conversations, and stay in the loop.</p>
+  </article>
+  <article class="feature" tabindex="0">
+    <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.2L4 21l1.8-5.4A8 8 0 1 1 21 12z"/></svg></div>
+    <h3>Direct messages</h3>
+    <p>Send direct messages to anyone for a private one to one chat. Keep conversations personal and separate from the main chat.</p>
+  </article>
+  <article class="feature" tabindex="0">
+    <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+    <h3>Group chats</h3>
+    <p>Create group chats and add people to keep everything in one place. Great for friends, school, or working on something together.</p>
+  </article>
+  <article class="feature" tabindex="0">
+    <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></div>
+    <h3>Reactions and replies</h3>
+    <p>React to messages with emojis or reply directly to them. It makes it easier to respond and keep conversations clear.</p>
+  </article>
+  <article class="feature" tabindex="0">
+    <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-4.5-4.5L6 21"/></svg></div>
+    <h3>Image sharing</h3>
+    <p>Share photos and screenshots right in the chat. Everything stays in the same place so it is easy to see and follow.</p>
+  </article>
+  <article class="feature" tabindex="0">
+    <div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
+    <h3>Moderation and safety</h3>
+    <p>Report messages, block users, and use tools that help keep the platform safe for everyone.</p>
+  </article>
+</div>
+    </section>
+
+    <section id="highlight" aria-labelledby="highlight-title">
+      <div class="why-head reveal-item">
+        <span class="tag">Why Relay?</span>
+        <h2 id="highlight-title">Built for every kind of conversation.</h2>
+        <p>Relay pairs end to end encryption with clear, purposeful chat types, so you can choose the right space for the moment and trust who can read what you send.</p>
+      </div>
+      <div class="why-grid" role="list">
+        <article class="why-card reveal-item" role="listitem" tabindex="0">
+          <div class="why-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+          <h3>End to end encryption</h3>
+          <p>Messages in direct and group chats are encrypted on your device and decrypted only by the people you send them to.</p>
+        </article>
+        <article class="why-card reveal-item" role="listitem" tabindex="0">
+          <div class="why-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.2L4 21l1.8-5.4A8 8 0 1 1 21 12z"/></svg></div>
+          <h3>Private chats</h3>
+          <p>Start a one to one conversation with anyone on Relay and keep it focused, private, and easy to return to.</p>
+        </article>
+        <article class="why-card reveal-item" role="listitem" tabindex="0">
+          <div class="why-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <h3>Group chats</h3>
+          <p>Create a group, add members, and keep teams, classes, or circles of friends in one shared space.</p>
+        </article>
+        <article class="why-card reveal-item" role="listitem" tabindex="0">
+          <div class="why-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></svg></div>
+          <h3>Public chat</h3>
+          <p>Drop into the open room where everyone on Relay can post, reply, and react together in real time.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="get-started" aria-labelledby="cta-title">
+      <div class="cta reveal-item">
+        <img class="cta-logo" src="logo.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
+        <h2 id="cta-title">Start a better conversation today.</h2>
+        <p>Create an account in a minute, invite the people you talk with most, and feel the difference a calm, focused messaging experience can make.</p>
+        <div class="hero-actions" style="justify-content: center;">
+          <a href="auth.html" class="btn btn-primary">
+            <span>Create your account</span>
+            <span class="icon icon-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg></span>
+          </a>
+          <a href="/contact.html" class="btn btn-ghost">
+            <span>Talk to the team</span>
+            <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+          </a>
         </div>
       </div>
+    </section>
 
-      <div class="profile-section ep-section">
-        <div class="profile-section-title">
-          <svg class="profile-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10a2.5 2.5 0 0 0 2.5-2.5c0-.66-.26-1.27-.68-1.72-.4-.43-.64-1-.64-1.62a2.2 2.2 0 0 1 2.2-2.2H18a4 4 0 0 0 4-4c0-4.97-4.48-8-10-8z"/></svg>
-          Banner color
-        </div>
-        <div class="ep-field">
-          <div class="banner-color-row">
-            <input id="edit-banner-color" type="color" value="#2873ce" />
-            <input id="edit-banner-color-text" type="text" maxlength="7" placeholder="#2873ce" autocomplete="off" />
-            <button type="button" class="banner-reset" id="edit-banner-reset">Reset</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="err" id="edit-err"></div>
-      <div class="actions ep-actions">
-        <button class="pill close-btn" id="edit-cancel" type="button">Cancel</button>
-        <button class="pill save-btn" id="edit-save" type="button">Save</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Image viewer -->
-<div id="image-viewer" role="dialog" aria-modal="true" aria-label="Image preview">
-  <button class="close" id="iv-close" type="button" aria-label="Close image">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-  </button>
-  <button class="iv-download" id="iv-download" type="button" aria-label="Download image" title="Download image">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
-  </button>
-  <img id="iv-img" alt="" />
-</div>
-
-<!-- Custom context menu (desktop right-click) -->
-<div class="ctx-menu" id="ctx-menu" role="menu">
-  <button data-act="react" type="button">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg>
-    React
-  </button>
-  <button data-act="reply" type="button">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17l-5-5 5-5"/><path d="M4 12h11a5 5 0 0 1 5 5v2"/></svg>
-    Reply
-  </button>
-  <button data-act="report" class="danger" type="button">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/></svg>
-    Report
-  </button>
-  <button data-act="self-delete" data-self-only="1" class="danger" type="button" hidden>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
-    Delete message
-  </button>
-  <button data-act="mod-delete" data-mod-only="1" type="button" hidden>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
-    Delete message <span class="mod-tag">mod</span>
-  </button>
-  <button data-act="mod-ban" data-mod-only="1" type="button" hidden>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg>
-    Ban user <span class="mod-tag">mod</span>
-  </button>
-</div>
-
-<!-- Mobile bottom drawer (3-dot menu) -->
-<div id="drawer" role="dialog" aria-modal="true" aria-label="Message actions">
-  <div class="scrim" data-close></div>
-  <div class="sheet">
-    <div class="grabber"></div>
-    <button class="row-btn" data-act="react" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg>
-      React
-    </button>
-    <button class="row-btn" data-act="reply" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17l-5-5 5-5"/><path d="M4 12h11a5 5 0 0 1 5 5v2"/></svg>
-      Reply
-    </button>
-    <button class="row-btn danger" data-act="report" type="button">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/></svg>
-      Report
-    </button>
-    <button class="row-btn danger" data-act="self-delete" data-self-only="1" type="button" hidden>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
-      Delete message
-    </button>
-    <button class="row-btn" data-act="mod-delete" data-mod-only="1" type="button" hidden>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
-      Delete message <span class="mod-tag">mod</span>
-    </button>
-    <button class="row-btn" data-act="mod-ban" data-mod-only="1" type="button" hidden>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/></svg>
-      Ban user <span class="mod-tag">mod</span>
-    </button>
-  </div>
-</div>
-
-<!-- Reaction picker -->
-<div class="reaction-picker" id="reaction-picker" role="toolbar" aria-label="Reactions"></div>
-
-<!-- DM list popup -->
-<div class="modal-backdrop" id="dm-list-backdrop" role="dialog" aria-modal="true" aria-label="Direct messages">
-  <div class="popup-list" id="dm-list-modal">
-    <div class="popup-head">
-      <h3 class="popup-title">
-        <svg class="popup-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.3A8 8 0 1 1 21 12z"/></svg>
-        Messages
-      </h3>
-      <button class="popup-close" id="dm-list-close" type="button" aria-label="Close">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="popup-tabs" role="tablist" aria-label="Message categories">
-      <button class="popup-tab active" data-dm-tab="all"  role="tab" aria-selected="true"  type="button">All</button>
-      <button class="popup-tab"        data-dm-tab="requests" role="tab" aria-selected="false" type="button">
-        Requests <span class="popup-tab-badge" id="dm-requests-badge" hidden>0</span>
-      </button>
-      <button class="popup-tab"        data-dm-tab="groups"   role="tab" aria-selected="false" type="button">Groups</button>
-      <button type="button" class="popup-tab-add" id="dm-list-new-group" aria-label="Create group" title="Create group" hidden>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-      </button>
-    </div>
-    <div class="popup-body" id="dm-list-body">
-      <div class="popup-empty">Loading…</div>
-    </div>
-  </div>
-</div>
-
-<!-- DM room modal -->
-<div class="modal-backdrop" id="dm-room-backdrop" role="dialog" aria-modal="true" aria-label="Direct message">
-  <div class="modal dm-room" id="dm-room-modal">
-    <div class="dm-head">
-      <button class="dm-back" id="dm-room-back" type="button" aria-label="Back">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <button class="dm-peer" id="dm-room-peer" type="button" aria-label="Open profile">
-        <img id="dm-room-avatar" alt="" />
-        <span class="dm-peer-name" id="dm-room-name"></span>
-      </button>
-    </div>
-    <div class="dm-request-bar" id="dm-request-bar" hidden>
-      <div class="drb-text" id="dm-request-text">Accept this message request to reply.</div>
-      <div class="drb-actions">
-        <button type="button" class="drb-accept" id="dm-request-accept">Accept</button>
-      </div>
-    </div>
-    <div class="dm-messages" id="dm-room-messages">
-      <div class="dm-loading">Loading…</div>
-    </div>
-    <div class="dm-composer-wrap">
-      <div class="typing-indicator" id="dm-typing-indicator" role="status" aria-live="polite" aria-atomic="true">
-        <span class="typing-text" id="dm-typing-text"></span>
-        <span class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></span>
-      </div>
-      <div class="dm-reply-preview" id="dm-reply-preview">
-        <div class="drp-bar"></div>
-        <div class="drp-body">
-          <div class="drp-name" id="dm-reply-name"></div>
-          <div class="drp-text" id="dm-reply-text"></div>
-        </div>
-        <button type="button" class="drp-close" id="dm-reply-close" aria-label="Cancel reply">×</button>
-      </div>
-      <div class="dm-image-preview" id="dm-image-preview">
-        <img id="dm-image-preview-img" alt="" />
-        <button type="button" class="dip-rm" id="dm-image-preview-rm" aria-label="Remove image">×</button>
-      </div>
-      <div class="dm-composer">
-        <button class="emoji-btn" id="dm-emoji-btn" type="button" data-emoji-open="dm" title="Emoji" aria-label="Emoji">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg>
-        </button>
-        <button type="button" class="dm-attach" id="dm-attach-btn" data-attach-open="dm" aria-label="Add attachment" title="Add attachment">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12 5v14M5 12h14"/>
-          </svg>
-        </button>
-        <input type="file" id="dm-file-input" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none" />
-        <textarea id="dm-room-input" rows="1" placeholder="Message" maxlength="4000"></textarea>
-        <button class="dm-send" id="dm-room-send" type="button" aria-label="Send" disabled>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <line x1="22" y1="2" x2="11" y2="13"/>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Create Group modal -->
-<div class="modal-backdrop" id="group-create-backdrop" role="dialog" aria-modal="true" aria-label="Create group">
-  <div class="modal group-create" id="group-create-modal">
-    <div class="gc-head">
-      <h3 class="gc-title">New group</h3>
-      <button type="button" class="popup-close" id="group-create-close" aria-label="Close">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="gc-body">
-      <label class="gc-avatar-field">
-        <span class="gc-avatar-preview" id="group-create-avatar-preview">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-        </span>
-        <input type="file" id="group-create-image" accept="image/png,image/jpeg,image/gif,image/webp" hidden />
-        <span class="gc-avatar-label">Add group photo</span>
-      </label>
-      <label class="gc-field">
-        <span class="gc-field-label">Name</span>
-        <input type="text" id="group-create-name" maxlength="80" placeholder="Group name" />
-      </label>
-      <label class="gc-field">
-        <span class="gc-field-label">Description <span class="gc-optional">(optional)</span></span>
-        <textarea id="group-create-desc" rows="2" maxlength="300" placeholder="What's this group about?"></textarea>
-      </label>
-    </div>
-    <div class="gc-foot">
-      <button type="button" class="gc-btn secondary" id="group-create-cancel">Cancel</button>
-      <button type="button" class="gc-btn primary" id="group-create-submit" disabled>Create</button>
-    </div>
-  </div>
-</div>
-
-<!-- Group room modal -->
-<div class="modal-backdrop" id="group-room-backdrop" role="dialog" aria-modal="true" aria-label="Group chat">
-  <div class="modal dm-room" id="group-room-modal">
-    <div class="dm-head">
-      <button class="dm-back" id="group-room-back" type="button" aria-label="Back">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <button class="dm-peer" id="group-room-peer" type="button" aria-label="Group info">
-        <img id="group-room-avatar" alt="" />
-        <span class="dm-peer-name" id="group-room-name"></span>
-      </button>
-      <button type="button" class="group-room-add" id="group-room-add" aria-label="Add member" title="Add member">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>
-      </button>
-    </div>
-    <div class="dm-messages" id="group-room-messages">
-      <div class="dm-loading">Loading…</div>
-    </div>
-    <div class="dm-composer-wrap">
-      <div class="typing-indicator" id="group-typing-indicator" role="status" aria-live="polite" aria-atomic="true">
-        <span class="typing-text" id="group-typing-text"></span>
-        <span class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></span>
-      </div>
-      <div class="dm-reply-preview" id="group-reply-preview">
-        <div class="drp-bar"></div>
-        <div class="drp-body">
-          <div class="drp-name" id="group-reply-name"></div>
-          <div class="drp-text" id="group-reply-text"></div>
-        </div>
-        <button type="button" class="drp-close" id="group-reply-close" aria-label="Cancel reply">×</button>
-      </div>
-      <div class="dm-image-preview" id="group-image-preview">
-        <img id="group-image-preview-img" alt="" />
-        <button type="button" class="dip-rm" id="group-image-preview-rm" aria-label="Remove image">×</button>
-      </div>
-      <div class="dm-composer">
-        <button class="emoji-btn" id="group-emoji-btn" type="button" data-emoji-open="group" title="Emoji" aria-label="Emoji">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg>
-        </button>
-        <button type="button" class="dm-attach" id="group-attach-btn" data-attach-open="group" aria-label="Add attachment" title="Add attachment">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-        </button>
-        <input type="file" id="group-file-input" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none" />
-        <textarea id="group-room-input" rows="1" placeholder="Message" maxlength="4000"></textarea>
-        <button class="dm-send" id="group-room-send" type="button" aria-label="Send" disabled>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Add member overlay -->
-<div class="modal-backdrop" id="group-add-backdrop" role="dialog" aria-modal="true" aria-label="Add member">
-  <div class="popup-list" id="group-add-modal">
-    <div class="popup-head">
-      <h3 class="popup-title">
-        <svg class="popup-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>
-        Add member
-      </h3>
-      <button class="popup-close" id="group-add-close" type="button" aria-label="Close">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="popup-body" id="group-add-body">
-      <div class="popup-empty">Loading friends…</div>
-    </div>
-  </div>
-</div>
-
-<!-- Group Settings modal (owner-only editing) -->
-<div class="modal-backdrop" id="group-settings-backdrop" role="dialog" aria-modal="true" aria-label="Group settings">
-  <div class="popup-list" id="group-settings-modal">
-    <div class="popup-head">
-      <h3 class="popup-title">
-        <svg class="popup-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        Group settings
-      </h3>
-      <button class="popup-close" id="group-settings-close" type="button" aria-label="Close">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="popup-body" id="group-settings-body">
-      <div class="popup-empty">Loading…</div>
-    </div>
-  </div>
-</div>
-
-<!-- Inbox popup -->
-<div class="modal-backdrop" id="inbox-backdrop" role="dialog" aria-modal="true" aria-label="Notifications">
-  <div class="popup-list" id="inbox-modal">
-    <div class="popup-head">
-      <h3 class="popup-title">
-        <svg class="popup-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 13h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 13v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-7.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
-        Inbox
-      </h3>
-      <button class="popup-close" id="inbox-close" type="button" aria-label="Close">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="popup-body" id="inbox-body">
-      <div class="popup-empty">Loading…</div>
-    </div>
-  </div>
-</div>
-
-<!-- Friends list popup -->
-<div class="modal-backdrop" id="friends-backdrop" role="dialog" aria-modal="true" aria-label="Friends list">
-  <div class="popup-list" id="friends-modal">
-    <div class="popup-head">
-      <h3 class="popup-title">
-        <svg class="popup-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Friends
-      </h3>
-      <button class="popup-close" id="friends-close" type="button" aria-label="Close">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="popup-tabs" role="tablist">
-      <button type="button" class="popup-tab active" id="friends-tab-friends" data-friends-tab="friends" role="tab" aria-selected="true">Friends</button>
-      <button type="button" class="popup-tab" id="friends-tab-requests" data-friends-tab="requests" role="tab" aria-selected="false">
-        Requests <span class="popup-tab-badge" id="friends-requests-badge" hidden>0</span>
-      </button>
-    </div>
-    <div class="popup-body" id="friends-body">
-      <div class="popup-empty">Loading…</div>
-    </div>
-    <div class="popup-body" id="friends-requests-body" hidden>
-      <div class="popup-empty">Loading…</div>
-    </div>
-  </div>
-</div>
-
-<!-- Remove-friend confirm dialog -->
-<div class="modal-backdrop" id="confirm-remove-friend-backdrop" role="dialog" aria-modal="true" aria-label="Remove friend">
-  <div class="modal confirm-modal" id="confirm-remove-friend-modal">
-    <div class="confirm-head">Remove friend?</div>
-    <div class="confirm-body">
-      Are you sure you want to remove <strong id="confirm-remove-friend-name">this person</strong> from your friends?
-    </div>
-    <div class="confirm-foot">
-      <button type="button" class="confirm-btn cancel" id="confirm-remove-friend-cancel">Cancel</button>
-      <button type="button" class="confirm-btn danger" id="confirm-remove-friend-ok">Remove</button>
-    </div>
-  </div>
-</div>
-
-<!-- Accept friend-request confirm dialog -->
-<div class="modal-backdrop" id="confirm-accept-request-backdrop" role="dialog" aria-modal="true" aria-label="Accept friend request">
-  <div class="modal confirm-modal" id="confirm-accept-request-modal">
-    <div class="confirm-head">Accept friend request?</div>
-    <div class="confirm-body">
-      Accept the friend request from <strong id="confirm-accept-request-name">this person</strong>? They will be added to your friends list.
-    </div>
-    <div class="confirm-foot">
-      <button type="button" class="confirm-btn cancel" id="confirm-accept-request-cancel">Cancel</button>
-      <button type="button" class="confirm-btn primary" id="confirm-accept-request-ok">Accept</button>
-    </div>
-  </div>
-</div>
-
-<!-- Deny friend-request confirm dialog -->
-<div class="modal-backdrop" id="confirm-deny-request-backdrop" role="dialog" aria-modal="true" aria-label="Deny friend request">
-  <div class="modal confirm-modal" id="confirm-deny-request-modal">
-    <div class="confirm-head">Deny friend request?</div>
-    <div class="confirm-body">
-      Deny the friend request from <strong id="confirm-deny-request-name">this person</strong>? They will not be added to your friends list.
-    </div>
-    <div class="confirm-foot">
-      <button type="button" class="confirm-btn cancel" id="confirm-deny-request-cancel">Cancel</button>
-      <button type="button" class="confirm-btn danger" id="confirm-deny-request-ok">Deny</button>
-    </div>
-  </div>
-</div>
-
-<!-- ============================================================
-     Account Center (fullscreen overlay) — additive feature.
-     Hidden by default. Mounted in DOM but only shown while signed in
-     and the user opens it from the 3-dot menu. Never shown logged-out.
-     ============================================================ -->
-<div id="ac-overlay" role="dialog" aria-modal="true" aria-labelledby="ac-title" aria-hidden="true">
-  <div class="ac-header">
-    <h2 id="ac-title">
-      <span class="ac-title-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="9" cy="9" r="3.4"/>
-          <path d="M2.5 20.5a6.5 6.5 0 0 1 13 0"/>
-          <circle cx="18" cy="6.5" r="2.2"/>
-          <circle cx="18" cy="14" r="2.2"/>
-          <circle cx="18" cy="21" r="2.2"/>
-        </svg>
-      </span>
-      <span class="ac-title-text">Account Center</span>
-    </h2>
-    <button type="button" class="ac-close-btn" id="ac-close" aria-label="Close Account Center" title="Close">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
-    </button>
-  </div>
-  <div class="ac-body">
-    <div class="ac-wrap">
-      <section class="ac-section" aria-labelledby="ac-sec-accounts">
-        <h3 id="ac-sec-accounts">Your accounts on this device</h3>
-        <div id="ac-list" role="list"></div>
-      </section>
-      <section class="ac-section">
-        <div class="ac-row-actions">
-          <button type="button" class="ac-btn" id="ac-add-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-            <span>Add another account</span>
-          </button>
-        </div>
-        <div class="ac-hint">Sign in to a different account without losing this one. You'll be able to switch between them instantly.</div>
-      </section>
-      <section class="ac-section" aria-labelledby="ac-sec-settings">
-        <h3 id="ac-sec-settings">Active account settings</h3>
-        <div class="ac-field">
-          <label for="ac-email">Email</label>
-          <input type="email" id="ac-email" autocomplete="email" inputmode="email" />
-        </div>
-        <div class="ac-row-actions">
-          <button type="button" class="ac-btn primary" id="ac-save-email">Update email</button>
-        </div>
-        <div class="ac-msg" id="ac-email-msg" aria-live="polite"></div>
-        <div style="height:14px"></div>
-        <div class="ac-field">
-          <label for="ac-pw-current">Current password</label>
-          <input type="password" id="ac-pw-current" autocomplete="current-password" />
-        </div>
-        <div class="ac-field">
-          <label for="ac-pw-new">New password</label>
-          <input type="password" id="ac-pw-new" autocomplete="new-password" />
-        </div>
-        <div class="ac-field">
-          <label for="ac-pw-confirm">Confirm new password</label>
-          <input type="password" id="ac-pw-confirm" autocomplete="new-password" />
-        </div>
-        <div class="ac-row-actions">
-          <button type="button" class="ac-btn primary" id="ac-save-pw">Update password</button>
-        </div>
-        <div class="ac-msg" id="ac-pw-msg" aria-live="polite"></div>
-      </section>
-      <section class="ac-section" aria-labelledby="ac-sec-danger">
-        <h3 id="ac-sec-danger">Danger zone</h3>
-        <div class="ac-hint">Removing an account from this device keeps your data on the server. Deleting your account is permanent and cannot be undone.</div>
-        <div class="ac-row-actions">
-          <button type="button" class="ac-btn" id="ac-signout-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-            <span>Sign out of this account</span>
-          </button>
-          <button type="button" class="ac-btn danger" id="ac-delete-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
-            <span>Delete my account…</span>
-          </button>
-        </div>
-      </section>
-    </div>
-  </div>
-</div>
-<div class="ac-modal-back" id="ac-confirm-back" role="dialog" aria-modal="true" aria-labelledby="ac-confirm-title" aria-hidden="true">
-  <div class="ac-modal">
-    <h3 id="ac-confirm-title">Delete account?</h3>
-    <p>This permanently deletes your account and all associated data from Relay. This action cannot be undone.</p>
-    <div class="ac-field">
-      <label for="ac-confirm-pw">Confirm your password</label>
-      <input type="password" id="ac-confirm-pw" autocomplete="current-password" />
-    </div>
-    <div class="ac-msg" id="ac-confirm-msg" aria-live="polite"></div>
-    <div class="ac-modal-actions">
-      <button type="button" class="ac-btn" id="ac-confirm-cancel">Cancel</button>
-      <button type="button" class="ac-btn danger" id="ac-confirm-ok">Delete account</button>
-    </div>
-  </div>
-</div>
-
-<!-- ============================================================
-     SETTINGS (fullscreen overlay)
-     Opened from the header 3-dot menu entry directly below
-     "Account Center". Two panes: collapsible left sidebar +
-     main content area (intentionally empty for now, ready to
-     receive settings panels later).
-     ============================================================ -->
-<div id="settings-overlay" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-hidden="true">
-  <aside class="settings-sidebar" id="settings-sidebar">
-    <div class="settings-sidebar-header">
-      <button type="button" class="settings-sidebar-toggle" id="settings-sidebar-toggle" aria-label="Collapse sidebar" title="Collapse sidebar" aria-expanded="true" aria-controls="settings-sidebar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <span class="settings-sidebar-title">Settings</span>
-    </div>
-    <nav class="settings-nav" id="settings-nav" aria-label="Settings sections">
-      <div class="settings-nav-empty">No settings yet. More options coming soon.</div>
-    </nav>
-    <div class="settings-sidebar-footer">
-      <button type="button" class="settings-close-btn" id="settings-close">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
-        <span class="settings-close-label">Close</span>
-      </button>
-    </div>
-  </aside>
-  <main class="settings-main">
-    <header class="settings-main-header">
-      <h2 id="settings-title">
-        <span class="settings-title-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        </span>
-        <span>Settings</span>
-      </h2>
-      <button type="button" class="settings-close-x" id="settings-close-x" aria-label="Close Settings" title="Close">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
-      </button>
-    </header>
-    <div class="settings-content">
-      <div class="settings-empty">
-        <div class="settings-empty-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        </div>
-        <div class="settings-empty-title">Settings</div>
-        <div class="settings-empty-body">This is where you'll configure Relay. New options will appear here soon.</div>
-      </div>
-    </div>
   </main>
-</div>
 
-<!-- ============================================================
-     MODERATOR PANEL (fullscreen overlay, Ctrl+Shift+M)
-     Mounted in DOM but gated by myIsModerator flag on the client
-     AND by RLS policies on the server. Non-moderators cannot open
-     it — the shortcut handler silently no-ops for them.
-     ============================================================ -->
-<div id="mod-overlay" role="dialog" aria-modal="true" aria-labelledby="mod-title" aria-hidden="true">
-  <div class="mod-header">
-    <h2 id="mod-title">
-      <span class="mod-title-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5l8-3z"/>
-          <path d="M9 12l2 2 4-4"/>
-        </svg>
-      </span>
-      <span class="mod-title-text">Moderator Panel</span>
-      <span class="mod-banner" aria-hidden="true">mods only</span>
-    </h2>
-    <button type="button" class="mod-close-btn" id="mod-close" aria-label="Close Moderator Panel" title="Close">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
-    </button>
-  </div>
-  <div class="mod-body">
-    <div class="mod-wrap">
-
-      <!-- Text statistics -->
-      <section class="mod-section" aria-labelledby="mod-sec-stats">
-        <h3 id="mod-sec-stats">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 4 4 5-5"/></svg>
-          Overview
-        </h3>
-        <div class="mod-grid-4">
-          <div class="mod-stat"><div class="mod-stat-num" id="mod-stat-users">–</div><div class="mod-stat-lbl">Total users</div></div>
-          <div class="mod-stat"><div class="mod-stat-num" id="mod-stat-active">–</div><div class="mod-stat-lbl">Active (24h)</div></div>
-          <div class="mod-stat"><div class="mod-stat-num" id="mod-stat-messages">–</div><div class="mod-stat-lbl">Total messages</div></div>
-          <div class="mod-stat"><div class="mod-stat-num" id="mod-stat-actions">–</div><div class="mod-stat-lbl">Mod actions</div></div>
-        </div>
-      </section>
-
-      <!-- Charts -->
-      <section class="mod-section" aria-labelledby="mod-sec-charts">
-        <div class="mod-row-head">
-          <h3 id="mod-sec-charts">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="8" rx="1"/><rect x="10" y="7" width="4" height="13" rx="1"/><rect x="17" y="3" width="4" height="17" rx="1"/></svg>
-            Activity (last 14 days)
-          </h3>
-          <button type="button" class="mod-btn" id="mod-refresh" title="Refresh data">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3.2-6.9"/><path d="M21 3v6h-6"/></svg>
-            Refresh
-          </button>
-        </div>
-        <div class="mod-grid-3">
-          <div class="mod-chart-wrap"><canvas id="mod-chart-messages" aria-label="Messages per day"></canvas></div>
-          <div class="mod-chart-wrap"><canvas id="mod-chart-users"    aria-label="New users per day"></canvas></div>
-          <div class="mod-chart-wrap"><canvas id="mod-chart-actions"  aria-label="Moderation actions per day"></canvas></div>
-        </div>
-      </section>
-
-      <div class="mod-grid-2">
-        <!-- Moderator Notes -->
-        <section class="mod-section" aria-labelledby="mod-sec-notes">
-          <h3 id="mod-sec-notes">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12l4 4v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M16 4v4h4"/><path d="M8 13h8"/><path d="M8 17h6"/></svg>
-            Shared notes
-          </h3>
-          <div class="mod-field">
-            <textarea id="mod-note-input" class="mod-textarea" maxlength="4000" placeholder="Write a note for the moderation team…"></textarea>
-          </div>
-          <div class="mod-row-head" style="margin-top:8px">
-            <span class="mod-stat-lbl" id="mod-note-count" style="letter-spacing:0.04em">0 notes</span>
-            <button type="button" class="mod-btn primary" id="mod-note-submit">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
-              Post note
-            </button>
-          </div>
-          <div class="mod-list" id="mod-notes-list" style="margin-top:10px"></div>
-        </section>
-
-        <!-- Moderator Logs -->
-        <section class="mod-section" aria-labelledby="mod-sec-logs">
-          <h3 id="mod-sec-logs">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>
-            Moderation logs
-            <span id="mod-log-live" class="mod-banner" style="margin-left:6px;background:rgba(45,161,93,0.15);color:#2da15d">live</span>
-          </h3>
-          <div class="mod-list" id="mod-logs-list"></div>
-        </section>
+  <footer class="page-footer">
+    <div class="page-footer-inner">
+      <div class="footer-brand">
+        <img src="logo.png" alt="" onerror="this.style.display='none'" />
+        <span class="footer-brand-text">
+          <span class="fb-name">Relay</span>
+          <span class="fb-note">Modern messaging and chat.</span>
+        </span>
       </div>
-
-      <!-- User checker -->
-      <section class="mod-section" aria-labelledby="mod-sec-check">
-        <h3 id="mod-sec-check">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-          User checker
-        </h3>
-        <div class="mod-check-input-row">
-          <input type="text" id="mod-check-input" class="mod-input" placeholder="Enter user UUID (auth user_id)" autocomplete="off" spellcheck="false" />
-          <button type="button" class="mod-btn primary" id="mod-check-submit">Look up</button>
-        </div>
-        <div id="mod-check-result"></div>
-      </section>
-
-      <!-- Moderator list -->
-      <section class="mod-section" aria-labelledby="mod-sec-mods">
-        <h3 id="mod-sec-mods">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3.4"/><path d="M2.5 20.5a6.5 6.5 0 0 1 13 0"/><circle cx="18" cy="6.5" r="2.2"/><circle cx="18" cy="14" r="2.2"/></svg>
-          Moderator team
-        </h3>
-        <div class="mod-mod-grid" id="mod-mods-list"></div>
-      </section>
-
+      <nav aria-label="Footer navigation">
+        <a href="#features">Features</a>
+        <a href="#highlight">Why Relay?</a>
+        <a href="/terms.html">Terms</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/contact.html">Contact</a>
+      </nav>
+      <div class="footer-legal">Copyright 2025 Relay. All rights reserved.</div>
     </div>
-  </div>
-</div>
+    <button type="button" class="back-to-top" id="back-to-top" aria-label="Back to top">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 15 12 9 18 15"/></svg>
+      <span>Back to top</span>
+    </button>
+  </footer>
 
-<!-- Attachment drawer (upward popup) — shared across composers -->
-<div id="attach-drawer" role="menu" aria-label="Add attachment">
-  <button type="button" class="ad-item" id="attach-opt-photos">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M3 17l5-5 4 4 3-3 6 6"/></svg>
-    <span><strong>Photos &amp; Videos</strong><span class="ad-sub">Images, GIFs, video clips</span></span>
-  </button>
-  <button type="button" class="ad-item" id="attach-opt-files">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
-    <span><strong>Files</strong><span class="ad-sub">Any file type</span></span>
-  </button>
-</div>
-<input type="file" id="attach-photos-input" accept="image/*,video/*" multiple style="display:none" />
-<input type="file" id="attach-files-input" multiple style="display:none" />
+  <script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+  <script>
+    (function () {
+      var cards = document.querySelectorAll('.feature');
+      var autoGroups = [
+        '.hero-meta > span',
+        '.features .feature',
+        '.why-grid .why-card',
+        '.cta .hero-actions > .btn',
+        '.page-footer-inner > *'
+      ];
+      autoGroups.forEach(function (sel) {
+        document.querySelectorAll(sel).forEach(function (el) {
+          if (!el.classList.contains('reveal-item')) el.classList.add('reveal-item');
+        });
+      });
+      document.querySelectorAll('section > h2, section > p, .sec-head, .why-head, .cta').forEach(function (el) {
+        if (!el.classList.contains('reveal-item')) el.classList.add('reveal-item');
+      });
+      var reveals = document.querySelectorAll('.reveal-item');
+      function groupIndex(el) {
+        var parent = el.parentElement;
+        if (!parent) return 0;
+        var sibs = parent.querySelectorAll(':scope > .reveal-item');
+        return Array.prototype.indexOf.call(sibs, el);
+      }
+      if ('IntersectionObserver' in window) {
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            var el = entry.target;
+            if (entry.isIntersecting) {
+              var idx = Array.prototype.indexOf.call(cards, el);
+              el.style.transitionDelay = (Math.max(0, idx) * 90) + 'ms';
+              el.classList.add('reveal');
+            } else {
+              el.style.transitionDelay = '0ms';
+              el.classList.remove('reveal');
+            }
+          });
+        }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
+        cards.forEach(function (c) { io.observe(c); });
 
-<!-- Emoji picker -->
-<div id="emoji-picker" role="dialog" aria-label="Emoji picker">
-  <div class="ep-grid" id="ep-grid"></div>
-</div>
+        var ioReveal = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            var el = entry.target;
+            if (entry.isIntersecting) {
+              var gi = groupIndex(el);
+              var delay = Math.min(520, Math.max(0, gi) * 80);
+              el.style.transitionDelay = delay + 'ms';
+              el.classList.add('in');
+            } else {
+              el.style.transitionDelay = '0ms';
+              el.classList.remove('in');
+            }
+          });
+        }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+        reveals.forEach(function (r) { ioReveal.observe(r); });
+      } else {
+        cards.forEach(function (c) { c.classList.add('reveal'); });
+        reveals.forEach(function (r) { r.classList.add('in'); });
+      }
+      cards.forEach(function (card) {
+        card.addEventListener('mousemove', function (e) {
+          var r = card.getBoundingClientRect();
+          card.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
+          card.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
+        });
+      });
 
-<!-- Chat-row context menu (DM/group sidebar rows) -->
-<div id="chat-row-ctx" role="menu" aria-label="Chat options"></div>
+      var hmBtn = document.getElementById('header-menu-btn');
+      var hmDrawer = document.getElementById('header-menu-drawer');
+      if (hmBtn && hmDrawer) {
+        function closeMenu() {
+          hmDrawer.classList.remove('open');
+          hmBtn.setAttribute('aria-expanded', 'false');
+        }
+        function openMenu() {
+          hmDrawer.classList.add('open');
+          hmBtn.setAttribute('aria-expanded', 'true');
+        }
+        hmBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          if (hmDrawer.classList.contains('open')) closeMenu(); else openMenu();
+        });
+        document.addEventListener('click', function (e) {
+          if (!hmDrawer.contains(e.target) && e.target !== hmBtn) closeMenu();
+        });
+        document.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') closeMenu();
+        });
+        hmDrawer.querySelectorAll('.header-menu-item').forEach(function (it) {
+          it.addEventListener('click', closeMenu);
+        });
+      }
 
-<!-- Disposed-chats 3-dot mini menu -->
-<div id="disposed-mini" role="menu" aria-label="Chats menu">
-  <button type="button" id="disposed-open-btn">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
-    <span>Disposed Chats</span>
-  </button>
-</div>
+      (function () {
+        var toggle = document.getElementById('theme-toggle');
+        if (!toggle) return;
+        function readTheme() {
+          var t = document.documentElement.getAttribute('data-theme');
+          return (t === 'dark' || t === 'light') ? t : 'light';
+        }
+        function syncToggle() {
+          var isDark = readTheme() === 'dark';
+          toggle.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+          toggle.setAttribute('aria-checked', isDark ? 'true' : 'false');
+        }
+        function setTheme(next) {
+          document.documentElement.setAttribute('data-theme', next);
+          try { localStorage.setItem('relay-theme', next); } catch (e) {}
+          syncToggle();
+        }
+        syncToggle();
+        toggle.addEventListener('click', function (e) {
+          e.stopPropagation();
+          setTheme(readTheme() === 'dark' ? 'light' : 'dark');
+        });
+      })();
 
-<!-- Disposed chats overlay -->
-<div id="disposed-overlay" role="dialog" aria-modal="true" aria-label="Disposed chats">
-  <div class="disposed-card">
-    <div class="disposed-head">
-      <h3>Disposed Chats</h3>
-      <button type="button" class="disposed-close" id="disposed-close" aria-label="Close">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <div class="disposed-body" id="disposed-body"></div>
-  </div>
-</div>
+      var backTop = document.getElementById('back-to-top');
+      if (backTop) {
+        backTop.addEventListener('click', function () {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      }
 
-<div id="toasts" aria-live="polite"></div>
+      (function () {
+        var SUPABASE_URL = 'https://tkarylpzztjwgrphbwun.supabase.co';
+        var SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_IUjfPk7PEosHgoPMqnIa2w_5Ov96vXx';
+        var REFRESH_MS = 30000;
+        var ANIM_MS = 1200;
+        var statEls = document.querySelectorAll('#stats .stat-value');
+        if (!statEls.length || !SUPABASE_PUBLISHABLE_KEY) return;
+        var current = {};
+        var rafs = {};
+        statEls.forEach(function (el) { current[el.getAttribute('data-stat')] = 0; });
+        function formatNumber(n) { return Math.round(n).toLocaleString('en-US'); }
+        function animate(el, from, to) {
+          var key = el.getAttribute('data-stat');
+          if (rafs[key]) cancelAnimationFrame(rafs[key]);
+          var start = performance.now();
+          function step(now) {
+            var t = Math.min(1, (now - start) / ANIM_MS);
+            var eased = 1 - Math.pow(1 - t, 3);
+            var v = from + (to - from) * eased;
+            el.textContent = formatNumber(v);
+            if (t < 1) { rafs[key] = requestAnimationFrame(step); }
+            else { rafs[key] = 0; el.textContent = formatNumber(to); }
+          }
+          rafs[key] = requestAnimationFrame(step);
+        }
+        var inFlight = false;
+        function fetchStats() {
+          if (inFlight || document.hidden) return;
+          inFlight = true;
+          fetch(SUPABASE_URL + '/rest/v1/rpc/get_landing_stats', {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_PUBLISHABLE_KEY,
+              'Authorization': 'Bearer ' + SUPABASE_PUBLISHABLE_KEY,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: '{}'
+          }).then(function (r) {
+            if (!r.ok) throw new Error('stats http ' + r.status);
+            return r.json();
+          }).then(function (data) {
+            var stats = data && typeof data === 'object' ? data : {};
+            Object.keys(current).forEach(function (key) {
+              var next = Number(stats[key]);
+              if (!isFinite(next) || next < 0) return;
+              var prev = current[key];
+              if (next !== prev) {
+                var el = document.querySelector('#stats .stat-value[data-stat="' + key + '"]');
+                if (el) animate(el, prev, next);
+                current[key] = next;
+              }
+            });
+          }).catch(function () {}).then(function () { inFlight = false; });
+        }
+        if (!window.__relayStatsInterval) {
+          fetchStats();
+          window.__relayStatsInterval = setInterval(fetchStats, REFRESH_MS);
+        }
+      })();
 
-<!-- Fullscreen email-verification modal. Hard-locks the app while the signed-in
-     user's email is unverified. Cannot be dismissed; closes only when Supabase
-     reports `email_confirmed_at` is non-null. -->
-<div class="verify-modal" id="verify-modal" role="dialog" aria-modal="true" aria-labelledby="verify-modal-title" aria-describedby="verify-modal-desc">
-  <div class="verify-modal-panel">
-    <span class="verify-modal-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="5" width="18" height="14" rx="2"/>
-        <path d="m3 7 9 6 9-6"/>
-      </svg>
-    </span>
-    <h2 class="verify-modal-title" id="verify-modal-title">Verify your email to continue</h2>
-    <p class="verify-modal-desc" id="verify-modal-desc">To continue using Relay and start chatting, please check your inbox and verify your email.<br><span class="verify-modal-spam">Be sure to check your spam folder as well.</span></p>
-    <span class="verify-modal-email" id="verify-modal-email">your email</span>
-    <div class="verify-modal-actions">
-      <button type="button" class="vm-primary" id="verify-modal-verified">
-        <span class="vm-label">I've Verified</span>
-      </button>
-      <button type="button" class="vm-secondary" id="verify-modal-resend">
-        <span class="vm-resend-label">Resend Email</span>
-      </button>
-    </div>
-    <div class="verify-modal-status" id="verify-modal-status" role="status" aria-live="polite"></div>
-  </div>
-</div>
+      document.querySelectorAll('a[href^="#"]').forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          var id = a.getAttribute('href');
+          if (id && id.length > 1) {
+            var target = document.querySelector(id);
+            if (target) {
+              e.preventDefault();
+              target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }
+        });
+      });
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script src="assets/js/app.min.js"></script>
+      var twEl = document.getElementById('tw-word');
+      if (twEl) {
+        var words = ['instant', 'effortless', 'personal', 'secure', 'alive'];
+        var wIdx = 0, cIdx = 0, typing = true, holdUntil = 0;
+        var TYPE_MS = 80, DELETE_MS = 45, HOLD_MS = 1400, GAP_MS = 250;
+        var last = performance.now();
+        function tick(now) {
+          var dt = now - last;
+          if (typing) {
+            if (dt >= TYPE_MS) {
+              last = now;
+              var full = words[wIdx];
+              cIdx++;
+              twEl.textContent = full.slice(0, cIdx);
+              if (cIdx >= full.length) {
+                typing = false;
+                holdUntil = now + HOLD_MS;
+              }
+            }
+          } else if (now < holdUntil) {
+            last = now;
+          } else {
+            if (dt >= DELETE_MS) {
+              last = now;
+              cIdx--;
+              twEl.textContent = words[wIdx].slice(0, Math.max(0, cIdx));
+              if (cIdx <= 0) {
+                wIdx = (wIdx + 1) % words.length;
+                typing = true;
+                holdUntil = now + GAP_MS;
+                last = now + GAP_MS;
+              }
+            }
+          }
+          requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      }
+
+      initGlobe(document.getElementById('globe-stage'));
+
+      function initGlobe(container) {
+        if (!container || typeof THREE === 'undefined') return;
+
+        var scene = new THREE.Scene();
+        scene.background = null;
+
+        var camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
+        camera.position.set(0, 0, 5.6);
+
+        var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.setSize(container.clientWidth || 400, container.clientHeight || 400, false);
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        container.appendChild(renderer.domElement);
+
+        var ambient = new THREE.AmbientLight(0xffffff, 0.55);
+        scene.add(ambient);
+        var sun = new THREE.DirectionalLight(0xffffff, 1.15);
+        sun.position.set(5, 3, 5);
+        scene.add(sun);
+        var rim = new THREE.DirectionalLight(0x6aa4ff, 0.35);
+        rim.position.set(-5, -2, -3);
+        scene.add(rim);
+
+        var earthGroup = new THREE.Group();
+        scene.add(earthGroup);
+
+        var EARTH_R = 1.4;
+        var sphereGeo = new THREE.SphereGeometry(EARTH_R, 96, 96);
+
+        var placeholderMat = new THREE.MeshPhongMaterial({
+          color: 0x1f4b8a,
+          emissive: 0x081a30,
+          shininess: 18,
+          specular: 0x335b8f
+        });
+        var earthMesh = new THREE.Mesh(sphereGeo, placeholderMat);
+        earthGroup.add(earthMesh);
+
+        var loader = new THREE.TextureLoader();
+        loader.crossOrigin = 'anonymous';
+        var texBase = 'https://threejs.org/examples/textures/planets/';
+        var specTex = loader.load(texBase + 'earth_specular_2048.jpg');
+        var normTex = loader.load(texBase + 'earth_normal_2048.jpg');
+        loader.load(texBase + 'earth_atmos_2048.jpg', function (t) {
+          t.anisotropy = Math.min(16, renderer.capabilities.getMaxAnisotropy());
+          t.encoding = THREE.sRGBEncoding;
+          earthMesh.material = new THREE.MeshPhongMaterial({
+            map: t,
+            specularMap: specTex,
+            bumpMap: normTex,
+            bumpScale: 0.03,
+            shininess: 14,
+            specular: new THREE.Color(0x2a3c5a)
+          });
+          earthMesh.material.needsUpdate = true;
+        });
+
+        var ACCENT = new THREE.Color(0x2873ce);
+        var CITIES = [
+          [40.71, -74.01],  [51.51, -0.13],   [48.85, 2.35],    [35.68, 139.69],
+          [37.77, -122.42], [-33.87, 151.21], [1.35, 103.82],   [55.75, 37.62],
+          [-23.55, -46.63], [28.61, 77.21],   [-34.60, -58.38], [30.05, 31.23],
+          [52.52, 13.40],   [59.33, 18.07],   [25.20, 55.27],   [-1.29, 36.82],
+          [19.43, -99.13],  [43.65, -79.38],  [22.32, 114.17],  [-26.20, 28.04]
+        ];
+
+        function latLonToVec3(lat, lon, radius) {
+          var phi = (90 - lat) * Math.PI / 180;
+          var theta = (lon + 180) * Math.PI / 180;
+          return new THREE.Vector3(
+            -radius * Math.sin(phi) * Math.cos(theta),
+            radius * Math.cos(phi),
+            radius * Math.sin(phi) * Math.sin(theta)
+          );
+        }
+
+        function easeInOutCubic(x) {
+          return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+        }
+        function easeOutQuart(x) { return 1 - Math.pow(1 - x, 4); }
+
+        var arcs = [];
+        function spawnArc() {
+          var a = CITIES[Math.floor(Math.random() * CITIES.length)];
+          var b = CITIES[Math.floor(Math.random() * CITIES.length)];
+          if (a === b) return;
+          var pA = latLonToVec3(a[0], a[1], EARTH_R * 1.002);
+          var pB = latLonToVec3(b[0], b[1], EARTH_R * 1.002);
+          var mid = pA.clone().add(pB).multiplyScalar(0.5);
+          var chord = pA.distanceTo(pB);
+          var lift = EARTH_R + Math.min(EARTH_R * 0.48, chord * 0.26);
+          mid.normalize().multiplyScalar(lift);
+          var curve = new THREE.QuadraticBezierCurve3(pA, mid, pB);
+          var segs = 160;
+          var fullPts = curve.getPoints(segs);
+
+          var geo = new THREE.BufferGeometry().setFromPoints(fullPts);
+          geo.setDrawRange(0, 0);
+          var mat = new THREE.LineBasicMaterial({
+            color: ACCENT,
+            transparent: true,
+            opacity: 0.0
+          });
+          var line = new THREE.Line(geo, mat);
+          earthGroup.add(line);
+
+          var trailSegs = 28;
+          var trailGeo = new THREE.BufferGeometry();
+          var trailArr = new Float32Array((trailSegs + 1) * 3);
+          trailGeo.setAttribute('position', new THREE.BufferAttribute(trailArr, 3));
+          var trailColors = new Float32Array((trailSegs + 1) * 3);
+          for (var ti = 0; ti <= trailSegs; ti++) {
+            trailColors[ti * 3] = ACCENT.r;
+            trailColors[ti * 3 + 1] = ACCENT.g;
+            trailColors[ti * 3 + 2] = ACCENT.b;
+          }
+          trailGeo.setAttribute('color', new THREE.BufferAttribute(trailColors, 3));
+          var trailMat = new THREE.LineBasicMaterial({
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.95,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+          });
+          var trail = new THREE.Line(trailGeo, trailMat);
+          trailGeo.setDrawRange(0, 0);
+          earthGroup.add(trail);
+
+          var headGeo = new THREE.SphereGeometry(0.022, 18, 18);
+          var headMat = new THREE.MeshBasicMaterial({ color: 0xdfeaff, transparent: true, opacity: 0 });
+          var head = new THREE.Mesh(headGeo, headMat);
+          head.position.copy(pA);
+          earthGroup.add(head);
+
+          var glowGeo = new THREE.SphereGeometry(0.05, 18, 18);
+          var glowMat = new THREE.MeshBasicMaterial({
+            color: ACCENT, transparent: true, opacity: 0,
+            blending: THREE.AdditiveBlending, depthWrite: false
+          });
+          var glow = new THREE.Mesh(glowGeo, glowMat);
+          glow.position.copy(pA);
+          earthGroup.add(glow);
+
+          var startMark = new THREE.Mesh(
+            new THREE.SphereGeometry(0.024, 18, 18),
+            new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0 })
+          );
+          startMark.position.copy(pA);
+          earthGroup.add(startMark);
+
+          var startRingGeo = new THREE.RingGeometry(0.034, 0.04, 40);
+          var startRingMat = new THREE.MeshBasicMaterial({
+            color: ACCENT, transparent: true, opacity: 0, side: THREE.DoubleSide,
+            depthWrite: false
+          });
+          var startRing = new THREE.Mesh(startRingGeo, startRingMat);
+          startRing.position.copy(pA);
+          startRing.lookAt(new THREE.Vector3(0, 0, 0));
+          earthGroup.add(startRing);
+
+          var endMark = new THREE.Mesh(
+            new THREE.SphereGeometry(0.024, 18, 18),
+            new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0 })
+          );
+          endMark.position.copy(pB);
+          earthGroup.add(endMark);
+
+          var endRingGeo = new THREE.RingGeometry(0.034, 0.04, 40);
+          var endRingMat = new THREE.MeshBasicMaterial({
+            color: ACCENT, transparent: true, opacity: 0, side: THREE.DoubleSide,
+            depthWrite: false
+          });
+          var endRing = new THREE.Mesh(endRingGeo, endRingMat);
+          endRing.position.copy(pB);
+          endRing.lookAt(new THREE.Vector3(0, 0, 0));
+          earthGroup.add(endRing);
+
+          arcs.push({
+            pA: pA, pB: pB,
+            line: line, geo: geo, mat: mat, segs: segs, curve: curve,
+            trail: trail, trailGeo: trailGeo, trailArr: trailArr, trailMat: trailMat, trailSegs: trailSegs,
+            head: head, headMat: headMat,
+            glow: glow, glowMat: glowMat,
+            startMark: startMark, startRing: startRing, startRingMat: startRingMat,
+            endMark: endMark, endRing: endRing, endRingMat: endRingMat,
+            phase: 'draw', t: 0, holdT: 0, fadeT: 0
+          });
+        }
+
+        var spawnAcc = 0;
+        var spawnEvery = 0.55;
+        var maxArcs = 6;
+
+        function updateArcs(dt) {
+          for (var i = arcs.length - 1; i >= 0; i--) {
+            var a = arcs[i];
+            if (a.phase === 'draw') {
+              a.t += dt / 1.9;
+              if (a.t >= 1) { a.t = 1; a.phase = 'hold'; a.holdT = 0; }
+              var eased = easeInOutCubic(a.t);
+              var count = Math.max(2, Math.floor(eased * (a.segs + 1)));
+              a.geo.setDrawRange(0, count);
+              a.mat.opacity = Math.min(0.9, eased * 1.1);
+              var headPos = a.curve.getPoint(eased);
+              a.head.position.copy(headPos);
+              a.glow.position.copy(headPos);
+              a.headMat.opacity = Math.min(1, a.t * 1.4);
+              a.glowMat.opacity = Math.min(0.55, Math.sin(a.t * Math.PI) * 0.6);
+              a.startMark.material.opacity = Math.min(1, a.t * 2.4);
+              a.startRingMat.opacity = Math.max(0, 0.8 - a.t * 0.8);
+              a.startRing.scale.setScalar(1 + a.t * 1.8);
+              a.endMark.material.opacity = Math.min(1, easeOutQuart(a.t));
+              a.endRingMat.opacity = Math.min(0.7, a.t * 0.9);
+              a.endRing.scale.setScalar(1 + Math.sin(a.t * Math.PI) * 0.6);
+
+              var tailStart = Math.max(0, eased - 0.18);
+              for (var j = 0; j <= a.trailSegs; j++) {
+                var u = tailStart + (eased - tailStart) * (j / a.trailSegs);
+                var p = a.curve.getPoint(Math.max(0, Math.min(1, u)));
+                a.trailArr[j * 3] = p.x;
+                a.trailArr[j * 3 + 1] = p.y;
+                a.trailArr[j * 3 + 2] = p.z;
+              }
+              a.trailGeo.attributes.position.needsUpdate = true;
+              a.trailGeo.setDrawRange(0, a.trailSegs + 1);
+              a.trailMat.opacity = Math.min(0.95, a.t * 1.6);
+            } else if (a.phase === 'hold') {
+              a.holdT += dt;
+              a.endRing.scale.setScalar(1 + Math.sin(a.holdT * 4.5) * 0.35 + 0.1);
+              a.endRingMat.opacity = Math.max(0, 0.7 - a.holdT * 1.2);
+              a.glowMat.opacity = Math.max(0, 0.5 - a.holdT * 0.8);
+              if (a.holdT > 0.55) { a.phase = 'fade'; a.fadeT = 0; }
+            } else if (a.phase === 'fade') {
+              a.fadeT += dt / 0.95;
+              var o = Math.max(0, 1 - easeOutQuart(a.fadeT));
+              a.mat.opacity = 0.9 * o;
+              a.trailMat.opacity = 0.95 * o;
+              a.headMat.opacity = o;
+              a.glowMat.opacity = 0.3 * o;
+              a.endMark.material.opacity = o;
+              a.startMark.material.opacity = o;
+              if (a.fadeT >= 1) {
+                earthGroup.remove(a.line);
+                earthGroup.remove(a.trail);
+                earthGroup.remove(a.head);
+                earthGroup.remove(a.glow);
+                earthGroup.remove(a.startMark);
+                earthGroup.remove(a.startRing);
+                earthGroup.remove(a.endMark);
+                earthGroup.remove(a.endRing);
+                a.geo.dispose(); a.mat.dispose();
+                a.trailGeo.dispose(); a.trailMat.dispose();
+                a.head.geometry.dispose(); a.headMat.dispose();
+                a.glow.geometry.dispose(); a.glowMat.dispose();
+                a.startMark.geometry.dispose(); a.startMark.material.dispose();
+                a.startRing.geometry.dispose(); a.startRingMat.dispose();
+                a.endMark.geometry.dispose(); a.endMark.material.dispose();
+                a.endRing.geometry.dispose(); a.endRingMat.dispose();
+                arcs.splice(i, 1);
+              }
+            }
+          }
+        }
+
+        var dragging = false, lastX = 0, lastY = 0;
+        var targetRotY = 0.4, targetRotX = 0.15;
+        var curRotY = targetRotY, curRotX = targetRotX;
+        var spin = 0.08;
+        var el = renderer.domElement;
+        el.style.cursor = 'grab';
+        function onDown(e) {
+          dragging = true;
+          el.style.cursor = 'grabbing';
+          var p = e.touches ? e.touches[0] : e;
+          lastX = p.clientX; lastY = p.clientY;
+        }
+        function onMove(e) {
+          if (!dragging) return;
+          var p = e.touches ? e.touches[0] : e;
+          var dx = p.clientX - lastX;
+          var dy = p.clientY - lastY;
+          lastX = p.clientX; lastY = p.clientY;
+          targetRotY += dx * 0.005;
+          targetRotX += dy * 0.005;
+          targetRotX = Math.max(-0.9, Math.min(0.9, targetRotX));
+          if (e.cancelable) e.preventDefault();
+        }
+        function onUp() { dragging = false; el.style.cursor = 'grab'; }
+        el.addEventListener('mousedown', onDown);
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        el.addEventListener('touchstart', onDown, { passive: true });
+        el.addEventListener('touchmove', onMove, { passive: false });
+        el.addEventListener('touchend', onUp);
+
+        function resize() {
+          var w = container.clientWidth;
+          var h = container.clientHeight;
+          if (!w || !h) return;
+          renderer.setSize(w, h, false);
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+        }
+        if ('ResizeObserver' in window) {
+          new ResizeObserver(resize).observe(container);
+        } else {
+          window.addEventListener('resize', resize);
+        }
+
+        var running = true;
+        var lastT = performance.now();
+        function loop() {
+          if (!running) return;
+          var now = performance.now();
+          var dt = Math.min(0.05, (now - lastT) / 1000);
+          lastT = now;
+
+          if (!dragging) targetRotY += spin * dt;
+          curRotY += (targetRotY - curRotY) * Math.min(1, dt * 6);
+          curRotX += (targetRotX - curRotX) * Math.min(1, dt * 6);
+          earthGroup.rotation.y = curRotY;
+          earthGroup.rotation.x = curRotX;
+
+          spawnAcc += dt;
+          if (spawnAcc >= spawnEvery && arcs.length < maxArcs) {
+            spawnAcc = 0;
+            spawnArc();
+          }
+          updateArcs(dt);
+
+          renderer.render(scene, camera);
+          requestAnimationFrame(loop);
+        }
+
+        if ('IntersectionObserver' in window) {
+          var visible = true;
+          var vio = new IntersectionObserver(function (entries) {
+            entries.forEach(function (ent) {
+              if (ent.isIntersecting && !visible) {
+                visible = true;
+                if (!running) {
+                  running = true;
+                  lastT = performance.now();
+                  requestAnimationFrame(loop);
+                }
+              } else if (!ent.isIntersecting) {
+                visible = false;
+                running = false;
+              }
+            });
+          }, { threshold: 0.05 });
+          vio.observe(container);
+        }
+
+        resize();
+        spawnArc();
+        requestAnimationFrame(loop);
+      }
+    })();
+
+    (function () {
+      var loader = document.getElementById('page-loader');
+      if (!loader) return;
+      var MIN_MS = 1400;
+      var FADE_MS = 550;
+      var started = Date.now();
+      var hidden = false;
+      function hide() {
+        if (hidden) return;
+        hidden = true;
+        var elapsed = Date.now() - started;
+        var wait = Math.max(0, MIN_MS - elapsed);
+        setTimeout(function () {
+          loader.classList.add('is-hidden');
+          document.documentElement.classList.remove('is-loading');
+          setTimeout(function () { if (loader && loader.parentNode) loader.parentNode.removeChild(loader); }, FADE_MS + 50);
+        }, wait);
+      }
+      if (document.readyState === 'complete') {
+        hide();
+      } else {
+        window.addEventListener('load', hide, { once: true });
+        setTimeout(hide, 3000);
+      }
+    })();
+
+    (function () {
+      function isEditable(el) {
+        if (!el) return false;
+        var tag = (el.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+        if (el.isContentEditable) return true;
+        return false;
+      }
+      document.addEventListener('contextmenu', function (e) {
+        if (isEditable(e.target)) return;
+        e.preventDefault();
+      }, { passive: false });
+      document.addEventListener('keydown', function (e) {
+        var key = (e.key || '').toLowerCase();
+        if (key === 'f12') { e.preventDefault(); return; }
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && (key === 'i' || key === 'j' || key === 'c')) {
+          e.preventDefault();
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && key === 'u') {
+          e.preventDefault();
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && key === 's') {
+          e.preventDefault();
+          return;
+        }
+      }, { passive: false });
+    })();
+  </script>
+  <style id="relay-sec-style">
+    .__sec-blur { filter: blur(14px) !important; pointer-events: none !important; user-select: none !important; transition: filter .25s ease; }
+    .__sec-overlay {
+      position: fixed; inset: 0; z-index: 2147483647;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(8, 14, 28, 0.72);
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+      color: #fff;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      opacity: 0; transition: opacity .25s ease;
+    }
+    .__sec-overlay.__sec-show { opacity: 1; }
+    .__sec-card {
+      text-align: center; padding: 28px 32px; margin: 0 20px; max-width: 420px;
+      background: rgba(20, 28, 48, 0.78);
+      border: 1px solid rgba(255,255,255,0.14); border-radius: 14px;
+      box-shadow: 0 18px 60px rgba(0,0,0,0.45);
+    }
+    .__sec-title { margin: 0 0 8px; font-size: 20px; font-weight: 800; letter-spacing: -0.01em; color: #fff; }
+    .__sec-body { margin: 0; font-size: 14px; line-height: 1.55; color: rgba(255,255,255,0.85); }
+  </style>
+  <script>
+    (function () {
+      if (window.__relaySec) return;
+      window.__relaySec = true;
+      var triggered = false;
+      function buildOverlay() {
+        var overlay = document.createElement('div');
+        overlay.className = '__sec-overlay';
+        overlay.setAttribute('role', 'alertdialog');
+        overlay.setAttribute('aria-live', 'assertive');
+        var card = document.createElement('div');
+        card.className = '__sec-card';
+        var h = document.createElement('h2');
+        h.className = '__sec-title';
+        h.textContent = 'Suspicious activity detected';
+        var p = document.createElement('p');
+        p.className = '__sec-body';
+        p.textContent = 'You have been detected. Redirecting for safety...';
+        card.appendChild(h); card.appendChild(p);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+        requestAnimationFrame(function () { overlay.classList.add('__sec-show'); });
+      }
+      function trigger() {
+        if (triggered) return;
+        triggered = true;
+        try {
+          if (document.body) document.body.classList.add('__sec-blur');
+          buildOverlay();
+        } catch (_) {}
+        setTimeout(function () {
+          try { window.location.replace('https://google.com'); }
+          catch (_) { try { window.location.href = 'https://google.com'; } catch (__) {} }
+        }, 2000);
+      }
+      function isEditable(el) {
+        if (!el) return false;
+        var tag = (el.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+        if (el.isContentEditable) return true;
+        return false;
+      }
+      document.addEventListener('contextmenu', function (e) {
+        if (isEditable(e.target)) return;
+        e.preventDefault();
+        trigger();
+      }, true);
+      document.addEventListener('keydown', function (e) {
+        var k = (e.key || '').toLowerCase();
+        if (k === 'f12') { e.preventDefault(); trigger(); return; }
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && (k === 'i' || k === 'j' || k === 'c')) {
+          e.preventDefault(); trigger(); return;
+        }
+        if ((e.ctrlKey || e.metaKey) && k === 'u') {
+          e.preventDefault(); trigger(); return;
+        }
+        if ((e.ctrlKey || e.metaKey) && k === 's') {
+          if (isEditable(e.target)) return;
+          e.preventDefault(); trigger(); return;
+        }
+      }, true);
+    })();
+  </script>
+
 </body>
 </html>
