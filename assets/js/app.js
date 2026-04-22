@@ -458,6 +458,58 @@
     return col;
   }
 
+  // Re-derive the invariant that each run of consecutive messages from the
+  // same sender (inside a day) is preceded by exactly one `.name-small`
+  // header. After a message is deleted we may be left with: (a) a
+  // `.name-small` that labels a row that no longer exists; or (b) a `.row`
+  // that is now the first of its sender-run but has no header because the
+  // original first row was deleted. This walks `container` once and fixes
+  // both cases. Safe to call on the public-chat container and on each
+  // group-room container; containers that never use `.name-small` are a
+  // no-op because the first pass won't find any.
+  function reconcileNameHeaders(container) {
+    if (!container) return;
+    // Pass 1: drop any header not immediately followed by a row.
+    const heads = container.querySelectorAll(".name-small");
+    for (let i = 0; i < heads.length; i++) {
+      const h = heads[i];
+      const nx = h.nextElementSibling;
+      if (!nx || !nx.classList || !nx.classList.contains("row")) h.remove();
+    }
+    // Pass 2: walk once, track last sender (reset on day-divider), and
+    // insert a header before any row that starts a new sender-run but
+    // lacks one. Also drop duplicate consecutive headers for the same row.
+    let lastUid = null;
+    const kids = Array.from(container.children);
+    for (let i = 0; i < kids.length; i++) {
+      const el = kids[i];
+      if (!el.classList) continue;
+      if (el.classList.contains("day-divider")) { lastUid = null; continue; }
+      if (el.classList.contains("name-small")) continue;
+      if (!el.classList.contains("row")) continue;
+      const uid = el.dataset.userId || "";
+      const prev = el.previousElementSibling;
+      const hasHead = !!(prev && prev.classList && prev.classList.contains("name-small"));
+      const needsHead = !!(uid && uid !== lastUid);
+      if (needsHead && !hasHead) {
+        const uname = el.dataset.username || "";
+        if (uname) {
+          const n = document.createElement("div");
+          n.className = "name-small" + (el.classList.contains("me") ? " me" : "");
+          n.textContent = uname;
+          n.setAttribute("role", "button");
+          n.tabIndex = 0;
+          n.title = "View profile";
+          el.parentNode.insertBefore(n, el);
+        }
+      } else if (!needsHead && hasHead) {
+        // Same sender as previous visible row -> extra header is noise.
+        prev.remove();
+      }
+      lastUid = uid;
+    }
+  }
+
   function buildRow(m) {
     const createdAt = new Date(m.created_at);
     const isMe = me && m.user_id === me.id;
@@ -466,6 +518,7 @@
     row.className = "row " + (isMe ? "me" : "other");
     row.dataset.id = m.id;
     row.dataset.userId = m.user_id;
+    row.dataset.username = m.username || "User";
 
     if (!isMe) {
       const avBtn = document.createElement("button");
@@ -1034,6 +1087,11 @@
       if (row) row.remove();
       rowsById.delete(m.id);
       messagesById.delete(m.id);
+      // Fix 4: clean up the sender-label block above the bubble so a
+      // deleted message never leaves an orphan username behind, and
+      // recompute `lastSenderId` from whatever is still rendered.
+      reconcileNameHeaders(messagesEl);
+      { const rs = messagesEl.querySelectorAll(".row"); lastSenderId = rs.length ? (rs[rs.length - 1].dataset.userId || null) : null; }
     } catch (err) {
       console.error("[Self] delete failed", err);
       toast("Could not delete: " + (err && err.message ? err.message : "error"), "error");
@@ -1050,6 +1108,8 @@
     if (row) row.remove();
     rowsById.delete(m.id);
     messagesById.delete(m.id);
+    reconcileNameHeaders(messagesEl);
+    { const rs = messagesEl.querySelectorAll(".row"); lastSenderId = rs.length ? (rs[rs.length - 1].dataset.userId || null) : null; }
     // Best-effort audit log for the moderator panel. Ignored if the table
     // isn't set up; never blocks the user-facing action.
     try {
@@ -1301,6 +1361,8 @@
         if (row) row.remove();
         rowsById.delete(old.id);
         messagesById.delete(old.id);
+        reconcileNameHeaders(messagesEl);
+        { const rs = messagesEl.querySelectorAll(".row"); lastSenderId = rs.length ? (rs[rs.length - 1].dataset.userId || null) : null; }
       })
       .subscribe((status) => {
         if (status === "SUBSCRIBED") console.log("[Realtime] Connected (messages)");
@@ -4994,6 +5056,8 @@
         if (row) row.remove();
         groupRowsById.delete(m.id);
         groupMessagesById.delete(m.id);
+        reconcileNameHeaders(groupRoomMessages);
+        { const rs = groupRoomMessages.querySelectorAll(".row"); groupLastSenderId = rs.length ? (rs[rs.length - 1].dataset.userId || null) : null; }
       })
       .subscribe();
     groupReactChannel = sb.channel("group_rx:" + groupId)
@@ -5125,6 +5189,12 @@
     const row = document.createElement("div");
     row.className = "row " + (isMe ? "me" : "other");
     row.dataset.id = m.id; row.dataset.userId = m.sender_id;
+    {
+      const _p = (typeof profileMiniCache !== "undefined" && profileMiniCache.get) ? profileMiniCache.get(m.sender_id) : null;
+      row.dataset.username = isMe
+        ? ((me && me.username) || "")
+        : (m.username || (_p && _p.username) || "");
+    }
 
     if (!isMe) {
       const p = (typeof profileMiniCache !== "undefined" && profileMiniCache.get) ? profileMiniCache.get(m.sender_id) : null;
@@ -5319,6 +5389,8 @@
       if (error) throw error;
       const row = groupRowsById.get(m.id); if (row) row.remove();
       groupRowsById.delete(m.id); groupMessagesById.delete(m.id);
+      reconcileNameHeaders(groupRoomMessages);
+      { const rs = groupRoomMessages.querySelectorAll(".row"); groupLastSenderId = rs.length ? (rs[rs.length - 1].dataset.userId || null) : null; }
     } catch (err) {
       console.error("[Groups] self-delete failed", err);
       toast("Could not delete: " + (err && err.message ? err.message : "error"), "error");
@@ -6130,13 +6202,11 @@
 
     // ---- Telegram-style read receipt (sender-only; DM-only) ----
     // One tick = sent, two ticks = seen by the recipient. Scoped strictly
-    // to 1:1 DM bubbles (`isMe` inside a dm_messages row). Group/public
-    // rows never get this element because this function only runs for
-    // dm_messages. Phase 3: the receipt is appended to `stack` (the
-    // column containing the bubble-wrap) so it sits BELOW the bubble
-    // rather than inside it. `align-self:flex-start` on the element
-    // left-aligns it even inside `.row.me .stack` (which otherwise
-    // aligns children to flex-end). Bubble width/height remain stable.
+    // to 1:1 DM bubbles (`isMe` inside a dm_messages row). The receipt
+    // sits INSIDE the bubble at the bottom-right, inline with the last
+    // line of text (Telegram style). For image-only bubbles the CSS
+    // absolutely-positions it over the image corner with a subtle chip
+    // so it stays legible without shifting the image.
     let __rrEl = null;
     if (isMe) {
       __rrEl = _dmBuildReceiptEl();
@@ -6148,6 +6218,11 @@
       currentActionMode = "dm";
       openReactionPicker(m.id, r.left + r.width / 2, r.top);
     });
+
+    // Fix 1: receipt lives INSIDE the bubble, appended as last child so
+    // it sits inline with the end of the message (Telegram-style). CSS
+    // handles image-only bubbles separately (absolute-positioned chip).
+    if (__rrEl) bubble.appendChild(__rrEl);
 
     wrap.appendChild(bubble);
 
@@ -6178,11 +6253,6 @@
     reactsEl.className = "reactions";
     reactsEl.dataset.msgId = m.id;
     stack.appendChild(reactsEl);
-
-    // Read receipt lives BELOW the bubble (Phase 3): append to `stack`
-    // after the bubble+reactions, before row time. The bubble itself
-    // keeps its shape because the receipt is a sibling, not a child.
-    if (__rrEl) stack.appendChild(__rrEl);
 
     row.appendChild(stack);
 
