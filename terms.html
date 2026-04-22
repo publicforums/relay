@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Relay Terms of Service</title>
+<link rel="icon" type="image/png" href="logo.png" />
+<link rel="apple-touch-icon" href="logo.png" />
+<meta property="og:title" content="Relay Terms of Service" />
+<meta property="og:image" content="logo.png" />
+<meta name="twitter:title" content="Relay Terms of Service" />
+<meta name="twitter:image" content="logo.png" />
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --panel: #ffffff;
+    --panel-2: #fafafc;
+    --text: #0b0b0f;
+    --muted: #8a8a8f;
+    --border: #e5e5ea;
+    --accent: #2873ce;
+    --shadow: 0 1px 2px rgba(0,0,0,0.05), 0 1px 1px rgba(0,0,0,0.04);
+    --shadow-lg: 0 20px 60px rgba(0,0,0,0.12);
+    --content-w: 820px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141416;
+      --panel: #1c1c1e;
+      --panel-2: #141416;
+      --text: #f2f2f7;
+      --muted: #8e8e93;
+      --border: #2c2c2e;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+      --shadow-lg: 0 20px 60px rgba(0,0,0,0.6);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15.5px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+  }
+  body { min-height: 100dvh; display: flex; flex-direction: column; }
+
+  header.page-bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: color-mix(in srgb, var(--panel) 88%, transparent);
+    backdrop-filter: saturate(180%) blur(18px);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+    border-bottom: 1px solid var(--border);
+  }
+  .page-bar-inner {
+    max-width: var(--content-w);
+    margin: 0 auto;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text);
+    text-decoration: none;
+    overflow: visible;
+  }
+  .brand img {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    object-fit: contain;
+    display: block;
+  }
+  .brand .brand-name {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: var(--accent);
+    padding: 2px 6px 3px;
+    line-height: 1.1;
+    text-shadow:
+      0 0 18px rgba(40,115,206,0.45),
+      0 0 10px rgba(40,115,206,0.35),
+      0 0 3px  rgba(40,115,206,0.30);
+  }
+  .page-bar nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    margin-left: 18px;
+    transition: color .15s ease;
+  }
+  .page-bar nav a:hover { color: var(--text); }
+
+  main.document {
+    flex: 1;
+    width: 100%;
+    max-width: var(--content-w);
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  .doc-hero {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 28px 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 28px;
+  }
+  .doc-hero h1 {
+    margin: 0 0 6px;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    color: var(--text);
+  }
+  .doc-hero .eyebrow {
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .doc-hero p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .doc-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .doc-meta span strong { color: var(--text); font-weight: 600; }
+
+  .toc {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px 22px;
+    box-shadow: var(--shadow);
+    margin-bottom: 28px;
+  }
+  .toc h2 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .toc ol {
+    margin: 0;
+    padding-left: 22px;
+    columns: 2;
+    column-gap: 28px;
+  }
+  .toc ol li {
+    break-inside: avoid;
+    padding: 3px 0;
+    font-size: 13.5px;
+  }
+  .toc ol li a {
+    color: var(--text);
+    text-decoration: none;
+    transition: color .15s ease;
+  }
+  .toc ol li a:hover { color: var(--accent); }
+  @media (max-width: 640px) {
+    .toc ol { columns: 1; }
+  }
+
+  article.terms section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 28px;
+    box-shadow: var(--shadow);
+    margin-bottom: 18px;
+    scroll-margin-top: 90px;
+  }
+  article.terms h2 {
+    margin: 0 0 14px;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.005em;
+    color: var(--text);
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  article.terms h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  article.terms h3 {
+    margin: 20px 0 8px;
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  article.terms p {
+    margin: 0 0 12px;
+    color: var(--text);
+  }
+  article.terms p:last-child { margin-bottom: 0; }
+  article.terms a { color: var(--accent); text-decoration: none; }
+  article.terms a:hover { text-decoration: underline; }
+
+  footer.page-footer {
+    border-top: 1px solid var(--border);
+    background: var(--panel-2);
+  }
+  .page-footer-inner {
+    max-width: var(--content-w);
+    margin: 0 auto;
+    padding: 26px 24px 40px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 16px;
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .page-footer-inner nav a {
+    color: var(--muted);
+    text-decoration: none;
+    margin-left: 16px;
+  }
+  .page-footer-inner nav a:hover { color: var(--text); }
+  @media (max-width: 640px) {
+    .page-bar-inner { padding: 12px 16px; }
+    main.document { padding: 24px 16px 60px; }
+    .doc-hero { padding: 22px; }
+    article.terms section { padding: 20px; }
+    .page-footer-inner nav a { margin: 0 10px 0 0; }
+  }
+
+  @media print {
+    header.page-bar, footer.page-footer, .toc { display: none; }
+    body { background: #fff; color: #000; }
+    article.terms section { break-inside: avoid; box-shadow: none; border-color: #ddd; }
+  }
+</style>
+</head>
+<body>
+  <header class="page-bar">
+    <div class="page-bar-inner">
+      <a class="brand" href="/" aria-label="Relay">
+        <img src="logo.png" alt="" onerror="this.style.display='none'" />
+        <span class="brand-name">Relay</span>
+      </a>
+      <nav aria-label="Legal">
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="/contact.html">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="document">
+    <section class="doc-hero" aria-labelledby="doc-title">
+      <div class="eyebrow">Legal</div>
+      <h1 id="doc-title">Terms of Service</h1>
+      <p>These Terms of Service govern your access to and use of Relay, a messaging and chat application operated by Relay. They form a binding agreement between you and Relay and describe the rights, obligations, and limitations that apply when you use the platform, its communication features, and related services.</p>
+      <div class="doc-meta">
+        <span><strong>Effective date</strong> January 1, 2025</span>
+        <span><strong>Last updated</strong> January 1, 2025</span>
+        <span><strong>Version</strong> 1.0</span>
+      </div>
+    </section>
+
+    <nav class="toc" aria-label="Table of contents">
+      <h2>Contents</h2>
+      <ol>
+        <li><a href="#s1">Introduction and Acceptance of Terms</a></li>
+        <li><a href="#s2">Eligibility and Account Requirements</a></li>
+        <li><a href="#s3">Account Security and Access Credentials</a></li>
+        <li><a href="#s4">User Responsibilities and Conduct Rules</a></li>
+        <li><a href="#s5">Content Ownership and User Generated Content</a></li>
+        <li><a href="#s6">Prohibited Uses and Enforcement</a></li>
+        <li><a href="#s7">Messaging, Communication Features, and Misuse</a></li>
+        <li><a href="#s8">Abuse, Harassment, and Illegal Content</a></li>
+        <li><a href="#s9">Spam, Automation, and Commercial Solicitation</a></li>
+        <li><a href="#s10">Privacy and Data Handling</a></li>
+        <li><a href="#s11">Intellectual Property Rights</a></li>
+        <li><a href="#s12">Licensing and Feedback</a></li>
+        <li><a href="#s13">Third Party Services and Integrations</a></li>
+        <li><a href="#s14">Payments, Subscriptions, and Optional Features</a></li>
+        <li><a href="#s15">Platform Rights and Limitations</a></li>
+        <li><a href="#s16">Moderation, Suspension, and Termination</a></li>
+        <li><a href="#s17">Appeals Process</a></li>
+        <li><a href="#s18">Disclaimers of Warranties</a></li>
+        <li><a href="#s19">Limitation of Liability</a></li>
+        <li><a href="#s20">Indemnification</a></li>
+        <li><a href="#s21">Dispute Resolution and Governing Law</a></li>
+        <li><a href="#s22">Changes to the Terms</a></li>
+        <li><a href="#s23">General Provisions</a></li>
+        <li><a href="#s24">Contact Information</a></li>
+      </ol>
+    </nav>
+
+    <article class="terms">
+
+      <section id="s1" aria-labelledby="h1">
+        <h2 id="h1"><span class="num">01</span>Introduction and Acceptance of Terms</h2>
+        <p>Welcome to Relay. These Terms of Service, together with any documents or policies referenced within them, constitute the agreement between you and Relay regarding your use of the Relay messaging and chat application, any associated websites, application programming interfaces, mobile clients, desktop clients, and any other services offered under the Relay name. The term platform, as used throughout this document, refers collectively to all of the foregoing.</p>
+        <p>By creating an account, accessing any part of the platform, or otherwise using the services provided by Relay, you confirm that you have read, understood, and agreed to be bound by these Terms. If you do not agree with any portion of these Terms, you must refrain from using the platform and, where applicable, discontinue your account.</p>
+        <p>Your continued use of the platform following the posting of updates or revisions to these Terms constitutes acceptance of those revisions. If you are entering into this agreement on behalf of a company, organization, or other legal entity, you represent that you have the authority to bind that entity to these Terms, in which case the terms you, your, and user refer to that entity.</p>
+        <h3>Scope of the Agreement</h3>
+        <p>These Terms apply in addition to any supplemental policies made available on the platform, including the Privacy Policy, the Community Guidelines, and any feature specific rules referenced herein. In the event of a conflict between these Terms and a supplemental policy, the Terms govern unless the supplemental policy expressly states otherwise.</p>
+      </section>
+
+      <section id="s2" aria-labelledby="h2">
+        <h2 id="h2"><span class="num">02</span>Eligibility and Account Requirements</h2>
+        <p>To register for or use the platform, you must be at least thirteen years of age, or the minimum age required in your jurisdiction to consent to the processing of personal data, whichever is greater. Users between the minimum age and the age of majority in their jurisdiction must have the consent of a parent or legal guardian to use the platform. Relay reserves the right to request verification of age or parental consent where permitted by applicable law.</p>
+        <p>You may not use the platform if you have previously been suspended or permanently removed from Relay, unless you have received express written authorization to resume use. You may not use the platform if you are a resident of, or located in, a country subject to sanctions that would prohibit Relay from providing services to you, or if you are listed on any applicable list of restricted or prohibited parties.</p>
+        <h3>Account Registration</h3>
+        <p>When you create an account, you agree to provide accurate, current, and complete information, and to keep that information updated so that it remains accurate. You are responsible for the consequences of providing false or outdated information, including any impact on the availability of the platform or the accuracy of communications associated with your account.</p>
+        <h3>One Account Per Person</h3>
+        <p>Unless otherwise expressly permitted by Relay, each individual may maintain only one personal account. Creating or operating multiple accounts for the purpose of evading enforcement actions, circumventing rate limits, or otherwise undermining platform rules is prohibited.</p>
+      </section>
+
+      <section id="s3" aria-labelledby="h3h">
+        <h2 id="h3h"><span class="num">03</span>Account Security and Access Credentials</h2>
+        <p>You are responsible for safeguarding the credentials used to access your account, including your password, any authentication tokens, recovery codes, and any devices or sessions associated with your account. You must not share your credentials, allow others to access your account, or permit any third party to impersonate you on the platform.</p>
+        <p>You agree to notify Relay promptly if you suspect any unauthorized access to your account, any compromise of your credentials, or any other security incident affecting your use of the platform. Relay is not liable for losses arising from a failure to maintain the confidentiality of your credentials or from a delay in reporting a security incident.</p>
+        <p>Where available, you are encouraged to enable multifactor authentication, review active sessions, and keep your contact information current so that you can receive security notifications. Relay may require additional verification steps when it detects activity that appears inconsistent with your typical use of the platform.</p>
+      </section>
+
+      <section id="s4" aria-labelledby="h4">
+        <h2 id="h4"><span class="num">04</span>User Responsibilities and Conduct Rules</h2>
+        <p>You are solely responsible for your conduct on the platform and for any content you send, upload, share, or otherwise transmit. You agree to use the platform in a manner consistent with these Terms, with all applicable laws and regulations, and with the legitimate rights of other users and third parties.</p>
+        <p>You agree not to use the platform in any manner that is unlawful, fraudulent, or deceptive, that infringes upon the rights of others, or that creates risks of harm to individuals, groups, or the integrity of the platform itself. You agree to treat other users with respect, to refrain from behavior that targets individuals on the basis of protected characteristics, and to cooperate in good faith with legitimate moderation actions.</p>
+        <h3>Accuracy of Communications</h3>
+        <p>You agree not to impersonate any person or entity, misrepresent your affiliation with a person or organization, or otherwise use the platform to mislead recipients about the origin, authenticity, or nature of a communication. You agree not to falsify message metadata, spoof identifiers, or manipulate the platform to disguise the source of a message.</p>
+        <h3>Respect for Platform Integrity</h3>
+        <p>You agree not to interfere with the proper functioning of the platform, including by introducing malicious code, attempting to gain unauthorized access to systems or data, circumventing technical restrictions, or deliberately overloading infrastructure. You agree not to probe, scan, or test the vulnerability of the platform except through coordinated security disclosure channels that Relay has expressly authorized.</p>
+      </section>
+
+      <section id="s5" aria-labelledby="h5">
+        <h2 id="h5"><span class="num">05</span>Content Ownership and User Generated Content</h2>
+        <p>Relay does not claim ownership of the content you create, upload, transmit, or otherwise share through the platform. As between you and Relay, you retain all rights in the original content you submit, subject to the rights granted to Relay in this section and throughout these Terms.</p>
+        <p>By submitting content to the platform, you grant Relay a worldwide, non exclusive, royalty free, sublicensable, and transferable license to host, store, reproduce, modify, adapt, publish, display, and transmit that content for the limited purposes of operating, providing, improving, and securing the platform. This license includes the processing necessary to deliver messages to their intended recipients, to render content within the interface, to generate previews and thumbnails, to synchronize content across your devices, to prevent abuse, and to comply with legal obligations.</p>
+        <p>The license granted to Relay terminates when the underlying content is deleted from the platform, except that Relay may retain and continue to use copies that are technically required for backup, legal compliance, enforcement of these Terms, or protection against liability, in each case in accordance with applicable law and the Privacy Policy.</p>
+        <h3>Your Representations Regarding Content</h3>
+        <p>You represent and warrant that you have all rights, licenses, consents, and permissions necessary to submit the content you share on the platform and to grant the license described above. You agree not to submit content that infringes the intellectual property rights, privacy rights, publicity rights, or other legal rights of any person or entity.</p>
+        <h3>Conversations and Group Spaces</h3>
+        <p>Content shared within direct messages, group chats, or other conversational spaces may be visible to all participants in that space. You are responsible for understanding the audience of any conversation before sharing content. You acknowledge that other participants may retain copies of your messages through features such as screenshots, exports, or their own client records, and that Relay cannot control the downstream handling of content once it has been disclosed within a conversation.</p>
+      </section>
+
+      <section id="s6" aria-labelledby="h6">
+        <h2 id="h6"><span class="num">06</span>Prohibited Uses and Enforcement</h2>
+        <p>You may not use the platform to engage in conduct that is prohibited by law or by these Terms. Without limiting the generality of the foregoing, you agree that you will not, and will not attempt to, use the platform to engage in any of the following categories of conduct.</p>
+        <p>You will not publish, transmit, or facilitate content that is unlawful, that depicts or promotes the sexual exploitation or abuse of minors, that constitutes non consensual intimate imagery, that promotes or facilitates terrorism or violent extremism, that incites imminent violence, that threatens identifiable persons, or that otherwise violates applicable criminal or civil law.</p>
+        <p>You will not engage in the sale, distribution, or promotion of goods or services that are illegal in the jurisdiction where the activity occurs, including controlled substances, stolen property, counterfeit goods, weapons where their transfer would be unlawful, and regulated financial instruments offered without the necessary licensing or authorization.</p>
+        <p>You will not engage in unauthorized access, interference, or disruption of the platform, including attempts to probe, scan, or test the vulnerability of any system; attempts to breach security or authentication measures; attempts to decompile, reverse engineer, or derive source code from the platform except to the extent expressly permitted by applicable law; or the deployment of malicious code, viruses, worms, or similar harmful material.</p>
+        <p>You will not use the platform to infringe the intellectual property rights of any person, to misappropriate trade secrets, to violate rights of publicity or privacy, or to circumvent technological protection measures implemented by Relay or by third parties.</p>
+        <h3>Enforcement</h3>
+        <p>Relay may investigate suspected violations of these Terms and may take any action it deems appropriate, including removing content, restricting access to features, suspending accounts, terminating accounts, reporting activity to law enforcement, and cooperating with legal processes. The enumeration of prohibited uses in this section is not exhaustive, and Relay may prohibit additional conduct through supplemental policies, community guidelines, or feature specific rules.</p>
+      </section>
+
+      <section id="s7" aria-labelledby="h7">
+        <h2 id="h7"><span class="num">07</span>Messaging, Communication Features, and Misuse</h2>
+        <p>The platform provides features designed to facilitate communication between individuals and groups, including direct messaging, group chats, voice and video communication, file sharing, read receipts, typing indicators, presence indicators, reactions, threads, and search. These features are intended to support interpersonal communication among consenting participants.</p>
+        <p>You agree not to misuse communication features in a manner that harms other users or undermines the intended purpose of those features. Misuse includes, without limitation, sending repeated unwanted messages to a user who has indicated they do not wish to receive them, contacting users outside of channels they have designated for that contact, initiating voice or video calls for the purpose of harassment, exploiting presence indicators or read receipts to surveil users against their expectations, and using message features to deliver payloads designed to overwhelm clients or servers.</p>
+        <h3>Recording and Storage of Communications</h3>
+        <p>You agree not to record, archive, or export communications from the platform in a manner that violates applicable law or the reasonable expectations of participants. Where local law requires notice or consent before recording, you are solely responsible for providing that notice or obtaining that consent. Relay is not responsible for recordings, exports, or archives made by users through external tools or client side features.</p>
+        <h3>Automated Messaging</h3>
+        <p>You may use automated tools, bots, or integrations only through interfaces that Relay has expressly authorized for that purpose, and only in compliance with the rate limits, scopes, and conditions applicable to those interfaces. Automated messaging that does not originate from an authorized integration, or that violates the conditions of an authorized integration, is prohibited.</p>
+      </section>
+
+      <section id="s8" aria-labelledby="h8">
+        <h2 id="h8"><span class="num">08</span>Abuse, Harassment, and Illegal Content</h2>
+        <p>Relay does not tolerate abuse, harassment, or the distribution of illegal content on the platform. You agree that you will not engage in targeted harassment of any individual or group, including by sending threatening, intimidating, or demeaning messages, by coordinating others to harass a person, by disclosing private information without authorization, by engaging in sustained unwanted contact, or by creating content that sexualizes a person without their consent.</p>
+        <p>You agree that you will not use the platform to distribute, request, produce, or facilitate the production of child sexual abuse material. Any suspected instance of such material will be reported to the appropriate authorities in accordance with applicable law, and accounts involved will be terminated. Relay cooperates with recognized hotlines, law enforcement agencies, and child safety organizations in the investigation and prevention of such content.</p>
+        <p>You agree that you will not publish or distribute content that promotes or glorifies violence, self harm, suicide, eating disorders, or dangerous activities in a manner that encourages imitation. Relay may provide safety resources to users who appear to be affected by such content, and may restrict the distribution of content that presents a serious risk of physical harm.</p>
+        <h3>Reporting</h3>
+        <p>Users who encounter abusive, harassing, or illegal content should use the in platform reporting tools or contact Relay at the address provided in the Contact Information section. Reports should include, where possible, direct references to the content or conduct at issue, the identifiers of the accounts involved, and any context needed to understand the report. Relay reviews reports in accordance with its moderation policies and applicable law.</p>
+      </section>
+
+      <section id="s9" aria-labelledby="h9">
+        <h2 id="h9"><span class="num">09</span>Spam, Automation, and Commercial Solicitation</h2>
+        <p>You agree not to use the platform to distribute unsolicited bulk messages, repetitive promotional content, or any communication commonly understood as spam. Spam includes, without limitation, mass messaging users who have not consented to receive marketing communications, repeatedly posting the same or substantially similar content across multiple conversations, using misleading subject lines or link text, and sending messages that attempt to disguise their commercial nature.</p>
+        <p>You agree not to conduct phishing, credential harvesting, or social engineering campaigns through the platform. You agree not to distribute links to malicious software, deceptive websites, fraudulent services, or schemes designed to defraud recipients. Relay may block links, attachments, or message patterns that it determines pose a risk of fraud or malware distribution.</p>
+        <p>You agree not to engage in artificial engagement activity, including the operation of inauthentic accounts, coordinated inauthentic behavior, the manipulation of reactions or counts, and the use of automation to create the appearance of human activity. Relay may remove artificial engagement, restrict features, and take action against accounts that participate in such behavior.</p>
+      </section>
+
+      <section id="s10" aria-labelledby="h10">
+        <h2 id="h10"><span class="num">10</span>Privacy and Data Handling</h2>
+        <p>Relay processes personal data in connection with the operation of the platform. The Privacy Policy, which is incorporated into these Terms by reference, describes the categories of data collected, the purposes for which data is used, the legal bases for processing where applicable, the circumstances under which data is shared, the rights available to users regarding their data, and the retention periods that apply.</p>
+        <p>By using the platform, you acknowledge that the operation of messaging features inherently requires the processing of message contents, metadata, and delivery information. Relay implements administrative, technical, and physical safeguards designed to protect personal data against unauthorized access, alteration, disclosure, or destruction. No method of electronic transmission or storage is entirely secure, and Relay cannot guarantee absolute security.</p>
+        <p>Where you transmit personal data about third parties through the platform, you are responsible for ensuring that your transmission complies with applicable privacy and data protection laws, including any obligation to provide notice, obtain consent, or honor objections. Relay acts as a processor or service provider in respect of content you transmit only to the extent specified in the Privacy Policy or in a separate data processing agreement, where applicable.</p>
+      </section>
+
+      <section id="s11" aria-labelledby="h11">
+        <h2 id="h11"><span class="num">11</span>Intellectual Property Rights</h2>
+        <p>The platform, including its software, interfaces, designs, graphics, compilations, documentation, and underlying technology, is the property of Relay or its licensors and is protected by copyright, trademark, trade secret, and other intellectual property laws. Except for the rights expressly granted in these Terms, no right, title, or interest in the platform is transferred to you.</p>
+        <p>The names Relay, the Relay logo, and any other product or service marks displayed on the platform are trademarks of Relay or its licensors. You may not use these marks without prior written permission, except to reference the platform in accordance with customary fair use principles.</p>
+        <h3>Copyright Complaints</h3>
+        <p>Relay respects the intellectual property rights of others and expects users to do the same. If you believe that content available on the platform infringes your copyright, you may submit a notice to the designated contact described in the Contact Information section. A valid notice should identify the copyrighted work claimed to be infringed, identify the allegedly infringing material with sufficient detail to permit location, include contact information, include a statement that you have a good faith belief that the use is not authorized, include a statement under penalty of perjury that the information in the notice is accurate and that you are authorized to act on behalf of the owner of the right allegedly infringed, and include a physical or electronic signature. Relay will respond to valid notices in accordance with applicable law and may, in appropriate circumstances, terminate the accounts of users who are repeat infringers.</p>
+        <h3>Counter Notification</h3>
+        <p>If you believe that content you submitted was removed in error or misidentified, you may submit a counter notification through the contact channel described in the Contact Information section. A valid counter notification must include the information required by applicable copyright law, including identification of the removed material, a statement under penalty of perjury that you have a good faith belief the material was removed as a result of mistake or misidentification, your contact information, and a statement consenting to the jurisdiction of the appropriate court.</p>
+      </section>
+
+      <section id="s12" aria-labelledby="h12">
+        <h2 id="h12"><span class="num">12</span>Licensing and Feedback</h2>
+        <p>Subject to your compliance with these Terms, Relay grants you a limited, personal, non exclusive, non transferable, non sublicensable, and revocable license to access and use the platform for your personal or internal business use in accordance with these Terms. This license does not include the right to resell or commercially exploit the platform, to copy or mirror any portion of the platform, to use data mining or similar data gathering methods, or to frame or embed the platform within another service without express authorization.</p>
+        <p>If you submit suggestions, ideas, feedback, recommendations, or other input regarding the platform, you grant Relay a perpetual, irrevocable, royalty free, worldwide license to use, reproduce, modify, adapt, publish, translate, distribute, and otherwise exploit such input for any purpose, without compensation or attribution to you. You represent that any feedback you provide is your own and does not violate the rights of any third party.</p>
+      </section>
+
+      <section id="s13" aria-labelledby="h13">
+        <h2 id="h13"><span class="num">13</span>Third Party Services and Integrations</h2>
+        <p>The platform may offer integrations, links, or features that connect with services operated by third parties, including identity providers, storage providers, analytics providers, and optional bots or applications authorized by users. Your use of third party services is governed by the terms and privacy policies of those services, and Relay is not responsible for the availability, accuracy, content, or practices of any third party service.</p>
+        <p>When you authorize a third party integration to access your account or content, you are instructing Relay to share the relevant data with that integration in accordance with the permissions you have granted. You may revoke such authorizations at any time through the platform settings, although revocation does not affect data already shared with the third party. Relay is not responsible for the handling of data by third parties following disclosure authorized by you.</p>
+      </section>
+
+      <section id="s14" aria-labelledby="h14">
+        <h2 id="h14"><span class="num">14</span>Payments, Subscriptions, and Optional Features</h2>
+        <p>Relay may offer optional paid features, subscriptions, or enhancements. Details concerning pricing, billing cycles, included features, and cancellation terms for any paid offering are presented at the point of purchase. By purchasing a paid feature or subscription, you agree to pay all applicable fees and taxes and authorize Relay or its payment processor to charge the payment method you provide.</p>
+        <p>Subscriptions renew automatically at the end of each billing cycle unless cancelled before the renewal date. You may cancel a subscription through the account settings or through the billing channel used to make the purchase. Unless required by applicable law or expressly stated at the time of purchase, fees already paid are not refundable, and partial billing periods are not prorated.</p>
+        <p>Relay may modify the price of a subscription prospectively. When the price of an ongoing subscription changes, Relay will provide reasonable advance notice and an opportunity to cancel before the revised price takes effect. Promotional pricing, trials, and credits are subject to the specific terms disclosed at the time of the offer.</p>
+      </section>
+
+      <section id="s15" aria-labelledby="h15">
+        <h2 id="h15"><span class="num">15</span>Platform Rights and Limitations</h2>
+        <p>Relay reserves the right to develop, modify, expand, or discontinue features of the platform at any time, with or without notice, except where advance notice is required by applicable law. Relay may impose reasonable limits on the use of the platform, including limits on message size, attachment size, storage, rate of requests, number of contacts, number of participants in a conversation, retention of historical content, and similar operational parameters.</p>
+        <p>Relay may implement safeguards to protect the platform and its users, including content filtering, automated detection of abuse, automated moderation of prohibited material, and security controls. These safeguards may occasionally affect legitimate use in unexpected ways, and Relay will make reasonable efforts to refine them over time. Relay does not guarantee that any specific feature will be available at all times or in all regions.</p>
+        <p>Relay may cache, compress, transcode, or otherwise process content as necessary to deliver the platform, including the generation of previews, thumbnails, accessibility descriptions, and safety classifications. Such processing is performed in furtherance of operating the platform and does not transfer ownership of the underlying content.</p>
+      </section>
+
+      <section id="s16" aria-labelledby="h16">
+        <h2 id="h16"><span class="num">16</span>Moderation, Suspension, and Termination</h2>
+        <p>Relay may moderate content and conduct through a combination of automated systems and human review. Moderation actions may include warnings, the removal or concealment of content, restrictions on specific features, temporary suspension of an account, or permanent termination of an account and its associated access. The severity of a moderation action reflects the nature of the violation, the history of the account, the context surrounding the conduct, and the risk posed to other users or to the integrity of the platform.</p>
+        <p>Relay may suspend or terminate your access to the platform, with or without prior notice, if Relay reasonably believes that you have violated these Terms, that your use of the platform creates legal, operational, or security risk for Relay or others, that your account has been compromised, or that suspension or termination is required to comply with law or a lawful order. Relay may also discontinue providing the platform, in whole or in part, to any user or region, in which case reasonable notice will be provided where practicable.</p>
+        <p>You may discontinue your use of the platform at any time by deactivating or deleting your account through the account settings. Upon termination, whether initiated by you or by Relay, certain provisions of these Terms that by their nature should survive termination will continue to apply, including provisions regarding content license, intellectual property, disclaimers, limitation of liability, indemnification, dispute resolution, and general provisions.</p>
+      </section>
+
+      <section id="s17" aria-labelledby="h17">
+        <h2 id="h17"><span class="num">17</span>Appeals Process</h2>
+        <p>If you believe that a moderation action affecting your account or content was taken in error, you may submit an appeal through the channel indicated in the notice you received, or through the contact address provided in the Contact Information section. Appeals should describe the action in question, the reason you believe it was taken in error, and any supporting information relevant to the review.</p>
+        <p>Relay will review appeals in good faith and will respond within a reasonable period, taking into account the volume of incoming appeals, the complexity of the matter, and any legal constraints on disclosure. The outcome of an appeal may include reinstatement of content, reinstatement of access, confirmation of the original action, or the application of an alternative measure. Where a decision is final under applicable policy, Relay will state that it is final in the appeal response.</p>
+      </section>
+
+      <section id="s18" aria-labelledby="h18">
+        <h2 id="h18"><span class="num">18</span>Disclaimers of Warranties</h2>
+        <p>The platform is provided on an as is and as available basis. To the fullest extent permitted by applicable law, Relay disclaims all warranties of any kind, whether express, implied, statutory, or otherwise, including without limitation implied warranties of merchantability, fitness for a particular purpose, title, and non infringement, and any warranties arising out of course of dealing, course of performance, or usage of trade.</p>
+        <p>Relay does not warrant that the platform will meet your requirements, that operation of the platform will be uninterrupted, timely, secure, or error free, that defects will be corrected, that the platform is free of viruses or other harmful components, or that content transmitted through the platform will be delivered without delay, loss, or alteration. You use the platform at your own discretion and assume the risk of any resulting harm.</p>
+        <p>Without limiting the foregoing, Relay makes no representation or warranty regarding the accuracy, completeness, reliability, suitability, or availability of content generated by other users. The platform is a medium for communication, and the views, statements, and content expressed by users do not reflect the views of Relay. No advice or information obtained through the platform creates any warranty not expressly stated in these Terms.</p>
+        <p>Some jurisdictions do not allow the exclusion of certain warranties, and in those jurisdictions the disclaimers in this section apply only to the maximum extent permitted by law.</p>
+      </section>
+
+      <section id="s19" aria-labelledby="h19">
+        <h2 id="h19"><span class="num">19</span>Limitation of Liability</h2>
+        <p>To the fullest extent permitted by applicable law, neither Relay nor its officers, directors, employees, agents, affiliates, suppliers, or licensors will be liable for any indirect, incidental, special, consequential, exemplary, or punitive damages, including without limitation damages for loss of profits, loss of revenue, loss of data, loss of goodwill, loss of business opportunities, business interruption, or substitute services, arising out of or in connection with your use of or inability to use the platform, whether based in contract, tort (including negligence), strict liability, or any other legal theory, and whether or not Relay has been advised of the possibility of such damages.</p>
+        <p>To the fullest extent permitted by applicable law, the aggregate liability of Relay for any and all claims arising out of or relating to these Terms or the platform will not exceed the greater of the amounts actually paid by you to Relay in the twelve months immediately preceding the event giving rise to the claim, or one hundred United States dollars. The limitations in this section apply even if a remedy fails of its essential purpose.</p>
+        <p>Nothing in these Terms excludes or limits liability that cannot be excluded or limited under applicable law, including liability for fraud, fraudulent misrepresentation, death, or personal injury caused by negligence, and nothing in these Terms affects statutory rights that cannot be waived.</p>
+      </section>
+
+      <section id="s20" aria-labelledby="h20">
+        <h2 id="h20"><span class="num">20</span>Indemnification</h2>
+        <p>You agree to defend, indemnify, and hold harmless Relay, its affiliates, and its respective officers, directors, employees, agents, suppliers, and licensors from and against any claims, liabilities, damages, losses, costs, and expenses, including reasonable attorneys fees, arising out of or in any way connected with your access to or use of the platform, your content, your violation of these Terms, your violation of applicable law, or your violation of the rights of any third party.</p>
+        <p>Relay reserves the right, at its own expense, to assume the exclusive defense and control of any matter otherwise subject to indemnification by you, in which case you agree to cooperate with Relay in asserting any available defenses. You will not settle any matter that imposes liability, obligation, or admission on Relay without the prior written consent of Relay.</p>
+      </section>
+
+      <section id="s21" aria-labelledby="h21">
+        <h2 id="h21"><span class="num">21</span>Dispute Resolution and Governing Law</h2>
+        <p>These Terms and any dispute arising out of or relating to these Terms or the platform will be governed by and construed in accordance with the laws of the jurisdiction in which Relay is established, without regard to its conflict of laws principles, except to the extent that mandatory local law in your place of residence provides otherwise.</p>
+        <h3>Informal Resolution</h3>
+        <p>Before filing any formal claim, you agree to attempt to resolve the dispute informally by contacting Relay through the channel described in the Contact Information section and providing a written description of the dispute, the relief sought, and the contact details needed for a response. Relay will attempt in good faith to resolve the matter within a reasonable period following receipt of such notice. Informal resolution is a precondition to any formal proceeding, except where mandatory law provides otherwise.</p>
+        <h3>Venue</h3>
+        <p>Except where prohibited by applicable law, any formal proceeding arising out of or relating to these Terms or the platform will be brought exclusively in the competent courts of the jurisdiction in which Relay is established, and the parties consent to the personal jurisdiction of those courts. Nothing in this section prevents either party from seeking injunctive or equitable relief in a court of competent jurisdiction to protect its intellectual property rights or confidential information.</p>
+        <h3>Class Action Waiver</h3>
+        <p>To the fullest extent permitted by applicable law, you agree that any claim will be brought only in your individual capacity and not as a plaintiff or class member in any purported class, consolidated, or representative proceeding. If this waiver is found to be unenforceable with respect to a particular claim, that claim will be severed from any claims that remain subject to individual resolution.</p>
+      </section>
+
+      <section id="s22" aria-labelledby="h22">
+        <h2 id="h22"><span class="num">22</span>Changes to the Terms</h2>
+        <p>Relay may update these Terms from time to time to reflect changes in the platform, in applicable law, or in the business and operational practices of Relay. When a material change is made, Relay will provide notice through the platform, by email to the address associated with your account, or by other reasonable means at least thirty days before the change takes effect, except that changes required by law may take effect on the date specified by that law.</p>
+        <p>The effective date of the current version of these Terms is indicated at the top of this page. Your continued use of the platform after a revised version of the Terms becomes effective constitutes your acceptance of the revised version. If you do not agree with a revised version, you must stop using the platform before the revised version becomes effective and, where applicable, discontinue your account.</p>
+        <p>Relay maintains a record of prior versions of these Terms and will make earlier versions available upon reasonable request for reference purposes.</p>
+      </section>
+
+      <section id="s23" aria-labelledby="h23">
+        <h2 id="h23"><span class="num">23</span>General Provisions</h2>
+        <h3>Entire Agreement</h3>
+        <p>These Terms, together with the Privacy Policy and any other policies expressly incorporated by reference, constitute the entire agreement between you and Relay with respect to the subject matter and supersede all prior or contemporaneous communications, whether oral or written, relating to that subject matter.</p>
+        <h3>Severability</h3>
+        <p>If any provision of these Terms is held to be invalid, illegal, or unenforceable by a court of competent jurisdiction, that provision will be enforced to the maximum extent permitted by law, and the remaining provisions will continue in full force and effect.</p>
+        <h3>No Waiver</h3>
+        <p>The failure of Relay to enforce any right or provision of these Terms will not be deemed a waiver of that right or provision. Any waiver must be in writing and signed by an authorized representative of Relay to be effective, and any such waiver applies only to the specific instance and purpose for which it is given.</p>
+        <h3>Assignment</h3>
+        <p>You may not assign or transfer these Terms, by operation of law or otherwise, without the prior written consent of Relay. Any attempted assignment without such consent will be null and void. Relay may assign or transfer these Terms, in whole or in part, without restriction, including in connection with a merger, acquisition, reorganization, or sale of assets.</p>
+        <h3>Force Majeure</h3>
+        <p>Relay will not be liable for any failure or delay in performance caused by circumstances beyond its reasonable control, including acts of nature, acts of government, war, terrorism, civil unrest, labor disputes, interruptions of utilities or telecommunications, infrastructure failures, and other events that prevent or materially impede performance.</p>
+        <h3>Notices</h3>
+        <p>Relay may provide notices to you through the platform, by email, or through other reasonable means. Notices to Relay must be sent in writing to the address provided in the Contact Information section.</p>
+        <h3>Language</h3>
+        <p>These Terms may be made available in languages other than English for convenience. In the event of a conflict between the English version and a translated version, the English version controls, except where mandatory local law requires otherwise.</p>
+        <h3>Relationship of the Parties</h3>
+        <p>Nothing in these Terms creates any agency, partnership, joint venture, employment, or franchise relationship between you and Relay. Neither party has the authority to bind the other in any manner.</p>
+        <h3>Headings</h3>
+        <p>Headings in these Terms are provided for convenience only and do not affect the interpretation of the provisions they introduce.</p>
+      </section>
+
+      <section id="s24" aria-labelledby="h24">
+        <h2 id="h24"><span class="num">24</span>Contact Information</h2>
+        <p>Questions, comments, notices, appeals, copyright claims, and other communications relating to these Terms may be directed to Relay through the following channels.</p>
+        <p>General inquiries may be sent by email to <a href="mailto:support@relay.app">support@relay.app</a>. Legal notices, including matters related to these Terms, disputes, or formal legal process, may be sent to <a href="mailto:legal@relay.app">legal@relay.app</a>. Reports of content that violates these Terms, including reports of abuse, harassment, or illegal material, may be submitted through the reporting tools within the platform or by email to <a href="mailto:trust@relay.app">trust@relay.app</a>. Copyright related notices and counter notifications may be sent to <a href="mailto:copyright@relay.app">copyright@relay.app</a>.</p>
+        <p>When submitting a notice, please include enough detail for Relay to locate the relevant content or account, describe the nature of the issue, and provide contact information for a response. Relay will acknowledge notices submitted through the channels above and will respond within a reasonable period in accordance with its internal procedures and applicable law.</p>
+      </section>
+
+    </article>
+  </main>
+
+  <footer class="page-footer">
+    <div class="page-footer-inner">
+      <div>Copyright 2025 Relay. All rights reserved.</div>
+      <nav aria-label="Legal footer">
+        <a href="/terms.html">Terms</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/contact.html">Contact</a>
+      </nav>
+    </div>
+  </footer>
+  <style id="relay-sec-style">
+    .__sec-blur { filter: blur(14px) !important; pointer-events: none !important; user-select: none !important; transition: filter .25s ease; }
+    .__sec-overlay {
+      position: fixed; inset: 0; z-index: 2147483647;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(8, 14, 28, 0.72);
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+      color: #fff;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      opacity: 0; transition: opacity .25s ease;
+    }
+    .__sec-overlay.__sec-show { opacity: 1; }
+    .__sec-card {
+      text-align: center; padding: 28px 32px; margin: 0 20px; max-width: 420px;
+      background: rgba(20, 28, 48, 0.78);
+      border: 1px solid rgba(255,255,255,0.14); border-radius: 14px;
+      box-shadow: 0 18px 60px rgba(0,0,0,0.45);
+    }
+    .__sec-title { margin: 0 0 8px; font-size: 20px; font-weight: 800; letter-spacing: -0.01em; color: #fff; }
+    .__sec-body { margin: 0; font-size: 14px; line-height: 1.55; color: rgba(255,255,255,0.85); }
+  </style>
+  <script>
+    (function () {
+      if (window.__relaySec) return;
+      window.__relaySec = true;
+      var triggered = false;
+      function buildOverlay() {
+        var overlay = document.createElement('div');
+        overlay.className = '__sec-overlay';
+        overlay.setAttribute('role', 'alertdialog');
+        overlay.setAttribute('aria-live', 'assertive');
+        var card = document.createElement('div');
+        card.className = '__sec-card';
+        var h = document.createElement('h2');
+        h.className = '__sec-title';
+        h.textContent = 'Suspicious activity detected';
+        var p = document.createElement('p');
+        p.className = '__sec-body';
+        p.textContent = 'You have been detected. Redirecting for safety...';
+        card.appendChild(h); card.appendChild(p);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+        requestAnimationFrame(function () { overlay.classList.add('__sec-show'); });
+      }
+      function trigger() {
+        if (triggered) return;
+        triggered = true;
+        try {
+          if (document.body) document.body.classList.add('__sec-blur');
+          buildOverlay();
+        } catch (_) {}
+        setTimeout(function () {
+          try { window.location.replace('https://google.com'); }
+          catch (_) { try { window.location.href = 'https://google.com'; } catch (__) {} }
+        }, 2000);
+      }
+      function isEditable(el) {
+        if (!el) return false;
+        var tag = (el.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+        if (el.isContentEditable) return true;
+        return false;
+      }
+      document.addEventListener('contextmenu', function (e) {
+        if (isEditable(e.target)) return;
+        e.preventDefault();
+        trigger();
+      }, true);
+      document.addEventListener('keydown', function (e) {
+        var k = (e.key || '').toLowerCase();
+        if (k === 'f12') { e.preventDefault(); trigger(); return; }
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && (k === 'i' || k === 'j' || k === 'c')) {
+          e.preventDefault(); trigger(); return;
+        }
+        if ((e.ctrlKey || e.metaKey) && k === 'u') {
+          e.preventDefault(); trigger(); return;
+        }
+        if ((e.ctrlKey || e.metaKey) && k === 's') {
+          if (isEditable(e.target)) return;
+          e.preventDefault(); trigger(); return;
+        }
+      }, true);
+    })();
+  </script>
+
+</body>
+</html>
