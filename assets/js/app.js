@@ -1089,8 +1089,10 @@
       messagesById.delete(m.id);
       // Fix 4: clean up the sender-label block above the bubble so a
       // deleted message never leaves an orphan username behind, and
-      // recompute `lastSenderId` from whatever is still rendered.
-      reconcileNameHeaders(messagesEl);
+      // recompute `lastSenderId` from whatever is still rendered. Public
+      // chat rows live inside the `.msg-col` wrapper, so reconcile against
+      // that container — not `messagesEl` directly.
+      reconcileNameHeaders(messagesEl.querySelector(".msg-col") || messagesEl);
       { const rs = messagesEl.querySelectorAll(".row"); lastSenderId = rs.length ? (rs[rs.length - 1].dataset.userId || null) : null; }
     } catch (err) {
       console.error("[Self] delete failed", err);
@@ -1108,7 +1110,7 @@
     if (row) row.remove();
     rowsById.delete(m.id);
     messagesById.delete(m.id);
-    reconcileNameHeaders(messagesEl);
+    reconcileNameHeaders(messagesEl.querySelector(".msg-col") || messagesEl);
     { const rs = messagesEl.querySelectorAll(".row"); lastSenderId = rs.length ? (rs[rs.length - 1].dataset.userId || null) : null; }
     // Best-effort audit log for the moderator panel. Ignored if the table
     // isn't set up; never blocks the user-facing action.
@@ -1361,7 +1363,7 @@
         if (row) row.remove();
         rowsById.delete(old.id);
         messagesById.delete(old.id);
-        reconcileNameHeaders(messagesEl);
+        reconcileNameHeaders(messagesEl.querySelector(".msg-col") || messagesEl);
         { const rs = messagesEl.querySelectorAll(".row"); lastSenderId = rs.length ? (rs[rs.length - 1].dataset.userId || null) : null; }
       })
       .subscribe((status) => {
