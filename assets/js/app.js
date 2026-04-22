@@ -1674,7 +1674,29 @@
     }
   });
 
+  // Page-aware routing (Phases 1–2). `data-page` is set on <body>:
+  //   "auth" → auth.html (login + onboarding live here)
+  //   "app"  → app.html  (signed-in app lives here)
+  // The inline views still exist on both pages as a safety net (so the
+  // rest of the app.js logic that references loginEl / onboardingEl /
+  // chatEl never null-derefs), but the guards below redirect the user
+  // to the correct page whenever we would otherwise switch view.
+  const _pageMode = (document.body && document.body.dataset && document.body.dataset.page) || "app";
+  function _gotoAuth() {
+    try { window.location.replace("auth.html"); } catch (_) { window.location.href = "auth.html"; }
+  }
+  function _gotoApp(preserveQuery) {
+    let target = "app.html";
+    if (preserveQuery) {
+      try {
+        const qs = window.location.search || "";
+        if (qs && qs.length > 1) target += qs;
+      } catch (_) {}
+    }
+    try { window.location.replace(target); } catch (_) { window.location.href = target; }
+  }
   function showLogin() {
+    if (_pageMode === "app") { _gotoAuth(); return; }
     loginEl.style.display = "";
     onboardingEl.style.display = "none";
     chatEl.style.display = "none";
@@ -1688,6 +1710,7 @@
     } catch(_) {}
   }
   function showOnboarding() {
+    if (_pageMode === "app") { _gotoAuth(); return; }
     loginEl.style.display = "none";
     onboardingEl.style.display = "flex";
     chatEl.style.display = "none";
@@ -1695,6 +1718,7 @@
     try { unmountHeaderMenu(); } catch(_) {}
   }
   function showChat() {
+    if (_pageMode === "auth") { _gotoApp(true); return; }
     loginEl.style.display = "none";
     onboardingEl.style.display = "none";
     chatEl.style.display = "flex";
@@ -6108,12 +6132,14 @@
     // One tick = sent, two ticks = seen by the recipient. Scoped strictly
     // to 1:1 DM bubbles (`isMe` inside a dm_messages row). Group/public
     // rows never get this element because this function only runs for
-    // dm_messages. The element is always rendered but starts hidden;
-    // `_dmApplyReadStateToRow` fades it in and switches between states
-    // so the bubble width never jumps.
+    // dm_messages. Phase 3: the receipt is appended to `stack` (the
+    // column containing the bubble-wrap) so it sits BELOW the bubble
+    // rather than inside it. `align-self:flex-start` on the element
+    // left-aligns it even inside `.row.me .stack` (which otherwise
+    // aligns children to flex-end). Bubble width/height remain stable.
+    let __rrEl = null;
     if (isMe) {
-      const rr = _dmBuildReceiptEl();
-      bubble.appendChild(rr);
+      __rrEl = _dmBuildReceiptEl();
     }
 
     bubble.addEventListener("dblclick", (e) => {
@@ -6152,6 +6178,11 @@
     reactsEl.className = "reactions";
     reactsEl.dataset.msgId = m.id;
     stack.appendChild(reactsEl);
+
+    // Read receipt lives BELOW the bubble (Phase 3): append to `stack`
+    // after the bubble+reactions, before row time. The bubble itself
+    // keeps its shape because the receipt is a sibling, not a child.
+    if (__rrEl) stack.appendChild(__rrEl);
 
     row.appendChild(stack);
 
@@ -8160,6 +8191,323 @@
     }
   }
 
+  // =====================================================================
+  //  APPEARANCE (Phases 4–6) — theme + typography system.
+  //  Self-contained: all state lives in localStorage under `relay-appearance`
+  //  so it persists across pages (landing / auth / app / settings / account)
+  //  and across sessions. No Supabase changes required. Applies instantly
+  //  via CSS custom-property mutations on <html>, so no React-style
+  //  re-renders occur anywhere else in the app.
+  // =====================================================================
+  const APPEARANCE_KEY = "relay-appearance";
+  const APPEARANCE_PRESETS = [
+    { id: "light",     name: "Light",     bg: "#ffffff", panel: "#f5f5f7", text: "#0b0b0f", accent: "#2873ce" },
+    { id: "midnight",  name: "Midnight",  bg: "#0b0d14", panel: "#141824", text: "#e9ecff", accent: "#5865f2" },
+    { id: "dark",      name: "Dark",      bg: "#141416", panel: "#1c1c1e", text: "#f2f2f7", accent: "#0a84ff" },
+    { id: "obsidian",  name: "Obsidian",  bg: "#060608", panel: "#0f0f13", text: "#ededf2", accent: "#b388ff" },
+    { id: "nord",      name: "Nord",      bg: "#2e3440", panel: "#3b4252", text: "#eceff4", accent: "#88c0d0" },
+    { id: "dracula",   name: "Dracula",   bg: "#282a36", panel: "#343746", text: "#f8f8f2", accent: "#bd93f9" },
+    { id: "solarized", name: "Solarized", bg: "#002b36", panel: "#073642", text: "#eee8d5", accent: "#b58900" },
+    { id: "rose-pine", name: "Rose Pine", bg: "#191724", panel: "#1f1d2e", text: "#e0def4", accent: "#eb6f92" },
+    { id: "gruvbox",   name: "Gruvbox",   bg: "#1d2021", panel: "#282828", text: "#ebdbb2", accent: "#fe8019" },
+    { id: "cyberpunk", name: "Cyberpunk", bg: "#0a0015", panel: "#160028", text: "#f2e6ff", accent: "#ff2ecf" },
+    { id: "forest",    name: "Forest",    bg: "#10201a", panel: "#172b23", text: "#e4f3e9", accent: "#4caf7b" },
+    { id: "ocean",     name: "Ocean",     bg: "#0a1624", panel: "#11243a", text: "#e6f1ff", accent: "#38bdf8" }
+  ];
+  const APPEARANCE_FONTS = [
+    { id: "system",   label: "System (recommended)", stack: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif' },
+    { id: "inter",    label: "Inter",                stack: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' },
+    { id: "sfpro",    label: "SF Pro",               stack: '"SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
+    { id: "roboto",   label: "Roboto",               stack: 'Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif' },
+    { id: "mono",     label: "Monospace",            stack: 'ui-monospace, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' },
+    { id: "serif",    label: "Serif",                stack: 'Georgia, "Times New Roman", Times, serif' },
+    { id: "rounded",  label: "Rounded",              stack: '"SF Pro Rounded", "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }
+  ];
+  const APPEARANCE_DEFAULTS = { theme: null, custom: null, font: null, fontSize: 15 };
+  function _appearanceLoad() {
+    try {
+      const raw = localStorage.getItem(APPEARANCE_KEY);
+      if (!raw) return { ...APPEARANCE_DEFAULTS };
+      const a = JSON.parse(raw);
+      return {
+        theme: (typeof a.theme === "string") ? a.theme : null,
+        custom: (a.custom && typeof a.custom === "object" && a.custom.primary && a.custom.secondary) ? a.custom : null,
+        font: (typeof a.font === "string") ? a.font : null,
+        fontSize: (typeof a.fontSize === "number" && a.fontSize >= 12 && a.fontSize <= 22) ? a.fontSize : 15
+      };
+    } catch (_) { return { ...APPEARANCE_DEFAULTS }; }
+  }
+  function _appearanceSave(a) {
+    try { localStorage.setItem(APPEARANCE_KEY, JSON.stringify(a)); } catch (_) {}
+  }
+  function _appearanceApply(a) {
+    const root = document.documentElement;
+    if (a.theme) root.setAttribute("data-theme", a.theme); else root.removeAttribute("data-theme");
+    if (a.custom && a.custom.primary && a.custom.secondary) {
+      root.setAttribute("data-custom", "1");
+      root.style.setProperty("--custom-primary", a.custom.primary);
+      root.style.setProperty("--custom-secondary", a.custom.secondary);
+    } else {
+      root.removeAttribute("data-custom");
+      root.style.removeProperty("--custom-primary");
+      root.style.removeProperty("--custom-secondary");
+    }
+    if (a.font) {
+      const f = APPEARANCE_FONTS.find(x => x.id === a.font);
+      if (f) root.style.setProperty("--font-family", f.stack);
+      else root.style.removeProperty("--font-family");
+    } else {
+      root.style.removeProperty("--font-family");
+    }
+    if (a.fontSize && a.fontSize >= 12 && a.fontSize <= 22) {
+      root.style.setProperty("--font-size-base", a.fontSize + "px");
+    } else {
+      root.style.removeProperty("--font-size-base");
+    }
+  }
+  // Helpers used by the Appearance UI.
+  function _normHex(h) {
+    if (typeof h !== "string") return null;
+    let s = h.trim().toLowerCase();
+    if (!s) return null;
+    if (s[0] !== "#") s = "#" + s;
+    if (/^#[0-9a-f]{3}$/.test(s)) s = "#" + s[1]+s[1]+s[2]+s[2]+s[3]+s[3];
+    return /^#[0-9a-f]{6}$/.test(s) ? s : null;
+  }
+  function _hexToRgb(hex) {
+    const h = _normHex(hex); if (!h) return null;
+    return [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+  }
+  function _rgbStrToHex(s) {
+    if (typeof s !== "string") return null;
+    const m = s.trim().match(/^(?:rgb)?\s*\(?\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*\)?$/i);
+    if (!m) return null;
+    const r = Math.min(255, parseInt(m[1],10));
+    const g = Math.min(255, parseInt(m[2],10));
+    const b = Math.min(255, parseInt(m[3],10));
+    const h = (n) => n.toString(16).padStart(2,"0");
+    return "#" + h(r) + h(g) + h(b);
+  }
+  function _rgbFromHex(hex) {
+    const rgb = _hexToRgb(hex); if (!rgb) return "";
+    return rgb[0] + ", " + rgb[1] + ", " + rgb[2];
+  }
+
+  // Public API for the rest of the app (and console testing).
+  function appearanceSetTheme(id) {
+    const a = _appearanceLoad();
+    a.theme = id || null;
+    // Picking a named preset clears any custom overrides.
+    a.custom = null;
+    _appearanceSave(a); _appearanceApply(a); _renderAppearanceTab();
+  }
+  function appearanceSetCustom(primary, secondary) {
+    const p = _normHex(primary), s = _normHex(secondary);
+    if (!p || !s) return false;
+    const a = _appearanceLoad();
+    a.custom = { primary: p, secondary: s };
+    _appearanceSave(a); _appearanceApply(a); _renderAppearanceTab();
+    return true;
+  }
+  function appearanceClearCustom() {
+    const a = _appearanceLoad();
+    a.custom = null;
+    _appearanceSave(a); _appearanceApply(a); _renderAppearanceTab();
+  }
+  function appearanceSetFont(id) {
+    const a = _appearanceLoad();
+    a.font = id || null;
+    _appearanceSave(a); _appearanceApply(a); _renderAppearanceTab();
+  }
+  function appearanceSetFontSize(px) {
+    const a = _appearanceLoad();
+    const n = Math.max(12, Math.min(22, parseInt(px, 10) || 15));
+    a.fontSize = n;
+    _appearanceSave(a); _appearanceApply(a); _renderAppearanceTab();
+  }
+  // Expose for external triggering (not used internally).
+  window.relayAppearance = {
+    setTheme: appearanceSetTheme,
+    setCustom: appearanceSetCustom,
+    clearCustom: appearanceClearCustom,
+    setFont: appearanceSetFont,
+    setFontSize: appearanceSetFontSize,
+    get: _appearanceLoad
+  };
+  // Apply once on boot (the inline boot script already applied what it
+  // could from head — this is idempotent and normalizes everything).
+  try { _appearanceApply(_appearanceLoad()); } catch (_) {}
+
+  // Build the Appearance UI inside the Settings modal. The Settings modal
+  // comes shipped with an "empty" sidebar nav + empty content area; we
+  // replace both once the settings overlay is opened. `_renderAppearanceTab`
+  // is idempotent and safe to call at any time.
+  let _appearanceBuilt = false;
+  function _renderAppearanceTab() {
+    if (!settingsOverlayEl) return;
+    const navEl = settingsOverlayEl.querySelector("#settings-nav");
+    const contentEl = settingsOverlayEl.querySelector(".settings-content");
+    if (!navEl || !contentEl) return;
+    if (!_appearanceBuilt) {
+      navEl.innerHTML =
+        '<button type="button" class="settings-nav-item active" data-section="appearance" aria-current="true">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+            '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>' +
+          '</svg>' +
+          '<span class="label">Appearance</span>' +
+        '</button>';
+      contentEl.innerHTML = _appearanceHTML();
+      _wireAppearanceTab(contentEl);
+      _appearanceBuilt = true;
+    }
+    _syncAppearanceUI(contentEl);
+  }
+  function _appearanceHTML() {
+    const a = _appearanceLoad();
+    let presetCards = "";
+    for (const p of APPEARANCE_PRESETS) {
+      presetCards +=
+        '<button type="button" class="appearance-preset-card" data-preset="' + p.id + '" ' +
+        'style="--ap-bg:' + p.bg + ';--ap-panel:' + p.panel + ';--ap-text:' + p.text + ';--ap-accent:' + p.accent + ';">' +
+          '<span class="ap-preview" style="background:' + p.bg + ';color:' + p.text + ';">' +
+            '<span class="ap-row"><span class="ap-dot" style="background:' + p.accent + ';"></span><span class="ap-pill wide" style="background:' + p.panel + ';"></span></span>' +
+            '<span class="ap-pill narrow" style="background:' + p.accent + ';"></span>' +
+          '</span>' +
+          '<span class="ap-name">' + escapeHtml(p.name) + '</span>' +
+        '</button>';
+    }
+    let fontOptions = "";
+    for (const f of APPEARANCE_FONTS) {
+      fontOptions += '<option value="' + f.id + '">' + escapeHtml(f.label) + '</option>';
+    }
+    return (
+      '<div class="appearance-section">' +
+        '<div>' +
+          '<div class="appearance-h">Theme</div>' +
+          '<div class="appearance-sub">Pick a preset. You can still fine-tune the primary / secondary colors below.</div>' +
+          '<div class="appearance-presets" role="listbox" aria-label="Theme presets">' + presetCards + '</div>' +
+        '</div>' +
+        '<div>' +
+          '<div class="appearance-h">Custom colors</div>' +
+          '<div class="appearance-sub">Override just the accents on top of the selected preset. Clear to revert.</div>' +
+          '<div class="appearance-custom">' +
+            '<div class="appearance-color-card" data-role="primary">' +
+              '<div class="appearance-color-title"><span class="appearance-color-swatch" data-role-swatch="primary"></span>Primary</div>' +
+              '<div class="appearance-color-inputs">' +
+                '<label>HEX</label><input type="text" data-input="primary-hex" placeholder="#2873ce" maxlength="7" autocomplete="off" spellcheck="false" />' +
+                '<input type="color" data-input="primary-color" aria-label="Primary color picker" />' +
+              '</div>' +
+              '<div class="appearance-color-inputs">' +
+                '<label>RGB</label><input type="text" data-input="primary-rgb" placeholder="40, 115, 206" autocomplete="off" spellcheck="false" />' +
+                '<span></span>' +
+              '</div>' +
+            '</div>' +
+            '<div class="appearance-color-card" data-role="secondary">' +
+              '<div class="appearance-color-title"><span class="appearance-color-swatch" data-role-swatch="secondary"></span>Secondary</div>' +
+              '<div class="appearance-color-inputs">' +
+                '<label>HEX</label><input type="text" data-input="secondary-hex" placeholder="#0a84ff" maxlength="7" autocomplete="off" spellcheck="false" />' +
+                '<input type="color" data-input="secondary-color" aria-label="Secondary color picker" />' +
+              '</div>' +
+              '<div class="appearance-color-inputs">' +
+                '<label>RGB</label><input type="text" data-input="secondary-rgb" placeholder="10, 132, 255" autocomplete="off" spellcheck="false" />' +
+                '<span></span>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<button type="button" class="appearance-color-reset" data-action="clear-custom">Reset to preset defaults</button>' +
+        '</div>' +
+        '<div>' +
+          '<div class="appearance-h">Text &amp; fonts</div>' +
+          '<div class="appearance-sub">Applies everywhere. System uses your device\u2019s native font.</div>' +
+          '<div class="appearance-typography">' +
+            '<div class="appearance-field">' +
+              '<label for="appearance-font">Font family</label>' +
+              '<select id="appearance-font" data-input="font">' + fontOptions + '</select>' +
+            '</div>' +
+            '<div class="appearance-field">' +
+              '<label for="appearance-font-size">Text size</label>' +
+              '<div class="appearance-size-row">' +
+                '<input id="appearance-font-size" type="range" min="12" max="22" step="1" data-input="font-size" />' +
+                '<span class="appearance-size-readout" data-readout="font-size">15 px</span>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="appearance-preview" aria-hidden="true">' +
+            '<div class="pv-bubble-other">Looks good from here.</div>' +
+            '<div class="pv-bubble-me">And tight on the right side too.</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+  function _wireAppearanceTab(root) {
+    // Preset click
+    root.querySelectorAll(".appearance-preset-card").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.preset;
+        if (id) appearanceSetTheme(id);
+      });
+    });
+    // Custom color inputs
+    const bindColor = (role) => {
+      const hex = root.querySelector('[data-input="' + role + '-hex"]');
+      const rgb = root.querySelector('[data-input="' + role + '-rgb"]');
+      const pick = root.querySelector('[data-input="' + role + '-color"]');
+      const commit = (val) => {
+        const n = _normHex(val);
+        if (!n) return;
+        const cur = _appearanceLoad();
+        const custom = cur.custom || { primary: getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#2873ce",
+                                        secondary: getComputedStyle(document.documentElement).getPropertyValue("--accent-2").trim() || "#0a84ff" };
+        custom[role] = n;
+        const p = _normHex(custom.primary) || "#2873ce";
+        const s = _normHex(custom.secondary) || "#0a84ff";
+        appearanceSetCustom(p, s);
+      };
+      if (hex) hex.addEventListener("change", () => commit(hex.value));
+      if (rgb) rgb.addEventListener("change", () => { const h = _rgbStrToHex(rgb.value); if (h) commit(h); });
+      if (pick) pick.addEventListener("input", () => commit(pick.value));
+    };
+    bindColor("primary"); bindColor("secondary");
+    const resetBtn = root.querySelector('[data-action="clear-custom"]');
+    if (resetBtn) resetBtn.addEventListener("click", () => appearanceClearCustom());
+    // Font family
+    const fontSel = root.querySelector('[data-input="font"]');
+    if (fontSel) fontSel.addEventListener("change", () => appearanceSetFont(fontSel.value || null));
+    // Font size
+    const sizeInput = root.querySelector('[data-input="font-size"]');
+    if (sizeInput) sizeInput.addEventListener("input", () => appearanceSetFontSize(sizeInput.value));
+  }
+  function _syncAppearanceUI(root) {
+    const a = _appearanceLoad();
+    // Active preset card
+    root.querySelectorAll(".appearance-preset-card").forEach(c => {
+      c.classList.toggle("active", a.theme && c.dataset.preset === a.theme);
+    });
+    // Resolve current accents: custom overrides > computed style from preset.
+    const comp = getComputedStyle(document.documentElement);
+    const curPrimary = (a.custom && a.custom.primary) || _normHex(comp.getPropertyValue("--accent")) || "#2873ce";
+    const curSecondary = (a.custom && a.custom.secondary) || _normHex(comp.getPropertyValue("--accent-2")) || "#0a84ff";
+    const setVal = (sel, v) => { const el = root.querySelector(sel); if (el && el.value !== v) el.value = v; };
+    setVal('[data-input="primary-hex"]', curPrimary);
+    setVal('[data-input="primary-color"]', curPrimary);
+    setVal('[data-input="primary-rgb"]', _rgbFromHex(curPrimary));
+    setVal('[data-input="secondary-hex"]', curSecondary);
+    setVal('[data-input="secondary-color"]', curSecondary);
+    setVal('[data-input="secondary-rgb"]', _rgbFromHex(curSecondary));
+    const ps = root.querySelector('[data-role-swatch="primary"]');
+    if (ps) ps.style.background = curPrimary;
+    const ss = root.querySelector('[data-role-swatch="secondary"]');
+    if (ss) ss.style.background = curSecondary;
+    // Font dropdown + size slider
+    const fontSel = root.querySelector('[data-input="font"]');
+    if (fontSel) fontSel.value = a.font || "system";
+    const sizeInput = root.querySelector('[data-input="font-size"]');
+    const sizeReadout = root.querySelector('[data-readout="font-size"]');
+    if (sizeInput) sizeInput.value = String(a.fontSize || 15);
+    if (sizeReadout) sizeReadout.textContent = (a.fontSize || 15) + " px";
+  }
+
   function openSettings() {
     if (!settingsOverlayEl) return;
     if (!me) return; // Never openable while logged out.
@@ -8170,6 +8518,8 @@
     document.body.style.overflow = "hidden";
     if (settingsCloseX) setTimeout(() => { try { settingsCloseX.focus(); } catch (_) {} }, 0);
     document.addEventListener("keydown", settingsOverlayKeydown);
+    // Build / refresh the Appearance tab each time Settings opens.
+    try { _renderAppearanceTab(); } catch (_) {}
   }
   function closeSettings() {
     if (!settingsOverlayEl) return;
@@ -9382,4 +9732,38 @@
   // ---------- Init ----------
   applyRestrictionUI();
   updateSendDisabled();
+
+  // ---------- Deep-link ?view= handling (Phase 2) ----------
+  // Supports settings.html / account.html convenience pages, which
+  // redirect to `app.html?view=settings` / `app.html?view=account`.
+  // We wait until a session exists (i.e., `me` is populated) before
+  // opening the corresponding modal, then strip the query so reloads
+  // don't re-trigger. Only runs on app.html (data-page="app").
+  (function _initViewQueryHandler() {
+    if (_pageMode !== "app") return;
+    let qs; let targetView = null;
+    try { qs = new URLSearchParams(window.location.search); targetView = qs.get("view"); } catch (_) {}
+    if (!targetView) return;
+    if (targetView !== "settings" && targetView !== "account") return;
+    const tryOpen = () => {
+      if (!me) return false;
+      if (targetView === "settings" && typeof openSettings === "function") { openSettings(); }
+      else if (targetView === "account" && typeof openAccountCenter === "function") { openAccountCenter(); }
+      else { return false; }
+      try {
+        qs.delete("view");
+        const rest = qs.toString();
+        const newUrl = window.location.pathname + (rest ? ("?" + rest) : "") + window.location.hash;
+        window.history.replaceState({}, "", newUrl);
+      } catch (_) {}
+      return true;
+    };
+    if (tryOpen()) return;
+    // Wait for `me` (populated after session + profile fetch). Poll cheaply
+    // for up to 30s; bail afterwards so we never busy-loop.
+    const started = Date.now();
+    const iv = setInterval(() => {
+      if (tryOpen() || (Date.now() - started) > 30000) clearInterval(iv);
+    }, 180);
+  })();
 })();
