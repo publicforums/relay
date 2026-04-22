@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Relay Privacy Policy</title>
+<link rel="icon" type="image/png" href="logo.png" />
+<link rel="apple-touch-icon" href="logo.png" />
+<meta property="og:title" content="Relay Privacy Policy" />
+<meta property="og:image" content="logo.png" />
+<meta name="twitter:title" content="Relay Privacy Policy" />
+<meta name="twitter:image" content="logo.png" />
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --panel: #ffffff;
+    --panel-2: #fafafc;
+    --text: #0b0b0f;
+    --muted: #8a8a8f;
+    --border: #e5e5ea;
+    --accent: #2873ce;
+    --shadow: 0 1px 2px rgba(0,0,0,0.05), 0 1px 1px rgba(0,0,0,0.04);
+    --shadow-lg: 0 20px 60px rgba(0,0,0,0.12);
+    --content-w: 820px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141416;
+      --panel: #1c1c1e;
+      --panel-2: #141416;
+      --text: #f2f2f7;
+      --muted: #8e8e93;
+      --border: #2c2c2e;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+      --shadow-lg: 0 20px 60px rgba(0,0,0,0.6);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15.5px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+  }
+  body { min-height: 100dvh; display: flex; flex-direction: column; }
+
+  header.page-bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: color-mix(in srgb, var(--panel) 88%, transparent);
+    backdrop-filter: saturate(180%) blur(18px);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+    border-bottom: 1px solid var(--border);
+  }
+  .page-bar-inner {
+    max-width: var(--content-w);
+    margin: 0 auto;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text);
+    text-decoration: none;
+    overflow: visible;
+  }
+  .brand img {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    object-fit: contain;
+    display: block;
+  }
+  .brand .brand-name {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: var(--accent);
+    padding: 2px 6px 3px;
+    line-height: 1.1;
+    text-shadow:
+      0 0 18px rgba(40,115,206,0.45),
+      0 0 10px rgba(40,115,206,0.35),
+      0 0 3px  rgba(40,115,206,0.30);
+  }
+  .page-bar nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    margin-left: 18px;
+    transition: color .15s ease;
+  }
+  .page-bar nav a:hover { color: var(--text); }
+
+  main.document {
+    flex: 1;
+    width: 100%;
+    max-width: var(--content-w);
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  .doc-hero {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 28px 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 28px;
+  }
+  .doc-hero h1 {
+    margin: 0 0 6px;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    color: var(--text);
+  }
+  .doc-hero .eyebrow {
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .doc-hero p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .doc-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .doc-meta span strong { color: var(--text); font-weight: 600; }
+
+  .toc {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px 22px;
+    box-shadow: var(--shadow);
+    margin-bottom: 28px;
+  }
+  .toc h2 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .toc ol {
+    margin: 0;
+    padding-left: 22px;
+    columns: 2;
+    column-gap: 28px;
+  }
+  .toc ol li {
+    break-inside: avoid;
+    padding: 3px 0;
+    font-size: 13.5px;
+  }
+  .toc ol li a {
+    color: var(--text);
+    text-decoration: none;
+    transition: color .15s ease;
+  }
+  .toc ol li a:hover { color: var(--accent); }
+  @media (max-width: 640px) {
+    .toc ol { columns: 1; }
+  }
+
+  article.terms section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 28px;
+    box-shadow: var(--shadow);
+    margin-bottom: 18px;
+    scroll-margin-top: 90px;
+  }
+  article.terms h2 {
+    margin: 0 0 14px;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.005em;
+    color: var(--text);
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  article.terms h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  article.terms h3 {
+    margin: 20px 0 8px;
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  article.terms p {
+    margin: 0 0 12px;
+    color: var(--text);
+  }
+  article.terms p:last-child { margin-bottom: 0; }
+  article.terms a { color: var(--accent); text-decoration: none; }
+  article.terms a:hover { text-decoration: underline; }
+
+  footer.page-footer {
+    border-top: 1px solid var(--border);
+    background: var(--panel-2);
+  }
+  .page-footer-inner {
+    max-width: var(--content-w);
+    margin: 0 auto;
+    padding: 26px 24px 40px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 16px;
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .page-footer-inner nav a {
+    color: var(--muted);
+    text-decoration: none;
+    margin-left: 16px;
+  }
+  .page-footer-inner nav a:hover { color: var(--text); }
+  @media (max-width: 640px) {
+    .page-bar-inner { padding: 12px 16px; }
+    main.document { padding: 24px 16px 60px; }
+    .doc-hero { padding: 22px; }
+    article.terms section { padding: 20px; }
+    .page-footer-inner nav a { margin: 0 10px 0 0; }
+  }
+
+  @media print {
+    header.page-bar, footer.page-footer, .toc { display: none; }
+    body { background: #fff; color: #000; }
+    article.terms section { break-inside: avoid; box-shadow: none; border-color: #ddd; }
+  }
+</style>
+</head>
+<body>
+  <header class="page-bar">
+    <div class="page-bar-inner">
+      <a class="brand" href="/" aria-label="Relay">
+        <img src="logo.png" alt="" onerror="this.style.display='none'" />
+        <span class="brand-name">Relay</span>
+      </a>
+      <nav aria-label="Legal">
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="/contact.html">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="document">
+    <section class="doc-hero" aria-labelledby="doc-title">
+      <div class="eyebrow">Legal</div>
+      <h1 id="doc-title">Privacy Policy</h1>
+      <p>This Privacy Policy describes how Relay collects, uses, discloses, and protects information in connection with the Relay messaging and chat application, including any associated websites, application programming interfaces, mobile clients, desktop clients, and other services offered under the Relay name. It is intended to provide a clear and complete account of the privacy practices that apply to users of the platform.</p>
+      <div class="doc-meta">
+        <span><strong>Effective date</strong> January 1, 2025</span>
+        <span><strong>Last updated</strong> January 1, 2025</span>
+        <span><strong>Version</strong> 1.0</span>
+      </div>
+    </section>
+
+    <nav class="toc" aria-label="Table of contents">
+      <h2>Contents</h2>
+      <ol>
+        <li><a href="#s1">Introduction and Scope</a></li>
+        <li><a href="#s2">Information We Collect</a></li>
+        <li><a href="#s3">Methods of Data Collection</a></li>
+        <li><a href="#s4">Purposes of Data Processing</a></li>
+        <li><a href="#s5">Legal Bases for Processing</a></li>
+        <li><a href="#s6">Data Retention Practices</a></li>
+        <li><a href="#s7">Data Sharing and Third Party Disclosures</a></li>
+        <li><a href="#s8">International Data Transfers</a></li>
+        <li><a href="#s9">User Rights and Controls</a></li>
+        <li><a href="#s10">Security Measures and Safeguards</a></li>
+        <li><a href="#s11">Abuse Prevention and Safety Systems</a></li>
+        <li><a href="#s12">Cookies and Similar Technologies</a></li>
+        <li><a href="#s13">Children and Age Related Restrictions</a></li>
+        <li><a href="#s14">Automated Decision Making</a></li>
+        <li><a href="#s15">Changes to the Policy</a></li>
+        <li><a href="#s16">Contact Information</a></li>
+      </ol>
+    </nav>
+
+    <article class="terms">
+
+      <section id="s1" aria-labelledby="h1">
+        <h2 id="h1"><span class="num">01</span>Introduction and Scope</h2>
+        <p>Relay operates a messaging and chat platform that enables individuals and groups to communicate through text, voice, video, and related features. In order to provide these services, Relay processes information about the individuals who create accounts, the communications they exchange, and the environments in which the platform is used. This Privacy Policy explains what information is processed, how it is used, with whom it is shared, how long it is retained, and what rights and choices users have concerning that information.</p>
+        <p>This Privacy Policy applies to information processed by Relay in its capacity as a controller of personal data. It does not apply to the practices of third parties that Relay does not own or control, including other users of the platform, external websites that may be referenced within messages, or integrations that users authorize to access their accounts. Users should review the privacy practices of any third party service before interacting with it.</p>
+        <p>By using the platform, you acknowledge that you have read and understood this Privacy Policy. Where processing depends on your consent, Relay will seek that consent at the appropriate time and honor any subsequent withdrawal of consent. This Privacy Policy should be read together with the Terms of Service and any supplemental notices made available within the platform.</p>
+      </section>
+
+      <section id="s2" aria-labelledby="h2">
+        <h2 id="h2"><span class="num">02</span>Information We Collect</h2>
+        <p>The information Relay processes falls into several categories, each supporting different aspects of the platform. The categories described below represent the types of information that may be collected in the ordinary course of operating the platform; not every category applies to every user, and certain information is collected only when specific features are used.</p>
+        <h3>Account Information</h3>
+        <p>When you create an account, Relay collects information necessary to identify and authenticate you, including your email address, a password that is stored in hashed form, a chosen username, and any display name, profile photo, biographical description, pronouns, and regional preferences you provide. If you sign in through an identity provider, Relay receives the identifiers and profile details that the identity provider chooses to share in accordance with your authorization.</p>
+        <h3>Communications Content</h3>
+        <p>Relay processes the content of messages you send through the platform, including text, images, video, audio, documents, reactions, stickers, and other material you transmit. The platform is designed to deliver this content to the recipients you select and to make it available to you across your authorized sessions. Content shared within a conversation is accessible to the participants of that conversation and, where applicable, to moderators of the space in which the conversation occurs.</p>
+        <h3>Communications Metadata</h3>
+        <p>In addition to the content of your messages, Relay processes metadata associated with communications, including the identifiers of the sender and recipients, timestamps, message sizes, delivery and read statuses, attachment types, and information about the conversation or group in which the communication occurred. Metadata is essential for the correct routing, ordering, and display of messages.</p>
+        <h3>Device and Connection Information</h3>
+        <p>Relay processes information about the devices and connections used to access the platform, including device type, operating system and version, application version, screen characteristics, language settings, network type, network addresses, and approximate location derived from network addresses. This information is used to operate the platform, to tailor the experience to the capabilities of each device, and to detect abuse.</p>
+        <h3>Usage and Activity Information</h3>
+        <p>Relay processes information about how you interact with the platform, including the features you use, the actions you take, the conversations you access, the volume and frequency of activity, the links you follow within the platform, and the crashes or errors encountered by your client. Usage information is used to maintain the platform, to diagnose issues, and to improve performance.</p>
+        <h3>Contact and Social Graph Information</h3>
+        <p>If you choose to connect with other users, Relay processes information about the connections you establish, including the users you add, follow, block, or mute, and the groups or communities you join. Where you choose to import contact information to find others on the platform, Relay processes only the information needed to match contacts and does not use imported information for unrelated purposes.</p>
+        <h3>Payment Information</h3>
+        <p>If you purchase an optional paid feature or subscription, Relay processes information necessary to complete the transaction, such as billing name, billing address, the last digits of the payment instrument, and confirmation identifiers returned by the payment processor. Full payment card numbers and security codes are handled directly by the payment processor and are not stored by Relay.</p>
+        <h3>Support and Correspondence</h3>
+        <p>When you contact Relay for support, submit a report, or correspond with the legal or trust and safety teams, Relay processes the information you provide in that correspondence, including the content of your message, any attachments, and the contact details associated with your inquiry.</p>
+      </section>
+
+      <section id="s3" aria-labelledby="h3h">
+        <h2 id="h3h"><span class="num">03</span>Methods of Data Collection</h2>
+        <p>Relay collects information through several complementary methods, each tied to the operation of a specific feature or to the protection of the platform. Understanding these methods helps clarify the circumstances under which information enters the platform and the role that users play in that process.</p>
+        <h3>Information Provided Directly</h3>
+        <p>Much of the information Relay processes is provided directly by users, including during registration, when updating a profile, when configuring notification or privacy settings, when composing and sending messages, when creating or joining groups, and when contacting support. Where you provide information directly, you control the content of that information and can correct or update it using the tools available within the platform.</p>
+        <h3>Information Generated Through Use</h3>
+        <p>Some information is generated as a natural consequence of using the platform, including the timestamps associated with messages, the delivery status of communications, the connection logs needed to route traffic, the session identifiers needed to keep you signed in, and the error reports generated when a client encounters a fault. This information is produced by the operation of the platform and is processed for the purposes described in this Privacy Policy.</p>
+        <h3>Information Received From Third Parties</h3>
+        <p>Relay may receive information from third parties in limited circumstances, including identity providers you use to sign in, payment processors that confirm transactions, abuse reporting organizations that share information relevant to the safety of the platform, and service providers that perform functions on behalf of Relay. Information received from third parties is used only for the purposes for which it was shared.</p>
+        <h3>Inferred Information</h3>
+        <p>Relay may derive limited inferences from the information it processes, such as estimating a coarse geographic region from a network address to satisfy regional requirements, or classifying content as likely spam or likely abuse for safety purposes. Inferences are used to operate and protect the platform and are not used to build advertising profiles.</p>
+      </section>
+
+      <section id="s4" aria-labelledby="h4">
+        <h2 id="h4"><span class="num">04</span>Purposes of Data Processing</h2>
+        <p>Relay processes information for the purposes described in this section. Each category of information is used only for purposes that are compatible with the reason it was collected and with the expectations of the users who provided it.</p>
+        <h3>Providing and Operating the Platform</h3>
+        <p>Relay processes information to deliver messages, maintain conversations, synchronize content across devices, authenticate users, honor privacy and notification settings, and ensure that the platform functions correctly. Without this processing, the platform could not operate.</p>
+        <h3>Maintaining Security and Integrity</h3>
+        <p>Relay processes information to detect and prevent unauthorized access, to investigate suspected abuse or fraud, to enforce the Terms of Service and supplemental policies, to protect the rights and safety of users and third parties, and to preserve the integrity of platform infrastructure.</p>
+        <h3>Improving and Developing the Platform</h3>
+        <p>Relay processes information to understand how the platform is used, to diagnose issues, to measure the performance of features, to test improvements, and to develop new capabilities. Where feasible, information used for these purposes is aggregated, pseudonymized, or otherwise processed in a manner that limits its identifiability.</p>
+        <h3>Communicating With Users</h3>
+        <p>Relay processes contact information to send transactional communications related to your account, including security alerts, service notices, receipts, and responses to inquiries. Where you have opted in, Relay may send informational communications about features, updates, or educational content. Marketing communications are sent only where permitted by applicable law and are subject to an opt out mechanism.</p>
+        <h3>Supporting Optional Paid Features</h3>
+        <p>Relay processes information necessary to provide optional paid features, including billing, invoicing, fraud prevention, and customer support for paid users.</p>
+        <h3>Complying With Legal Obligations</h3>
+        <p>Relay processes information to comply with applicable laws, regulations, court orders, and lawful requests from public authorities, and to establish, exercise, or defend legal claims.</p>
+      </section>
+
+      <section id="s5" aria-labelledby="h5">
+        <h2 id="h5"><span class="num">05</span>Legal Bases for Processing</h2>
+        <p>Where privacy and data protection laws require Relay to identify a legal basis for processing personal data, Relay relies on the bases described below. The applicable basis depends on the specific processing activity and the circumstances in which it occurs.</p>
+        <h3>Performance of a Contract</h3>
+        <p>Much of the processing Relay performs is necessary to provide the platform in accordance with the Terms of Service. This basis applies to the operation of messaging features, account management, delivery of paid features, and related processing that is required to fulfill the agreement with users.</p>
+        <h3>Legitimate Interests</h3>
+        <p>Relay processes certain information in reliance on its legitimate interests in operating, securing, and improving the platform, in preventing and investigating abuse and fraud, in measuring and analyzing the performance of features, and in protecting the rights and safety of users and third parties. Where this basis is relied upon, Relay balances its interests against the interests, rights, and freedoms of the individuals concerned.</p>
+        <h3>Compliance With Legal Obligations</h3>
+        <p>Relay processes information where processing is necessary to comply with legal obligations to which it is subject, including obligations related to tax, consumer protection, content moderation, responses to lawful requests, and record keeping.</p>
+        <h3>Consent</h3>
+        <p>Where processing is based on consent, Relay seeks that consent in a clear and specific manner and provides tools to withdraw consent at any time. Withdrawal of consent does not affect the lawfulness of processing performed before the withdrawal and does not affect processing that relies on a different legal basis.</p>
+        <h3>Vital Interests and Public Interest</h3>
+        <p>In rare circumstances, Relay may process information where necessary to protect the vital interests of an individual, such as where there is an imminent risk to life, or where necessary to perform a task carried out in the public interest, in each case within the limits set by applicable law.</p>
+      </section>
+
+      <section id="s6" aria-labelledby="h6">
+        <h2 id="h6"><span class="num">06</span>Data Retention Practices</h2>
+        <p>Relay retains information only for as long as necessary to fulfill the purposes for which it was collected, to satisfy legal or regulatory obligations, to resolve disputes, and to enforce applicable agreements. The retention period that applies to a particular category of information depends on the nature of the information, the purpose of the processing, and the legal requirements that govern it.</p>
+        <h3>Account Information</h3>
+        <p>Account information is retained for as long as an account remains active. When an account is deleted, the associated information is removed from the production environment within a reasonable period, subject to limited retention of identifiers and records needed to prevent the recreation of accounts that have been terminated for serious violations, to comply with legal obligations, and to protect against liability.</p>
+        <h3>Message Content</h3>
+        <p>Message content remains available to participants of a conversation until it is deleted by the sender, by the recipient in the case of content they control, or by an administrator of the relevant space. When a message is deleted, it is removed from the view of participants promptly and from production storage within a reasonable period. Backup copies may persist for a limited additional period before being overwritten in the ordinary course of backup rotation.</p>
+        <h3>Metadata and Logs</h3>
+        <p>Connection logs, security logs, and technical telemetry are retained for limited periods defined by operational need and security best practice, typically measured in weeks or months rather than years. Retention periods are set with reference to the specific purpose each log supports.</p>
+        <h3>Support Correspondence</h3>
+        <p>Records of support correspondence are retained for the period necessary to provide support, to resolve related matters, and to support quality assurance and training. After that period, records are deleted or anonymized.</p>
+        <h3>Legal Holds</h3>
+        <p>Where information is subject to a legal hold, preservation obligation, or pending legal claim, Relay retains the information for the duration of the hold or obligation, notwithstanding the retention periods described above.</p>
+      </section>
+
+      <section id="s7" aria-labelledby="h7">
+        <h2 id="h7"><span class="num">07</span>Data Sharing and Third Party Disclosures</h2>
+        <p>Relay does not sell personal information. Relay shares information only as necessary to operate the platform, to comply with legal obligations, or with the authorization of the user to whom the information relates. The categories of recipients with whom information may be shared are described below.</p>
+        <h3>Other Users</h3>
+        <p>By design, messages and related content are shared with the recipients you select, and profile information is shared with users to whom you choose to display it. Information disclosed within a conversation is visible to the participants of that conversation and, where applicable, to administrators and moderators of the relevant space.</p>
+        <h3>Service Providers</h3>
+        <p>Relay engages service providers to perform functions that support the platform, including cloud hosting, content delivery, storage, analytics, security, fraud prevention, customer support, payment processing, communications delivery, and translation. Service providers process information only under written instructions from Relay, only for the purposes for which they were engaged, and subject to contractual safeguards that are consistent with applicable data protection law.</p>
+        <h3>Authorized Integrations</h3>
+        <p>Where you authorize an integration, bot, or external application to access your account or content, Relay shares the relevant information with that integration in accordance with the permissions you have granted. You may review and revoke authorizations through the platform settings.</p>
+        <h3>Corporate Transactions</h3>
+        <p>If Relay is involved in a merger, acquisition, financing, reorganization, bankruptcy, sale of assets, or similar transaction, information may be transferred as part of that transaction. In such cases, Relay will seek to ensure that the recipient is bound by commitments consistent with this Privacy Policy or will provide notice of material changes.</p>
+        <h3>Legal and Safety Disclosures</h3>
+        <p>Relay may disclose information where it has a good faith belief that disclosure is necessary to comply with applicable law, to respond to lawful requests from public authorities, to enforce the Terms of Service, to detect or prevent fraud or abuse, to respond to emergencies involving a risk to life or physical safety, or to establish, exercise, or defend legal claims. Where permitted, Relay seeks to narrow disclosures to what is strictly necessary and to challenge requests that appear to be overbroad or unlawful.</p>
+        <h3>Aggregated or Deidentified Information</h3>
+        <p>Relay may share aggregated or deidentified information that does not identify any individual, for research, reporting, or similar purposes, in a manner that does not allow recipients to reidentify the individuals to whom the information originally related.</p>
+      </section>
+
+      <section id="s8" aria-labelledby="h8">
+        <h2 id="h8"><span class="num">08</span>International Data Transfers</h2>
+        <p>Relay operates globally and may process information in countries other than the country in which a user is located, including countries that may have data protection laws that differ from those of the user's country of residence. Transfers occur in connection with hosting infrastructure, service providers, corporate functions, and the delivery of communications to recipients located in different jurisdictions.</p>
+        <p>Where personal data is transferred from a jurisdiction that imposes requirements on international transfers, Relay implements appropriate safeguards to protect the information. Depending on the circumstances, these safeguards may include the use of standard contractual clauses approved by the relevant authority, reliance on adequacy decisions issued by competent regulators, implementation of supplementary technical and organizational measures, and reliance on specific derogations available under applicable law. Information about the safeguards applicable to a specific transfer is available upon request through the contact channels listed in this Privacy Policy.</p>
+      </section>
+
+      <section id="s9" aria-labelledby="h9">
+        <h2 id="h9"><span class="num">09</span>User Rights and Controls</h2>
+        <p>Depending on your jurisdiction, you may have rights regarding the personal information Relay processes about you. Relay recognizes the rights described below and provides tools and contact channels through which those rights can be exercised. Where applicable law grants additional rights, those rights will be honored in accordance with the relevant legal framework.</p>
+        <h3>Access</h3>
+        <p>You may request confirmation of whether Relay processes personal information about you and may request a copy of that information. Where feasible, the information will be provided in a commonly used electronic format.</p>
+        <h3>Correction</h3>
+        <p>You may request that inaccurate or incomplete personal information be corrected. Many categories of information can be corrected directly through the account settings; other corrections may be requested through the contact channels listed in this Privacy Policy.</p>
+        <h3>Deletion</h3>
+        <p>You may request that personal information be deleted, subject to exceptions provided by applicable law, including exceptions for information that is necessary to provide the platform to other users, to comply with legal obligations, to detect or prevent fraud or abuse, or to establish, exercise, or defend legal claims.</p>
+        <h3>Restriction and Objection</h3>
+        <p>You may request that certain processing activities be restricted, or object to processing based on legitimate interests, where applicable law provides such a right. Relay will evaluate the request in accordance with the applicable legal framework.</p>
+        <h3>Portability</h3>
+        <p>Where applicable law provides a right to data portability, you may request a copy of certain personal information in a structured, commonly used, machine readable format, and may request that Relay transmit that information to another service where technically feasible.</p>
+        <h3>Withdrawal of Consent</h3>
+        <p>Where processing is based on consent, you may withdraw consent at any time. Withdrawal does not affect the lawfulness of processing performed before the withdrawal.</p>
+        <h3>Complaints</h3>
+        <p>If you believe that the processing of your personal information violates applicable law, you have the right to lodge a complaint with the supervisory authority in your country of residence, place of work, or place of the alleged violation, in addition to any other remedy available to you.</p>
+        <h3>Exercising Your Rights</h3>
+        <p>Requests to exercise rights may be submitted through the contact channels listed in this Privacy Policy. To protect your information, Relay may verify your identity before acting on a request. Relay will respond within the timeframe required by applicable law and will explain any limitations that apply to the response.</p>
+      </section>
+
+      <section id="s10" aria-labelledby="h10">
+        <h2 id="h10"><span class="num">10</span>Security Measures and Safeguards</h2>
+        <p>Relay maintains a program of administrative, technical, and physical safeguards designed to protect personal information against unauthorized access, alteration, disclosure, and destruction. The safeguards are informed by generally recognized industry practice and are reviewed periodically in light of evolving threats, technological developments, and operational experience.</p>
+        <p>Safeguards include the use of encryption in transit between clients and platform infrastructure, the use of encryption at rest for stored data where appropriate, access controls that limit internal access to personal information on a need to know basis, authentication controls for employees and contractors, logging and monitoring of access to production systems, secure development practices, regular security assessments, and incident response procedures that address the detection, containment, and remediation of security events.</p>
+        <p>No system can guarantee absolute security. Users play an important role in protecting their own information, including by using strong and unique passwords, enabling multifactor authentication where available, keeping their devices and software up to date, and promptly reporting suspected security incidents through the contact channels listed in this Privacy Policy.</p>
+      </section>
+
+      <section id="s11" aria-labelledby="h11">
+        <h2 id="h11"><span class="num">11</span>Abuse Prevention and Safety Systems</h2>
+        <p>The platform includes systems designed to detect and mitigate abuse, harassment, spam, malware distribution, and other forms of misuse. These systems combine automated detection with human review and rely on information such as message metadata, reported content, account behavior patterns, and signals derived from device and connection information.</p>
+        <p>Where a communication is flagged as potentially violating the Terms of Service or applicable law, Relay may review the flagged content and associated context to determine an appropriate response. Enforcement actions may include warnings, removal of content, restrictions on specific features, suspension of accounts, and termination of accounts, as described in the Terms of Service. Information related to enforcement actions is retained for the period necessary to operate the systems, to support appeals, and to address repeat or coordinated abuse.</p>
+        <p>Where required or appropriate, Relay reports specific categories of illegal content, such as material depicting the sexual exploitation of minors, to recognized reporting organizations and to law enforcement in accordance with applicable law. Cooperation with these organizations is governed by established protocols designed to protect the integrity of investigations and the privacy of uninvolved users.</p>
+      </section>
+
+      <section id="s12" aria-labelledby="h12">
+        <h2 id="h12"><span class="num">12</span>Cookies and Similar Technologies</h2>
+        <p>The web and desktop clients of the platform use cookies, local storage, and similar technologies to maintain user sessions, remember preferences, support security features, and measure the performance of the platform. Cookies that are strictly necessary to provide the services you request are set without separate consent. Optional cookies, including those used for analytics where permitted, are set only with your consent, where consent is required by applicable law.</p>
+        <p>You can manage cookies through your browser settings, which typically allow you to block cookies, to delete existing cookies, or to be notified when cookies are set. Blocking or deleting strictly necessary cookies may affect the functioning of the platform. Where applicable, the platform provides an in product control for managing optional analytics cookies.</p>
+      </section>
+
+      <section id="s13" aria-labelledby="h13">
+        <h2 id="h13"><span class="num">13</span>Children and Age Related Restrictions</h2>
+        <p>The platform is not directed to children under the minimum age specified in the Terms of Service. Relay does not knowingly collect personal information from individuals below that minimum age. If Relay becomes aware that it has collected personal information from an individual below the minimum age without the consent of a parent or legal guardian, Relay will take appropriate steps to delete the information and to terminate the associated account.</p>
+        <p>For users between the minimum age and the age of majority in their jurisdiction, Relay may apply additional safeguards designed to protect younger users, including limitations on the visibility of profile information, default privacy settings oriented toward greater protection, and restrictions on the receipt of messages from accounts with which the user has not connected.</p>
+        <p>Parents and legal guardians who believe that a child under the minimum age has provided personal information to the platform should contact Relay through the channels listed in this Privacy Policy so that appropriate action can be taken.</p>
+      </section>
+
+      <section id="s14" aria-labelledby="h14">
+        <h2 id="h14"><span class="num">14</span>Automated Decision Making</h2>
+        <p>Relay uses automated systems to perform routine operational tasks, including routing messages, filtering spam, detecting abusive content, and authenticating access. These systems support the operation of the platform and the enforcement of its rules. Relay does not use these systems to make decisions that produce legal effects concerning individuals or similarly significant effects, except where such decisions are necessary for the performance of a contract with the user, are authorized by applicable law, or are based on the user's explicit consent.</p>
+        <p>Where an automated system contributes to an enforcement decision that materially affects an account, human review is available through the appeals process described in the Terms of Service. Users may request information about the logic involved in a specific automated decision where applicable law provides such a right.</p>
+      </section>
+
+      <section id="s15" aria-labelledby="h15">
+        <h2 id="h15"><span class="num">15</span>Changes to the Policy</h2>
+        <p>Relay may update this Privacy Policy from time to time to reflect changes in the platform, in applicable law, or in the privacy practices of Relay. When a material change is made, Relay will provide notice through the platform, by email to the address associated with your account, or by other reasonable means before the change takes effect, except that changes required by law may take effect on the date specified by that law.</p>
+        <p>The effective date of the current version of this Privacy Policy is indicated at the top of the page. Your continued use of the platform after a revised version becomes effective constitutes your acknowledgment of the revised version. Relay maintains a record of prior versions and will make earlier versions available upon reasonable request.</p>
+      </section>
+
+      <section id="s16" aria-labelledby="h16">
+        <h2 id="h16"><span class="num">16</span>Contact Information</h2>
+        <p>Questions, comments, and requests concerning this Privacy Policy or the processing of personal information may be directed to the Relay privacy team by email at <a href="mailto:privacy@relay.app">privacy@relay.app</a>. Requests to exercise rights under applicable data protection law may be submitted to the same address and should include enough information to identify the account or records at issue.</p>
+        <p>General support inquiries may be sent to <a href="mailto:support@relay.app">support@relay.app</a>. Legal notices may be sent to <a href="mailto:legal@relay.app">legal@relay.app</a>. Reports concerning content that may violate the Terms of Service or applicable law may be submitted through the in product reporting tools or by email to <a href="mailto:trust@relay.app">trust@relay.app</a>.</p>
+        <p>Where required by applicable law, Relay will designate a data protection officer or representative and will publish the relevant contact details through this Privacy Policy or a dedicated notice within the platform.</p>
+      </section>
+
+    </article>
+  </main>
+
+  <footer class="page-footer">
+    <div class="page-footer-inner">
+      <div>Copyright 2025 Relay. All rights reserved.</div>
+      <nav aria-label="Legal footer">
+        <a href="/terms.html">Terms</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/contact.html">Contact</a>
+      </nav>
+    </div>
+  </footer>
+  <style id="relay-sec-style">
+    .__sec-blur { filter: blur(14px) !important; pointer-events: none !important; user-select: none !important; transition: filter .25s ease; }
+    .__sec-overlay {
+      position: fixed; inset: 0; z-index: 2147483647;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(8, 14, 28, 0.72);
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+      color: #fff;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      opacity: 0; transition: opacity .25s ease;
+    }
+    .__sec-overlay.__sec-show { opacity: 1; }
+    .__sec-card {
+      text-align: center; padding: 28px 32px; margin: 0 20px; max-width: 420px;
+      background: rgba(20, 28, 48, 0.78);
+      border: 1px solid rgba(255,255,255,0.14); border-radius: 14px;
+      box-shadow: 0 18px 60px rgba(0,0,0,0.45);
+    }
+    .__sec-title { margin: 0 0 8px; font-size: 20px; font-weight: 800; letter-spacing: -0.01em; color: #fff; }
+    .__sec-body { margin: 0; font-size: 14px; line-height: 1.55; color: rgba(255,255,255,0.85); }
+  </style>
+  <script>
+    (function () {
+      if (window.__relaySec) return;
+      window.__relaySec = true;
+      var triggered = false;
+      function buildOverlay() {
+        var overlay = document.createElement('div');
+        overlay.className = '__sec-overlay';
+        overlay.setAttribute('role', 'alertdialog');
+        overlay.setAttribute('aria-live', 'assertive');
+        var card = document.createElement('div');
+        card.className = '__sec-card';
+        var h = document.createElement('h2');
+        h.className = '__sec-title';
+        h.textContent = 'Suspicious activity detected';
+        var p = document.createElement('p');
+        p.className = '__sec-body';
+        p.textContent = 'You have been detected. Redirecting for safety...';
+        card.appendChild(h); card.appendChild(p);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+        requestAnimationFrame(function () { overlay.classList.add('__sec-show'); });
+      }
+      function trigger() {
+        if (triggered) return;
+        triggered = true;
+        try {
+          if (document.body) document.body.classList.add('__sec-blur');
+          buildOverlay();
+        } catch (_) {}
+        setTimeout(function () {
+          try { window.location.replace('https://google.com'); }
+          catch (_) { try { window.location.href = 'https://google.com'; } catch (__) {} }
+        }, 2000);
+      }
+      function isEditable(el) {
+        if (!el) return false;
+        var tag = (el.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+        if (el.isContentEditable) return true;
+        return false;
+      }
+      document.addEventListener('contextmenu', function (e) {
+        if (isEditable(e.target)) return;
+        e.preventDefault();
+        trigger();
+      }, true);
+      document.addEventListener('keydown', function (e) {
+        var k = (e.key || '').toLowerCase();
+        if (k === 'f12') { e.preventDefault(); trigger(); return; }
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && (k === 'i' || k === 'j' || k === 'c')) {
+          e.preventDefault(); trigger(); return;
+        }
+        if ((e.ctrlKey || e.metaKey) && k === 'u') {
+          e.preventDefault(); trigger(); return;
+        }
+        if ((e.ctrlKey || e.metaKey) && k === 's') {
+          if (isEditable(e.target)) return;
+          e.preventDefault(); trigger(); return;
+        }
+      }, true);
+    })();
+  </script>
+
+</body>
+</html>

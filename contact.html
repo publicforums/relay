@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Relay Contact</title>
+<link rel="icon" type="image/png" href="logo.png" />
+<link rel="apple-touch-icon" href="logo.png" />
+<meta property="og:title" content="Relay Contact" />
+<meta property="og:image" content="logo.png" />
+<meta name="twitter:title" content="Relay Contact" />
+<meta name="twitter:image" content="logo.png" />
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --panel: #ffffff;
+    --panel-2: #fafafc;
+    --text: #0b0b0f;
+    --muted: #8a8a8f;
+    --border: #e5e5ea;
+    --accent: #2873ce;
+    --shadow: 0 1px 2px rgba(0,0,0,0.05), 0 1px 1px rgba(0,0,0,0.04);
+    --shadow-lg: 0 20px 60px rgba(0,0,0,0.12);
+    --content-w: 820px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141416;
+      --panel: #1c1c1e;
+      --panel-2: #141416;
+      --text: #f2f2f7;
+      --muted: #8e8e93;
+      --border: #2c2c2e;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+      --shadow-lg: 0 20px 60px rgba(0,0,0,0.6);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 15.5px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+  }
+  body { min-height: 100dvh; display: flex; flex-direction: column; }
+
+  header.page-bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: color-mix(in srgb, var(--panel) 88%, transparent);
+    backdrop-filter: saturate(180%) blur(18px);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+    border-bottom: 1px solid var(--border);
+  }
+  .page-bar-inner {
+    max-width: var(--content-w);
+    margin: 0 auto;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text);
+    text-decoration: none;
+    overflow: visible;
+  }
+  .brand img {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    object-fit: contain;
+    display: block;
+  }
+  .brand .brand-name {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: var(--accent);
+    padding: 2px 6px 3px;
+    line-height: 1.1;
+    text-shadow:
+      0 0 18px rgba(40,115,206,0.45),
+      0 0 10px rgba(40,115,206,0.35),
+      0 0 3px  rgba(40,115,206,0.30);
+  }
+  .page-bar nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    margin-left: 18px;
+    transition: color .15s ease;
+  }
+  .page-bar nav a:hover { color: var(--text); }
+
+  main.document {
+    flex: 1;
+    width: 100%;
+    max-width: var(--content-w);
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  .doc-hero {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 28px 24px;
+    box-shadow: var(--shadow);
+    margin-bottom: 28px;
+  }
+  .doc-hero h1 {
+    margin: 0 0 6px;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    color: var(--text);
+  }
+  .doc-hero .eyebrow {
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .doc-hero p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  article.terms section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 28px;
+    box-shadow: var(--shadow);
+    margin-bottom: 18px;
+    scroll-margin-top: 90px;
+  }
+  article.terms h2 {
+    margin: 0 0 14px;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.005em;
+    color: var(--text);
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  article.terms h2 .num {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  article.terms h3 {
+    margin: 20px 0 8px;
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  article.terms p {
+    margin: 0 0 12px;
+    color: var(--text);
+  }
+  article.terms p:last-child { margin-bottom: 0; }
+  article.terms a { color: var(--accent); text-decoration: none; }
+  article.terms a:hover { text-decoration: underline; }
+
+  .contact-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 640px) {
+    .contact-grid { grid-template-columns: 1fr; }
+  }
+  .channel-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 22px 24px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .channel-card h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .channel-card .tagline {
+    font-size: 12px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 700;
+  }
+  .channel-card p {
+    margin: 4px 0 0;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .channel-card .addr {
+    margin-top: 6px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .channel-card .addr a { color: var(--accent); text-decoration: none; }
+  .channel-card .addr a:hover { text-decoration: underline; }
+
+  form.contact-form {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 28px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  form.contact-form h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  form.contact-form p.form-lead {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  form.contact-form .row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  @media (max-width: 640px) {
+    form.contact-form .row { grid-template-columns: 1fr; }
+  }
+  form.contact-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  form.contact-form input,
+  form.contact-form select,
+  form.contact-form textarea {
+    width: 100%;
+    padding: 11px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    font: inherit;
+    font-size: 14.5px;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  form.contact-form input:focus,
+  form.contact-form select:focus,
+  form.contact-form textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(40,115,206,0.18);
+  }
+  form.contact-form textarea {
+    min-height: 140px;
+    resize: vertical;
+    line-height: 1.55;
+  }
+  form.contact-form .actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  form.contact-form .note {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+    max-width: 420px;
+  }
+  form.contact-form button {
+    appearance: none;
+    border: 0;
+    background: var(--accent);
+    color: #ffffff;
+    font: inherit;
+    font-weight: 700;
+    padding: 11px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: filter .15s ease, transform .08s ease;
+  }
+  form.contact-form button:hover { filter: brightness(1.05); }
+  form.contact-form button:active { transform: scale(0.98); }
+
+  footer.page-footer {
+    border-top: 1px solid var(--border);
+    background: var(--panel-2);
+  }
+  .page-footer-inner {
+    max-width: var(--content-w);
+    margin: 0 auto;
+    padding: 26px 24px 40px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 16px;
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .page-footer-inner nav a {
+    color: var(--muted);
+    text-decoration: none;
+    margin-left: 16px;
+  }
+  .page-footer-inner nav a:hover { color: var(--text); }
+  @media (max-width: 640px) {
+    .page-bar-inner { padding: 12px 16px; }
+    main.document { padding: 24px 16px 60px; }
+    .doc-hero { padding: 22px; }
+    article.terms section { padding: 20px; }
+    .channel-card { padding: 18px; }
+    form.contact-form { padding: 20px; }
+    .page-footer-inner nav a { margin: 0 10px 0 0; }
+  }
+</style>
+</head>
+<body>
+  <header class="page-bar">
+    <div class="page-bar-inner">
+      <a class="brand" href="/" aria-label="Relay">
+        <img src="logo.png" alt="" onerror="this.style.display='none'" />
+        <span class="brand-name">Relay</span>
+      </a>
+      <nav aria-label="Legal">
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="/contact.html">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="document">
+    <section class="doc-hero" aria-labelledby="doc-title">
+      <div class="eyebrow">Get in touch</div>
+      <h1 id="doc-title">Contact Relay</h1>
+      <p>Relay provides several dedicated channels so that users, partners, researchers, and legal correspondents can reach the appropriate team. Please select the channel that best matches your inquiry, and send your message to <a href="mailto:contact@webcraft.business">contact@webcraft.business</a>. Using the correct channel helps the relevant team respond efficiently and with full context.</p>
+    </section>
+
+    <div class="contact-grid" role="list">
+      <article class="channel-card" role="listitem">
+        <div class="tagline">Account and product support</div>
+        <h3>Support inquiries</h3>
+        <p>For questions about account access, messaging features, notifications, device compatibility, and general product behavior. Please include your registered email address and a clear description of the issue, including any steps to reproduce it.</p>
+      </article>
+
+      <article class="channel-card" role="listitem">
+        <div class="tagline">Trust and safety</div>
+        <h3>Report content or conduct</h3>
+        <p>For reports of content or conduct that may violate the Terms of Service or applicable law, including harassment, threats, illegal material, or account impersonation. Where possible, use the in product reporting tools so that the relevant context is captured automatically.</p>
+      </article>
+
+      <article class="channel-card" role="listitem">
+        <div class="tagline">Privacy and data requests</div>
+        <h3>Privacy inquiries</h3>
+        <p>For questions about the Privacy Policy and for requests to exercise rights regarding personal information, including access, correction, deletion, restriction, objection, and portability. Please provide enough information to identify the account or records at issue.</p>
+      </article>
+
+      <article class="channel-card" role="listitem">
+        <div class="tagline">Legal and compliance</div>
+        <h3>Legal notices</h3>
+        <p>For formal legal correspondence, including matters relating to the Terms of Service, disputes, service of process where permitted by law, regulatory inquiries, and matters requiring the attention of the legal team.</p>
+      </article>
+
+      <article class="channel-card" role="listitem">
+        <div class="tagline">Intellectual property</div>
+        <h3>Copyright and trademark</h3>
+        <p>For copyright notices, counter notifications, and trademark concerns. Notices should include the information required by applicable law, a clear identification of the material at issue, and complete contact details for a response.</p>
+      </article>
+
+      <article class="channel-card" role="listitem">
+        <div class="tagline">Law enforcement</div>
+        <h3>Law enforcement requests</h3>
+        <p>For lawful process and emergency disclosure requests from public authorities. Requests should be submitted on official letterhead and should specify the legal basis, the account identifiers in question, and the information sought.</p>
+      </article>
+
+      <article class="channel-card" role="listitem">
+        <div class="tagline">Security disclosures</div>
+        <h3>Vulnerability reports</h3>
+        <p>For coordinated disclosure of suspected security vulnerabilities affecting the platform. Please include a technical description, reproduction steps, affected components, and any proof of concept material necessary for triage. Do not test vulnerabilities against accounts or data that are not your own.</p>
+      </article>
+
+      <article class="channel-card" role="listitem">
+        <div class="tagline">Partnerships and press</div>
+        <h3>Business and media</h3>
+        <p>For partnership proposals, integration inquiries, and media requests. Please describe the organization, the nature of the inquiry, and any deadlines that are relevant to the response.</p>
+      </article>
+    </div>
+
+    <form class="contact-form" method="POST" action="https://formspree.io/f/xlganqqe" aria-labelledby="form-title" novalidate>
+      <input type="hidden" name="_subject" value="New Relay contact form submission" />
+      <input type="text" name="_gotcha" tabindex="-1" autocomplete="off" style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;" aria-hidden="true" />
+      <h2 id="form-title">General contact form</h2>
+      <p class="form-lead">If your inquiry does not fall within one of the categories above, you may use this form. Messages submitted through the form are routed to the general correspondence queue and reassigned to specialist teams as appropriate.</p>
+
+      <div class="row">
+        <label>
+          Full name
+          <input type="text" name="name" autocomplete="name" required />
+        </label>
+        <label>
+          Email address
+          <input type="email" name="email" autocomplete="email" required />
+        </label>
+      </div>
+
+      <div class="row">
+        <label>
+          Category
+          <select name="category" required>
+            <option value="">Select a category</option>
+            <option value="support">Account or product support</option>
+            <option value="trust">Trust and safety</option>
+            <option value="privacy">Privacy or data request</option>
+            <option value="legal">Legal notice</option>
+            <option value="copyright">Copyright or trademark</option>
+            <option value="security">Security disclosure</option>
+            <option value="press">Partnership or media</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label>
+          Subject
+          <input type="text" name="subject" maxlength="120" required />
+        </label>
+      </div>
+
+      <label>
+        Message
+        <textarea name="message" maxlength="5000" required placeholder="Please describe your inquiry in detail, including any information necessary to understand the context."></textarea>
+      </label>
+
+      <div class="actions">
+        <div class="note">By submitting this form, you confirm that the information provided is accurate and that your submission complies with the Terms of Service. Information you submit is processed in accordance with the Privacy Policy.</div>
+        <button type="submit">Submit</button>
+      </div>
+    </form>
+
+    <article class="terms">
+      <section id="s1" aria-labelledby="h1">
+        <h2 id="h1"><span class="num">01</span>Guidance for Effective Inquiries</h2>
+        <p>To help the relevant team respond promptly, please include information that allows the inquiry to be identified and evaluated without further clarification. For account related matters, this typically includes the registered email address, the username, the approximate time at which the issue occurred, the device or client used, and any error messages observed. For reports of content, this typically includes a direct reference to the content or conversation, the identifiers of the accounts involved, and the nature of the concern.</p>
+        <p>For privacy and data requests, please indicate the specific right you are seeking to exercise and the account or records to which the request relates. Relay may need to verify your identity before acting on a request. For legal notices, please identify the sender, the authority or basis on which the notice is given, and the relief or action sought.</p>
+      </section>
+
+      <section id="s2" aria-labelledby="h2">
+        <h2 id="h2"><span class="num">02</span>Response Expectations</h2>
+        <p>Relay receives a significant volume of correspondence and prioritizes matters based on their nature, urgency, and legal sensitivity. Acknowledgments are issued as promptly as practicable. Substantive responses are provided within the period required by applicable law or, where no specific period applies, within a reasonable time appropriate to the inquiry.</p>
+        <p>Urgent matters involving an imminent risk to life or physical safety should be directed to the appropriate emergency services in your jurisdiction. Relay cooperates with emergency disclosure processes as permitted by applicable law but is not a substitute for emergency services.</p>
+      </section>
+
+      <section id="s3" aria-labelledby="h3">
+        <h2 id="h3"><span class="num">03</span>Accessibility</h2>
+        <p>Relay is committed to making the platform and its contact channels accessible to people with disabilities. If you require an alternative means of communication, or if you encounter accessibility barriers when contacting Relay, please describe the barrier in your message so that the team can provide a suitable alternative.</p>
+      </section>
+
+      <section id="s4" aria-labelledby="h4">
+        <h2 id="h4"><span class="num">04</span>Languages</h2>
+        <p>Inquiries may be submitted in English. Where resources permit, Relay endeavors to respond in the language of the inquiry. Translations provided for convenience do not modify the substance of any response, and the original language version governs in the event of any discrepancy.</p>
+      </section>
+
+      <section id="s5" aria-labelledby="h5">
+        <h2 id="h5"><span class="num">05</span>Use of Information Provided</h2>
+        <p>Information submitted through the contact channels described on this page is used to respond to your inquiry, to investigate the matters raised, to improve the quality of support and related services, and to comply with legal obligations. Information submitted is processed in accordance with the Privacy Policy. Please avoid sending sensitive personal information that is not required to address your inquiry.</p>
+      </section>
+    </article>
+  </main>
+
+  <footer class="page-footer">
+    <div class="page-footer-inner">
+      <div>Copyright 2025 Relay. All rights reserved.</div>
+      <nav aria-label="Legal footer">
+        <a href="/terms.html">Terms</a>
+        <a href="/privacy.html">Privacy</a>
+        <a href="/contact.html">Contact</a>
+      </nav>
+    </div>
+  </footer>
+  <style id="relay-sec-style">
+    .__sec-blur { filter: blur(14px) !important; pointer-events: none !important; user-select: none !important; transition: filter .25s ease; }
+    .__sec-overlay {
+      position: fixed; inset: 0; z-index: 2147483647;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(8, 14, 28, 0.72);
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+      color: #fff;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      opacity: 0; transition: opacity .25s ease;
+    }
+    .__sec-overlay.__sec-show { opacity: 1; }
+    .__sec-card {
+      text-align: center; padding: 28px 32px; margin: 0 20px; max-width: 420px;
+      background: rgba(20, 28, 48, 0.78);
+      border: 1px solid rgba(255,255,255,0.14); border-radius: 14px;
+      box-shadow: 0 18px 60px rgba(0,0,0,0.45);
+    }
+    .__sec-title { margin: 0 0 8px; font-size: 20px; font-weight: 800; letter-spacing: -0.01em; color: #fff; }
+    .__sec-body { margin: 0; font-size: 14px; line-height: 1.55; color: rgba(255,255,255,0.85); }
+  </style>
+  <script>
+    (function () {
+      if (window.__relaySec) return;
+      window.__relaySec = true;
+      var triggered = false;
+      function buildOverlay() {
+        var overlay = document.createElement('div');
+        overlay.className = '__sec-overlay';
+        overlay.setAttribute('role', 'alertdialog');
+        overlay.setAttribute('aria-live', 'assertive');
+        var card = document.createElement('div');
+        card.className = '__sec-card';
+        var h = document.createElement('h2');
+        h.className = '__sec-title';
+        h.textContent = 'Suspicious activity detected';
+        var p = document.createElement('p');
+        p.className = '__sec-body';
+        p.textContent = 'You have been detected. Redirecting for safety...';
+        card.appendChild(h); card.appendChild(p);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+        requestAnimationFrame(function () { overlay.classList.add('__sec-show'); });
+      }
+      function trigger() {
+        if (triggered) return;
+        triggered = true;
+        try {
+          if (document.body) document.body.classList.add('__sec-blur');
+          buildOverlay();
+        } catch (_) {}
+        setTimeout(function () {
+          try { window.location.replace('https://google.com'); }
+          catch (_) { try { window.location.href = 'https://google.com'; } catch (__) {} }
+        }, 2000);
+      }
+      function isEditable(el) {
+        if (!el) return false;
+        var tag = (el.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+        if (el.isContentEditable) return true;
+        return false;
+      }
+      document.addEventListener('contextmenu', function (e) {
+        if (isEditable(e.target)) return;
+        e.preventDefault();
+        trigger();
+      }, true);
+      document.addEventListener('keydown', function (e) {
+        var k = (e.key || '').toLowerCase();
+        if (k === 'f12') { e.preventDefault(); trigger(); return; }
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && (k === 'i' || k === 'j' || k === 'c')) {
+          e.preventDefault(); trigger(); return;
+        }
+        if ((e.ctrlKey || e.metaKey) && k === 'u') {
+          e.preventDefault(); trigger(); return;
+        }
+        if ((e.ctrlKey || e.metaKey) && k === 's') {
+          if (isEditable(e.target)) return;
+          e.preventDefault(); trigger(); return;
+        }
+      }, true);
+    })();
+  </script>
+
+</body>
+</html>
