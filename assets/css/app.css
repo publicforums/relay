@@ -4949,7 +4949,11 @@
     animation: authBlobA 18s ease-in-out infinite alternate;
     z-index: 0;
   }
-  body[data-page="auth"] .auth-left > * { position: relative; z-index: 1; }
+  /* Raise the card and support text above the decorative ::before blob
+     without disturbing the brand's absolute positioning at top-left. */
+  body[data-page="auth"] .auth-left > .auth-card,
+  body[data-page="auth"] .auth-left > .auth-support { position: relative; z-index: 1; }
+  body[data-page="auth"] .auth-left > .login-brand { z-index: 2; }
   @keyframes authBlobA {
     from { transform: translate3d(0, 0, 0) scale(1); }
     to   { transform: translate3d(40px, 60px, 0) scale(1.08); }
