@@ -2863,8 +2863,15 @@
             // signup so it shows the address they typed.
             _forcePendingVerifyModal = true;
             try { myEmail = email; } catch(_) {}
-            try { hideOnboarding(); } catch(_) {}
-            try { showChat(); } catch(_) {}
+            // On onboarding.html the modal sits over the onboarding shell,
+            // so don't hide that shell or try to route to chat — both
+            // would trigger a full-page navigation (showChat → _gotoApp),
+            // dropping the in-memory verify state. On app.html we keep the
+            // original "drop onto chat as backdrop" behavior.
+            if (_pageMode !== "onboarding") {
+              try { hideOnboarding(); } catch(_) {}
+              try { showChat(); } catch(_) {}
+            }
             updateVerifyBanner();
             // Supabase already sent the confirmation email as part of
             // signUp — do NOT call resend here or it will trigger the
@@ -3032,9 +3039,14 @@
         // Ensure the modal actually sits over something, not a blank screen:
         // if the user is mid-onboarding or mid-login when the gate fires,
         // drop them onto the chat shell as the backdrop. The 3-layer hard
-        // lock + RLS prevent any interaction with that shell.
-        try { if (typeof onboardingEl !== "undefined" && onboardingEl) onboardingEl.style.display = "none"; } catch(_) {}
-        try { if (typeof chatEl !== "undefined" && chatEl && chatEl.style.display === "none" && typeof showChat === "function") showChat(); } catch(_) {}
+        // lock + RLS prevent any interaction with that shell. On
+        // onboarding.html the onboarding shell itself is the backdrop;
+        // calling showChat() there would redirect to app.html and lose the
+        // in-memory verify state, so we skip both moves.
+        if (_pageMode !== "onboarding") {
+          try { if (typeof onboardingEl !== "undefined" && onboardingEl) onboardingEl.style.display = "none"; } catch(_) {}
+          try { if (typeof chatEl !== "undefined" && chatEl && chatEl.style.display === "none" && typeof showChat === "function") showChat(); } catch(_) {}
+        }
         try { startVerifyPolling(); } catch(_) {}
         _resetVerifyModalButtons();
         _startResendCooldownIfNeeded();
