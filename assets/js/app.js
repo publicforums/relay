@@ -8491,30 +8491,68 @@
   // could from head — this is idempotent and normalizes everything).
   try { _appearanceApply(_appearanceLoad()); } catch (_) {}
 
-  // Build the Appearance UI inside the Settings modal. The Settings modal
-  // comes shipped with an "empty" sidebar nav + empty content area; we
-  // replace both once the settings overlay is opened. `_renderAppearanceTab`
-  // is idempotent and safe to call at any time.
-  let _appearanceBuilt = false;
-  function _renderAppearanceTab() {
+  // Build the Settings UI (Appearance + Opt Preferences tabs) inside the
+  // Settings modal. The modal ships with an empty sidebar nav + empty
+  // content area; we replace both the first time Settings opens.
+  // `_renderSettingsTabs` is idempotent and safe to call at any time.
+  let _settingsBuilt = false;
+  let _activeSettingsSection = "appearance";
+  function _renderSettingsTabs() {
     if (!settingsOverlayEl) return;
     const navEl = settingsOverlayEl.querySelector("#settings-nav");
     const contentEl = settingsOverlayEl.querySelector(".settings-content");
     if (!navEl || !contentEl) return;
-    if (!_appearanceBuilt) {
+    if (!_settingsBuilt) {
       navEl.innerHTML =
-        '<button type="button" class="settings-nav-item active" data-section="appearance" aria-current="true">' +
+        '<button type="button" class="settings-nav-item" data-section="appearance">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
             '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>' +
           '</svg>' +
           '<span class="label">Appearance</span>' +
+        '</button>' +
+        '<button type="button" class="settings-nav-item" data-section="opt-preferences">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+            '<path d="M4 6h16M4 12h16M4 18h10"/><circle cx="8" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="12" cy="18" r="2" fill="currentColor" stroke="none"/>' +
+          '</svg>' +
+          '<span class="label">Opt Preferences</span>' +
         '</button>';
-      contentEl.innerHTML = _appearanceHTML();
+      contentEl.innerHTML =
+        '<div data-section-panel="appearance">' + _appearanceHTML() + '</div>' +
+        '<div data-section-panel="opt-preferences" hidden>' + _optPreferencesHTML() + '</div>';
       _wireAppearanceTab(contentEl);
-      _appearanceBuilt = true;
+      _wireOptPreferencesTab(contentEl);
+      navEl.addEventListener("click", (e) => {
+        const btn = e.target && e.target.closest ? e.target.closest(".settings-nav-item") : null;
+        if (!btn) return;
+        const section = btn.dataset.section;
+        if (section) _selectSettingsSection(section);
+      });
+      _settingsBuilt = true;
     }
+    _selectSettingsSection(_activeSettingsSection);
     _syncAppearanceUI(contentEl);
+    _syncOptPreferencesUI(contentEl);
   }
+  function _selectSettingsSection(section) {
+    if (!settingsOverlayEl) return;
+    _activeSettingsSection = section || "appearance";
+    const navEl = settingsOverlayEl.querySelector("#settings-nav");
+    const contentEl = settingsOverlayEl.querySelector(".settings-content");
+    if (!navEl || !contentEl) return;
+    const navItems = navEl.querySelectorAll(".settings-nav-item");
+    for (const n of navItems) {
+      const isActive = n.dataset.section === _activeSettingsSection;
+      n.classList.toggle("active", isActive);
+      if (isActive) n.setAttribute("aria-current", "true");
+      else n.removeAttribute("aria-current");
+    }
+    const panels = contentEl.querySelectorAll("[data-section-panel]");
+    for (const p of panels) {
+      p.hidden = p.getAttribute("data-section-panel") !== _activeSettingsSection;
+    }
+  }
+  // Back-compat alias kept because existing code calls `_renderAppearanceTab`.
+  function _renderAppearanceTab() { _renderSettingsTabs(); }
   function _appearanceHTML() {
     const a = _appearanceLoad();
     let presetCards = "";
@@ -8659,6 +8697,102 @@
     const sizeReadout = root.querySelector('[data-readout="font-size"]');
     if (sizeInput) sizeInput.value = String(a.fontSize || 15);
     if (sizeReadout) sizeReadout.textContent = (a.fontSize || 15) + " px";
+  }
+
+  // =====================================================================
+  //  OPT PREFERENCES — second Settings tab.
+  //  Five iOS-style toggle switches for optional communications. State is
+  //  persisted in localStorage keyed by the signed-in user id so each
+  //  account keeps its own choices on the same device. No Supabase schema
+  //  change is required; the data is purely client-side preference state.
+  //  All toggles default to ON (users opt OUT) to match the request for
+  //  "receive important updates" framing.
+  // =====================================================================
+  const OPT_PREFERENCES_KEY_PREFIX = "relay-opt-preferences:";
+  const OPT_PREFERENCES = [
+    { id: "update_emails",     title: "Update Emails",      desc: "Receive important updates about your account and platform changes." },
+    { id: "downtime_uptime",   title: "Downtime / Uptime",  desc: "Get notified when the service goes down or comes back online." },
+    { id: "deals_discounts",   title: "Deals / Discounts",  desc: "Receive promotional offers and discounts." },
+    { id: "news_letter",       title: "News Letter",        desc: "Get periodic updates, announcements, and news." },
+    { id: "breach_alerts",     title: "Breach Alerts",      desc: "Be alerted if your account or data may be compromised." }
+  ];
+  function _optPreferencesStorageKey() {
+    const uid = (me && me.id) ? me.id : "anon";
+    return OPT_PREFERENCES_KEY_PREFIX + uid;
+  }
+  function _optPreferencesDefaults() {
+    const o = {};
+    for (const p of OPT_PREFERENCES) o[p.id] = true;
+    return o;
+  }
+  function _optPreferencesLoad() {
+    const def = _optPreferencesDefaults();
+    try {
+      const raw = localStorage.getItem(_optPreferencesStorageKey());
+      if (!raw) return def;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return def;
+      const merged = Object.assign({}, def);
+      for (const p of OPT_PREFERENCES) {
+        if (typeof parsed[p.id] === "boolean") merged[p.id] = parsed[p.id];
+      }
+      return merged;
+    } catch (_) { return def; }
+  }
+  function _optPreferencesSave(state) {
+    try {
+      localStorage.setItem(_optPreferencesStorageKey(), JSON.stringify(state));
+    } catch (_) {}
+  }
+  function _optPreferencesHTML() {
+    let items = "";
+    for (const p of OPT_PREFERENCES) {
+      const inputId = "opt-pref-" + p.id;
+      items +=
+        '<li class="opt-item">' +
+          '<div class="opt-item-text">' +
+            '<span class="opt-item-title">' + escapeHtml(p.title) + '</span>' +
+            '<span class="opt-item-desc">' + escapeHtml(p.desc) + '</span>' +
+          '</div>' +
+          '<label class="opt-toggle" for="' + inputId + '">' +
+            '<input type="checkbox" id="' + inputId + '" data-opt-pref="' + p.id + '" role="switch" aria-label="' + escapeHtml(p.title) + '" />' +
+            '<span class="opt-toggle-track" aria-hidden="true"></span>' +
+            '<span class="opt-toggle-thumb" aria-hidden="true"></span>' +
+          '</label>' +
+        '</li>';
+    }
+    return (
+      '<div class="opt-preferences-section">' +
+        '<div>' +
+          '<div class="opt-intro-h">Notifications</div>' +
+          '<div class="opt-intro-sub">Choose which messages Relay can send you. Your preferences are saved to this device and apply the next time you open the app.</div>' +
+        '</div>' +
+        '<ul class="opt-list">' + items + '</ul>' +
+      '</div>'
+    );
+  }
+  function _wireOptPreferencesTab(root) {
+    const panel = root.querySelector('[data-section-panel="opt-preferences"]');
+    if (!panel) return;
+    panel.addEventListener("change", (e) => {
+      const t = e.target;
+      if (!t || !t.matches || !t.matches('input[data-opt-pref]')) return;
+      const key = t.getAttribute("data-opt-pref");
+      const state = _optPreferencesLoad();
+      state[key] = !!t.checked;
+      _optPreferencesSave(state);
+    });
+  }
+  function _syncOptPreferencesUI(root) {
+    const panel = root.querySelector('[data-section-panel="opt-preferences"]');
+    if (!panel) return;
+    const state = _optPreferencesLoad();
+    const inputs = panel.querySelectorAll('input[data-opt-pref]');
+    for (const input of inputs) {
+      const key = input.getAttribute("data-opt-pref");
+      const v = !!state[key];
+      if (input.checked !== v) input.checked = v;
+    }
   }
 
   function openSettings() {
