@@ -2347,7 +2347,17 @@
           checkVerifiedAndEnter(false).catch(() => {});
         }
       }
-    } else onSignedOut();
+    } else if (event === "SIGNED_OUT" || me) {
+      // Supabase emits INITIAL_SESSION on every page load — with a null
+      // session on pages where no one is signed in. That event MUST NOT
+      // run the signed-out cleanup, because on onboarding.html it would
+      // clear `_pendingSignup` (just stashed by the signup submit on
+      // auth.html) and bounce the user back to /auth.html via showLogin.
+      // Only fire the cleanup for real sign-outs (either the explicit
+      // SIGNED_OUT event, or any null-session event that arrives after
+      // we already had a user in memory).
+      onSignedOut();
+    }
   });
   (async () => {
     clearRestrictionIfExpired();
