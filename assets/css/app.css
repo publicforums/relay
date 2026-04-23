@@ -1376,16 +1376,19 @@
   .bubble.me .mention { color: #fff; background: rgba(255,255,255,0.22); }
   .mention:hover { text-decoration: underline; }
   footer.composer #send {
-    background: var(--bubble-me);
+    background: #2873ce;
     color: #fff; border: 0;
-    border-radius: 20px;
-    padding: 0 16px; height: 38px;
-    font-weight: 600; cursor: pointer;
-    min-width: 64px;
-    transition: opacity .15s ease, transform .08s ease;
+    width: 38px; height: 38px; border-radius: 50%;
+    padding: 0;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: filter .15s ease, transform .08s ease, opacity .15s ease;
   }
-  footer.composer #send:disabled { opacity: 0.45; cursor: not-allowed; }
-  footer.composer #send:active:not(:disabled) { transform: scale(0.97); }
+  footer.composer #send:hover:not(:disabled) { filter: brightness(1.08); }
+  footer.composer #send:active:not(:disabled) { transform: scale(0.95); }
+  footer.composer #send:disabled { opacity: 0.55; cursor: not-allowed; filter: grayscale(0.3); }
+  footer.composer #send svg { width: 18px; height: 18px; display: block; pointer-events: none; }
 
   /* ---------- Typing indicator (public / DM / group) ----------
      Floats above the composer on the chat background — not boxed, no
@@ -4786,4 +4789,275 @@
     .opt-item { padding: 12px 14px; gap: 12px; }
     .opt-item-title { font-size: 14px; }
     .opt-item-desc { font-size: 12px; }
+  }
+
+  /* ====================================================================
+     Scroll-based onboarding (onboarding.html only)
+     ====================================================================
+     The step-swap card layout used on auth.html is replaced here by a
+     continuous vertical scroll of all form steps. Each step becomes a
+     "section" with its own header + description, stacked one after the
+     other so the page reads top-to-bottom like a Supabase/Linear-style
+     signup. Validation and navigation logic are unchanged: Back/Next/
+     Finish still walk the step counter, but renderOnboarding() now
+     smooth-scrolls the active step into view instead of toggling
+     visibility. The `.active` class is preserved for focus styling
+     (glow + border highlight).
+
+     All rules below are scoped to `body[data-page="onboarding"]` so the
+     safety-net inline #onboarding sections in auth.html / app.html are
+     completely untouched.
+     ==================================================================== */
+  body[data-page="onboarding"] #onboarding {
+    padding: 24px 20px 160px;
+    background:
+      radial-gradient(900px 560px at 8% -8%, rgba(40,115,206,0.16), transparent 62%),
+      radial-gradient(820px 520px at 110% 6%, rgba(90,163,255,0.10), transparent 62%),
+      radial-gradient(760px 480px at 50% 120%, rgba(40,115,206,0.10), transparent 60%);
+  }
+  body[data-page="onboarding"] #onboarding .ob-card {
+    width: min(560px, 100%);
+    margin: 18px auto 0;
+    padding: 0;
+    gap: 8px;
+    animation: none;
+  }
+  /* Sticky progress bar at the top of the scroll flow — gives the user a
+     persistent sense of position even when scrolling between sections. */
+  body[data-page="onboarding"] .ob-head {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: 14px 2px 12px;
+    margin: 0 -2px 8px;
+    background:
+      linear-gradient(to bottom, var(--bg) 70%, transparent 100%);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  body[data-page="onboarding"] .ob-head h2 {
+    font-size: 22px;
+    margin: 4px 0 0;
+  }
+  body[data-page="onboarding"] .ob-head .step-sub {
+    font-size: 13px;
+  }
+  /* Continuous flow: every form step is always visible, stacked. */
+  body[data-page="onboarding"] .ob-body {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  body[data-page="onboarding"] .ob-step {
+    display: flex;
+    scroll-margin-top: 120px;
+    padding: 18px 18px 20px;
+    background: color-mix(in srgb, var(--panel, #fff) 92%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+    transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease;
+    animation: none;
+  }
+  body[data-page="onboarding"] .ob-step.active {
+    border-color: color-mix(in srgb, #2873ce 55%, var(--border));
+    box-shadow:
+      0 10px 30px rgba(40,115,206,0.14),
+      0 0 0 3px rgba(40,115,206,0.12);
+    animation: none;
+  }
+  body[data-page="onboarding"] .ob-step.active > * { animation: none; }
+  /* Section heading inside each step card — auto-inserted via ::before
+     using the OB_SECTION_TITLES data-attribute the renderer writes. */
+  body[data-page="onboarding"] .ob-step::before {
+    content: attr(data-section-title);
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: -2px 0 8px;
+  }
+  body[data-page="onboarding"] .ob-step[data-section-title=""]::before,
+  body[data-page="onboarding"] .ob-step:not([data-section-title])::before {
+    display: none;
+  }
+  /* Verification step sits at the end as a full-width terminal screen
+     but is hidden until the account has been created (renderer toggles
+     the .ob-verify-visible flag on the parent). */
+  body[data-page="onboarding"] .ob-step[data-step="7"] {
+    display: none;
+  }
+  body[data-page="onboarding"] #onboarding.ob-verify-visible .ob-step[data-step="7"] {
+    display: flex;
+  }
+  /* When on the verify terminal screen, hide the other form steps so the
+     user isn't tempted to go back and re-edit profile fields. */
+  body[data-page="onboarding"] #onboarding.ob-verify-visible .ob-step:not([data-step="7"]) {
+    display: none;
+  }
+  /* Sticky bottom action bar — floats over the scroll area so Back/Next
+     are always reachable without scrolling. */
+  body[data-page="onboarding"] .ob-actions {
+    position: sticky;
+    bottom: 12px;
+    z-index: 6;
+    display: flex;
+    gap: 10px;
+    padding: 12px 14px;
+    margin: 20px auto 0;
+    width: min(560px, 100%);
+    background: color-mix(in srgb, var(--panel, #fff) 88%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    -webkit-backdrop-filter: blur(12px) saturate(1.05);
+    backdrop-filter: blur(12px) saturate(1.05);
+  }
+  body[data-page="onboarding"] .ob-skip {
+    margin: 12px auto 0;
+  }
+  /* Progress pills stretch full width on the sticky bar. */
+  body[data-page="onboarding"] .ob-step-pills { margin-bottom: 4px; }
+  body[data-page="onboarding"] .ob-step-pill { height: 5px; border-radius: 5px; }
+  @media (max-width: 520px) {
+    body[data-page="onboarding"] #onboarding { padding: 18px 14px 150px; }
+    body[data-page="onboarding"] .ob-step { padding: 14px 14px 16px; border-radius: 14px; }
+    body[data-page="onboarding"] .ob-actions { width: calc(100% - 28px); padding: 10px 12px; }
+  }
+
+  /* ====================================================================
+     Premium auth page (auth.html only)
+     ====================================================================
+     Depth + gradients + subtle animated blobs behind a glass-morphism
+     card. Narrow screens collapse to a single column and drop the
+     background animation to stay calm on mobile. */
+  body[data-page="auth"] #login {
+    padding: 80px 24px 40px;
+    gap: 20px;
+    background:
+      radial-gradient(1100px 680px at 8% -10%, rgba(40,115,206,0.22), transparent 62%),
+      radial-gradient(1000px 620px at 110% 10%, rgba(90,163,255,0.14), transparent 60%),
+      radial-gradient(900px 560px at 50% 120%, rgba(40,115,206,0.12), transparent 58%);
+    overflow: hidden;
+  }
+  body[data-page="auth"] #login::before,
+  body[data-page="auth"] #login::after {
+    content: "";
+    position: absolute;
+    width: 560px;
+    height: 560px;
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(90px);
+    opacity: 0.45;
+    z-index: 0;
+  }
+  body[data-page="auth"] #login::before {
+    top: -220px;
+    left: -180px;
+    background: radial-gradient(circle, rgba(40,115,206,0.55), transparent 65%);
+    animation: authBlobA 18s ease-in-out infinite alternate;
+  }
+  body[data-page="auth"] #login::after {
+    bottom: -240px;
+    right: -220px;
+    background: radial-gradient(circle, rgba(90,163,255,0.45), transparent 65%);
+    animation: authBlobB 22s ease-in-out infinite alternate;
+  }
+  @keyframes authBlobA {
+    from { transform: translate3d(0, 0, 0) scale(1); }
+    to   { transform: translate3d(40px, 60px, 0) scale(1.08); }
+  }
+  @keyframes authBlobB {
+    from { transform: translate3d(0, 0, 0) scale(1); }
+    to   { transform: translate3d(-60px, -40px, 0) scale(1.1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body[data-page="auth"] #login::before,
+    body[data-page="auth"] #login::after { animation: none; }
+  }
+  body[data-page="auth"] #login > * { position: relative; z-index: 1; }
+  body[data-page="auth"] #login .auth-card {
+    width: min(400px, 100%);
+    padding: 28px 26px 22px;
+    background: color-mix(in srgb, var(--panel, #fff) 78%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+    border-radius: 20px;
+    box-shadow:
+      0 24px 60px rgba(6, 12, 28, 0.18),
+      0 2px 8px rgba(6, 12, 28, 0.08),
+      inset 0 1px 0 rgba(255,255,255,0.08);
+    -webkit-backdrop-filter: blur(14px) saturate(1.08);
+    backdrop-filter: blur(14px) saturate(1.08);
+    gap: 12px;
+    animation: authCardIn .42s cubic-bezier(.2,.8,.2,1) both;
+  }
+  @keyframes authCardIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.98); }
+    to   { opacity: 1; transform: none; }
+  }
+  body[data-page="auth"] #login h1 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    background: linear-gradient(90deg, var(--text, #0b0b0f), #2873ce 140%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  body[data-page="auth"] #login p#auth-sub {
+    font-size: 13.5px;
+    margin-bottom: 6px;
+  }
+  /* Premium sliding tab indicator under the Sign In / Sign Up labels. */
+  body[data-page="auth"] .auth-tabs {
+    position: relative;
+    background: color-mix(in srgb, var(--border) 70%, transparent);
+    padding: 5px;
+    border-radius: 12px;
+  }
+  body[data-page="auth"] .auth-tab {
+    position: relative;
+    z-index: 1;
+    padding: 10px 12px;
+    transition: color .2s ease;
+  }
+  body[data-page="auth"] .auth-tab.active {
+    background:
+      linear-gradient(135deg,
+        color-mix(in srgb, var(--panel, #fff) 94%, transparent),
+        color-mix(in srgb, #2873ce 10%, var(--panel, #fff)));
+    color: var(--text);
+    box-shadow:
+      0 4px 14px rgba(40,115,206,0.16),
+      inset 0 0 0 1px rgba(40,115,206,0.18);
+  }
+  body[data-page="auth"] .auth-submit {
+    background: linear-gradient(135deg, #2873ce, #3b86de);
+    box-shadow: 0 10px 24px rgba(40,115,206,0.28);
+    letter-spacing: 0.01em;
+  }
+  body[data-page="auth"] .auth-submit:hover:not(:disabled) {
+    filter: brightness(1.05) saturate(1.08);
+  }
+  body[data-page="auth"] .auth-form input {
+    background: color-mix(in srgb, var(--input-bg, #fff) 92%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+  }
+  body[data-page="auth"] .auth-form input:focus {
+    border-color: #2873ce;
+    box-shadow: 0 0 0 3px rgba(40,115,206,0.18);
+  }
+  body[data-page="auth"] #login-btn {
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  }
+  /* Anchor the login-brand wordmark still top-left but add extra breathing
+     room on the premium layout. */
+  body[data-page="auth"] .login-brand { top: max(22px, env(safe-area-inset-top)); }
+  @media (max-width: 420px) {
+    body[data-page="auth"] #login { padding: 64px 16px 32px; }
+    body[data-page="auth"] #login .auth-card { padding: 22px 18px 18px; border-radius: 18px; }
+    body[data-page="auth"] #login h1 { font-size: 22px; }
   }
