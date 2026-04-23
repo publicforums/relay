@@ -220,6 +220,14 @@
     display: flex; flex-direction: column; gap: 10px;
     text-align: center;
   }
+  /* PC layout: the 360px card feels narrow and visually off-center on a
+     wide desktop viewport. Widen it to 400px at ≥900px so it reads as
+     properly scaled against the surrounding whitespace; mobile widths stay
+     at 360px so nothing changes there. */
+  @media (min-width: 900px) {
+    #login .auth-card { width: min(400px, 100%); }
+    .auth-support { max-width: min(400px, 100%); }
+  }
   #login h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
   #login p { margin: 0 0 4px; color: var(--muted); font-size: 13px; max-width: 100%; }
   .auth-tabs {
@@ -307,6 +315,23 @@
     font-size: 13px; color: var(--muted); line-height: 1.4;
     cursor: pointer; user-select: none;
   }
+  /* "Send me occasional product updates" — signup-only, sits above Terms.
+     Hidden in signin mode; shown (as a flex row) when the form carries the
+     .signup-mode class. The checked value carries through to the onboarding
+     newsletter step via `_pendingSignup.newsletter_opt_in`. */
+  .auth-newsletter {
+    display: none;
+    align-items: center; gap: 8px;
+    margin: 0;
+    font-size: 13px; color: var(--muted); line-height: 1.4;
+    cursor: pointer; user-select: none;
+  }
+  .auth-form.signup-mode .auth-newsletter { display: flex; }
+  .auth-newsletter input[type="checkbox"] {
+    width: 16px; height: 16px; margin: 0; flex: 0 0 auto;
+    accent-color: #2873ce; cursor: pointer;
+  }
+  .auth-newsletter .auth-newsletter-text { flex: 1; min-width: 0; color: var(--text, #e6e6e6); }
   .auth-remember input[type="checkbox"] {
     width: 16px; height: 16px; margin: 0; flex: 0 0 auto;
     accent-color: #2873ce; cursor: pointer;
