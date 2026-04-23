@@ -4792,180 +4792,168 @@
   }
 
   /* ====================================================================
-     Scroll-based onboarding (onboarding.html only)
+     Onboarding layout (onboarding.html only) — floating single-step
      ====================================================================
-     The step-swap card layout used on auth.html is replaced here by a
-     continuous vertical scroll of all form steps. Each step becomes a
-     "section" with its own header + description, stacked one after the
-     other so the page reads top-to-bottom like a Supabase/Linear-style
-     signup. Validation and navigation logic are unchanged: Back/Next/
-     Finish still walk the step counter, but renderOnboarding() now
-     smooth-scrolls the active step into view instead of toggling
-     visibility. The `.active` class is preserved for focus styling
-     (glow + border highlight).
+     Reverts the continuous-scroll stack to the original single-step-
+     at-a-time progression. "Floating" aesthetic: no heavy card chrome,
+     no hard borders, soft depth only on inputs and the progress header.
+     The renderer toggles `.active` on exactly one `.ob-step`; the base
+     `.ob-step { display: none; } .ob-step.active { display: flex; }`
+     rules from the chat shell handle visibility without overrides.
 
-     All rules below are scoped to `body[data-page="onboarding"]` so the
-     safety-net inline #onboarding sections in auth.html / app.html are
-     completely untouched.
-     ==================================================================== */
+     The `.ob-verify-visible` class is still toggled by the renderer when
+     the user reaches the verify screen (step 7), but because the base
+     rules already show only the active step, we don't need the old
+     display overrides here — step 7 becomes visible the moment it is
+     .active, and every earlier step is hidden by the default :not(.active).
+  */
   body[data-page="onboarding"] #onboarding {
-    padding: 24px 20px 160px;
+    padding: 24px 20px 48px;
     background:
       radial-gradient(900px 560px at 8% -8%, rgba(40,115,206,0.16), transparent 62%),
       radial-gradient(820px 520px at 110% 6%, rgba(90,163,255,0.10), transparent 62%),
       radial-gradient(760px 480px at 50% 120%, rgba(40,115,206,0.10), transparent 60%);
   }
   body[data-page="onboarding"] #onboarding .ob-card {
-    width: min(560px, 100%);
-    margin: 18px auto 0;
+    width: min(520px, 100%);
+    margin: 12px auto 0;
     padding: 0;
-    gap: 8px;
-    animation: none;
+    gap: 14px;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    animation: obPop .34s cubic-bezier(.2,.8,.2,1) both;
   }
-  /* Sticky progress bar at the top of the scroll flow — gives the user a
-     persistent sense of position even when scrolling between sections. */
   body[data-page="onboarding"] .ob-head {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    padding: 14px 2px 12px;
-    margin: 0 -2px 8px;
-    background:
-      linear-gradient(to bottom, var(--bg) 70%, transparent 100%);
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
+    padding: 4px 0 2px;
+    gap: 8px;
   }
   body[data-page="onboarding"] .ob-head h2 {
-    font-size: 22px;
+    font-size: 24px;
     margin: 4px 0 0;
+    letter-spacing: -0.015em;
   }
-  body[data-page="onboarding"] .ob-head .step-sub {
-    font-size: 13px;
-  }
-  /* Continuous flow: every form step is always visible, stacked. */
-  body[data-page="onboarding"] .ob-body {
-    display: flex;
-    flex-direction: column;
-    gap: 22px;
-  }
+  body[data-page="onboarding"] .ob-head .step-sub { font-size: 13.5px; }
+  body[data-page="onboarding"] .ob-body { display: block; gap: 0; }
+  /* Floating steps: no container chrome, just content. Each step uses the
+     base `.ob-step { display: none; } .ob-step.active { display: flex; }`
+     rules — no display override here. */
   body[data-page="onboarding"] .ob-step {
-    display: flex;
-    scroll-margin-top: 120px;
-    padding: 18px 18px 20px;
-    background: color-mix(in srgb, var(--panel, #fff) 92%, transparent);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.04);
-    transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease;
-    animation: none;
+    padding: 4px 2px 8px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
-  body[data-page="onboarding"] .ob-step.active {
-    border-color: color-mix(in srgb, #2873ce 55%, var(--border));
+  /* Subtle lift for inputs / selects / textareas so they feel floating
+     against the ambient radial backdrop. */
+  body[data-page="onboarding"] .ob-step input[type="text"],
+  body[data-page="onboarding"] .ob-step input[type="email"],
+  body[data-page="onboarding"] .ob-step input[type="password"],
+  body[data-page="onboarding"] .ob-step select,
+  body[data-page="onboarding"] .ob-step textarea {
+    background: color-mix(in srgb, var(--input-bg, #fff) 88%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
     box-shadow:
-      0 10px 30px rgba(40,115,206,0.14),
-      0 0 0 3px rgba(40,115,206,0.12);
-    animation: none;
+      0 6px 18px rgba(12, 20, 40, 0.06),
+      inset 0 1px 0 rgba(255,255,255,0.04);
+    transition: border-color .15s ease, box-shadow .15s ease;
   }
-  body[data-page="onboarding"] .ob-step.active > * { animation: none; }
-  /* Section heading inside each step card — auto-inserted via ::before
-     using the OB_SECTION_TITLES data-attribute the renderer writes. */
-  body[data-page="onboarding"] .ob-step::before {
-    content: attr(data-section-title);
-    display: block;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin: -2px 0 8px;
+  body[data-page="onboarding"] .ob-step input[type="text"]:focus,
+  body[data-page="onboarding"] .ob-step input[type="email"]:focus,
+  body[data-page="onboarding"] .ob-step input[type="password"]:focus,
+  body[data-page="onboarding"] .ob-step select:focus,
+  body[data-page="onboarding"] .ob-step textarea:focus {
+    border-color: #2873ce;
+    box-shadow:
+      0 0 0 3px rgba(40,115,206,0.18),
+      0 6px 18px rgba(12, 20, 40, 0.06);
   }
-  body[data-page="onboarding"] .ob-step[data-section-title=""]::before,
-  body[data-page="onboarding"] .ob-step:not([data-section-title])::before {
-    display: none;
-  }
-  /* Verification step sits at the end as a full-width terminal screen
-     but is hidden until the account has been created (renderer toggles
-     the .ob-verify-visible flag on the parent). */
-  body[data-page="onboarding"] .ob-step[data-step="7"] {
-    display: none;
-  }
-  body[data-page="onboarding"] #onboarding.ob-verify-visible .ob-step[data-step="7"] {
-    display: flex;
-  }
-  /* When on the verify terminal screen, hide the other form steps so the
-     user isn't tempted to go back and re-edit profile fields. */
-  body[data-page="onboarding"] #onboarding.ob-verify-visible .ob-step:not([data-step="7"]) {
-    display: none;
-  }
-  /* Sticky bottom action bar — floats over the scroll area so Back/Next
-     are always reachable without scrolling. */
+  /* Drop the auto-inserted section title from the scroll layout; headers
+     are already handled by the single `.ob-head h2` at the top. */
+  body[data-page="onboarding"] .ob-step::before { content: none; }
+  /* Actions bar: floating round pill, centered below the step. */
   body[data-page="onboarding"] .ob-actions {
-    position: sticky;
-    bottom: 12px;
-    z-index: 6;
     display: flex;
     gap: 10px;
-    padding: 12px 14px;
-    margin: 20px auto 0;
-    width: min(560px, 100%);
-    background: color-mix(in srgb, var(--panel, #fff) 88%, transparent);
-    border: 1px solid var(--border);
+    padding: 10px 12px;
+    margin: 18px auto 0;
+    width: min(360px, 100%);
+    background: color-mix(in srgb, var(--panel, #fff) 86%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
     border-radius: 999px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    -webkit-backdrop-filter: blur(12px) saturate(1.05);
-    backdrop-filter: blur(12px) saturate(1.05);
+    box-shadow: 0 10px 28px rgba(12, 20, 40, 0.10);
+    -webkit-backdrop-filter: blur(10px) saturate(1.05);
+    backdrop-filter: blur(10px) saturate(1.05);
   }
-  body[data-page="onboarding"] .ob-skip {
-    margin: 12px auto 0;
-  }
-  /* Progress pills stretch full width on the sticky bar. */
+  body[data-page="onboarding"] .ob-skip { margin: 10px auto 0; }
   body[data-page="onboarding"] .ob-step-pills { margin-bottom: 4px; }
   body[data-page="onboarding"] .ob-step-pill { height: 5px; border-radius: 5px; }
   @media (max-width: 520px) {
-    body[data-page="onboarding"] #onboarding { padding: 18px 14px 150px; }
-    body[data-page="onboarding"] .ob-step { padding: 14px 14px 16px; border-radius: 14px; }
+    body[data-page="onboarding"] #onboarding { padding: 18px 14px 32px; }
+    body[data-page="onboarding"] #onboarding .ob-card { margin-top: 6px; gap: 12px; }
     body[data-page="onboarding"] .ob-actions { width: calc(100% - 28px); padding: 10px 12px; }
   }
 
   /* ====================================================================
-     Premium auth page (auth.html only)
+     Premium auth page (auth.html only) — split layout
      ====================================================================
-     Depth + gradients + subtle animated blobs behind a glass-morphism
-     card. Narrow screens collapse to a single column and drop the
-     background animation to stay calm on mobile. */
+     Wide screens: two-column split. Left pane hosts the auth card; right
+     pane is a decorative hero with gradient, animated blob, and a short
+     value-prop block. Narrow screens collapse to a single column and
+     hide the hero entirely so nothing requires scrolling on phones. */
   body[data-page="auth"] #login {
-    padding: 80px 24px 40px;
-    gap: 20px;
-    background:
-      radial-gradient(1100px 680px at 8% -10%, rgba(40,115,206,0.22), transparent 62%),
-      radial-gradient(1000px 620px at 110% 10%, rgba(90,163,255,0.14), transparent 60%),
-      radial-gradient(900px 560px at 50% 120%, rgba(40,115,206,0.12), transparent 58%);
+    padding: 0;
+    gap: 0;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: stretch;
+    min-height: 100dvh;
     overflow: hidden;
+    text-align: left;
   }
+  body[data-page="auth"] .auth-left {
+    flex: 1 1 50%;
+    min-width: 0;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 86px 40px 32px;
+    box-sizing: border-box;
+    gap: 14px;
+    position: relative;
+    z-index: 1;
+    background:
+      radial-gradient(900px 560px at 8% -10%, rgba(40,115,206,0.18), transparent 62%),
+      radial-gradient(780px 500px at 50% 120%, rgba(40,115,206,0.10), transparent 60%);
+  }
+  /* Decorative blob behind the left pane — lives on the :before pseudo
+     element the old layout used, now re-anchored to .auth-left so it
+     only sits behind the card, not the hero. */
   body[data-page="auth"] #login::before,
-  body[data-page="auth"] #login::after {
+  body[data-page="auth"] #login::after { content: none; }
+  body[data-page="auth"] .auth-left::before {
     content: "";
     position: absolute;
-    width: 560px;
-    height: 560px;
+    top: -220px;
+    left: -180px;
+    width: 520px;
+    height: 520px;
     border-radius: 50%;
     pointer-events: none;
     filter: blur(90px);
-    opacity: 0.45;
-    z-index: 0;
-  }
-  body[data-page="auth"] #login::before {
-    top: -220px;
-    left: -180px;
+    opacity: 0.4;
     background: radial-gradient(circle, rgba(40,115,206,0.55), transparent 65%);
     animation: authBlobA 18s ease-in-out infinite alternate;
+    z-index: 0;
   }
-  body[data-page="auth"] #login::after {
-    bottom: -240px;
-    right: -220px;
-    background: radial-gradient(circle, rgba(90,163,255,0.45), transparent 65%);
-    animation: authBlobB 22s ease-in-out infinite alternate;
-  }
+  /* Raise the card and support text above the decorative ::before blob
+     without disturbing the brand's absolute positioning at top-left. */
+  body[data-page="auth"] .auth-left > .auth-card,
+  body[data-page="auth"] .auth-left > .auth-support { position: relative; z-index: 1; }
+  body[data-page="auth"] .auth-left > .login-brand { z-index: 2; }
   @keyframes authBlobA {
     from { transform: translate3d(0, 0, 0) scale(1); }
     to   { transform: translate3d(40px, 60px, 0) scale(1.08); }
@@ -4975,14 +4963,13 @@
     to   { transform: translate3d(-60px, -40px, 0) scale(1.1); }
   }
   @media (prefers-reduced-motion: reduce) {
-    body[data-page="auth"] #login::before,
-    body[data-page="auth"] #login::after { animation: none; }
+    body[data-page="auth"] .auth-left::before,
+    body[data-page="auth"] .auth-hero-bg { animation: none; }
   }
-  body[data-page="auth"] #login > * { position: relative; z-index: 1; }
   body[data-page="auth"] #login .auth-card {
     width: min(400px, 100%);
     padding: 28px 26px 22px;
-    background: color-mix(in srgb, var(--panel, #fff) 78%, transparent);
+    background: color-mix(in srgb, var(--panel, #fff) 82%, transparent);
     border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
     border-radius: 20px;
     box-shadow:
@@ -4992,6 +4979,7 @@
     -webkit-backdrop-filter: blur(14px) saturate(1.08);
     backdrop-filter: blur(14px) saturate(1.08);
     gap: 12px;
+    text-align: center;
     animation: authCardIn .42s cubic-bezier(.2,.8,.2,1) both;
   }
   @keyframes authCardIn {
@@ -5011,7 +4999,6 @@
     font-size: 13.5px;
     margin-bottom: 6px;
   }
-  /* Premium sliding tab indicator under the Sign In / Sign Up labels. */
   body[data-page="auth"] .auth-tabs {
     position: relative;
     background: color-mix(in srgb, var(--border) 70%, transparent);
@@ -5053,11 +5040,123 @@
   body[data-page="auth"] #login-btn {
     box-shadow: 0 6px 18px rgba(0,0,0,0.08);
   }
-  /* Anchor the login-brand wordmark still top-left but add extra breathing
-     room on the premium layout. */
+  /* Pin the brand wordmark to the top-left of the left pane. */
   body[data-page="auth"] .login-brand { top: max(22px, env(safe-area-inset-top)); }
+  /* ---------- Right pane: decorative hero (PC only) ------------------ */
+  body[data-page="auth"] .auth-hero {
+    flex: 1 1 50%;
+    min-width: 0;
+    min-height: 100dvh;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 56px 48px;
+    box-sizing: border-box;
+    color: #fff;
+    background:
+      linear-gradient(135deg, #10274b 0%, #1b4788 40%, #2873ce 100%);
+  }
+  body[data-page="auth"] .auth-hero-bg {
+    position: absolute; inset: -10% -10%;
+    pointer-events: none;
+    background:
+      radial-gradient(520px 420px at 18% 12%, rgba(130,190,255,0.45), transparent 60%),
+      radial-gradient(620px 500px at 85% 85%, rgba(255,255,255,0.12), transparent 65%),
+      radial-gradient(360px 300px at 50% 50%, rgba(90,163,255,0.25), transparent 70%);
+    filter: blur(30px);
+    animation: authBlobB 22s ease-in-out infinite alternate;
+    z-index: 0;
+  }
+  body[data-page="auth"] .auth-hero-inner {
+    position: relative;
+    z-index: 1;
+    max-width: 440px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  body[data-page="auth"] .auth-hero-badge {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-weight: 800; font-size: 20px; letter-spacing: 0.02em;
+    color: #fff;
+  }
+  body[data-page="auth"] .auth-hero-badge img {
+    width: 32px; height: 32px; border-radius: 8px; object-fit: contain;
+    background: rgba(255,255,255,0.08);
+    padding: 3px;
+    box-sizing: border-box;
+  }
+  body[data-page="auth"] .auth-hero-title {
+    margin: 0;
+    font-size: 40px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: #fff;
+  }
+  body[data-page="auth"] .auth-hero-sub {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.55;
+    color: rgba(255,255,255,0.82);
+    max-width: 42ch;
+  }
+  body[data-page="auth"] .auth-hero-features {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  body[data-page="auth"] .auth-hero-features li {
+    display: flex; align-items: flex-start; gap: 14px;
+    line-height: 1.5;
+  }
+  body[data-page="auth"] .auth-hero-features li > div {
+    display: flex; flex-direction: column; gap: 2px;
+    min-width: 0;
+  }
+  body[data-page="auth"] .auth-hero-features strong {
+    font-size: 14.5px;
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+  body[data-page="auth"] .auth-hero-features span {
+    font-size: 13px;
+    color: rgba(255,255,255,0.75);
+  }
+  body[data-page="auth"] .auth-hero-ico {
+    flex: 0 0 auto;
+    width: 38px; height: 38px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 11px;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.22);
+  }
+  body[data-page="auth"] .auth-hero-ico svg {
+    width: 18px; height: 18px;
+  }
+  /* ---------- Mobile: single column, no hero, no scroll -------------- */
+  @media (max-width: 900px) {
+    body[data-page="auth"] #login { flex-direction: column; }
+    body[data-page="auth"] .auth-hero { display: none; }
+    body[data-page="auth"] .auth-left {
+      flex: 1 1 auto;
+      padding: 78px 20px 24px;
+    }
+  }
   @media (max-width: 420px) {
-    body[data-page="auth"] #login { padding: 64px 16px 32px; }
-    body[data-page="auth"] #login .auth-card { padding: 22px 18px 18px; border-radius: 18px; }
-    body[data-page="auth"] #login h1 { font-size: 22px; }
+    body[data-page="auth"] .auth-left { padding: 66px 14px 20px; gap: 10px; }
+    body[data-page="auth"] #login .auth-card { padding: 20px 16px 16px; border-radius: 18px; gap: 10px; }
+    body[data-page="auth"] #login h1 { font-size: 20px; }
+    body[data-page="auth"] #login p#auth-sub { font-size: 13px; margin-bottom: 2px; }
+    body[data-page="auth"] .auth-form input { padding: 10px 12px; font-size: 14px; }
+    body[data-page="auth"] .auth-submit { padding: 10px 14px; font-size: 14px; }
+    body[data-page="auth"] #login button#login-btn { padding: 10px 14px; font-size: 14px; }
+    body[data-page="auth"] .auth-support { font-size: 11.5px; }
   }
