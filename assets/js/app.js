@@ -5975,18 +5975,34 @@
   let   _dmReadObserver = null;
 
   function _dmBuildReceiptEl() {
+    // Telegram-style meta block — sits inside the bubble, pinned bottom-right
+    // directly under the text. Holds the two-check mark + a tiny faint
+    // "Delivered"/"Seen" label to the right of the ticks. Width stays in the
+    // normal flow so the bubble extends (it never overflows or absolute-
+    // overlaps the text).
     const el = document.createElement("span");
-    el.className = "dm-read-receipt";
+    el.className = "dm-bubble-meta";
     el.setAttribute("aria-hidden", "true");
     el.dataset.state = "sent";
+
+    const ticks = document.createElement("span");
+    ticks.className = "dm-read-receipt";
+    ticks.dataset.state = "sent";
     // Two nested checkmarks: the second one is hidden in the "sent" state.
-    el.innerHTML =
+    ticks.innerHTML =
       '<svg class="tick-1" viewBox="0 0 16 12" aria-hidden="true">' +
         '<path d="M1 6.5 L5.5 11 L15 1.5"/>' +
       '</svg>' +
       '<svg class="tick-2" viewBox="0 0 16 12" aria-hidden="true">' +
         '<path d="M1 6.5 L5.5 11 L15 1.5"/>' +
       '</svg>';
+
+    const status = document.createElement("span");
+    status.className = "dm-status-text";
+    status.textContent = "Delivered";
+
+    el.appendChild(ticks);
+    el.appendChild(status);
     return el;
   }
 
@@ -5994,16 +6010,21 @@
     if (!m || !me || m.sender_id !== me.id) return;
     const row = dmRowsById.get(m.id);
     if (!row) return;
-    const rr = row.querySelector(".dm-read-receipt");
-    if (!rr) return;
+    const meta = row.querySelector(".dm-bubble-meta");
+    if (!meta) return;
+    const rr = meta.querySelector(".dm-read-receipt");
+    const status = meta.querySelector(".dm-status-text");
     const seen = !!m.read_at;
-    rr.dataset.state = seen ? "seen" : "sent";
-    rr.classList.add("show");
-    rr.setAttribute(
-      "aria-label",
-      seen ? "Read " + fmtTime(new Date(m.read_at)) : "Sent"
-    );
-    rr.title = rr.getAttribute("aria-label");
+    const state = seen ? "seen" : "sent";
+    meta.dataset.state = state;
+    if (rr) rr.dataset.state = state;
+    if (status) status.textContent = seen ? "Seen" : "Delivered";
+    meta.classList.add("show");
+    const label = seen
+      ? "Seen " + fmtTime(new Date(m.read_at))
+      : "Delivered";
+    meta.setAttribute("aria-label", label);
+    meta.title = label;
   }
 
   function _dmRepaintAllMyReceipts() {

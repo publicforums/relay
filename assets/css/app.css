@@ -963,33 +963,50 @@
   .bubble.has-image .msg-text { display: block; margin-top: 6px; }
 
   /* ---------- DM read receipts (Telegram-style ticks) ----------
-     Fix 1: receipts now live INSIDE the `.bubble` (appended as the
-     last child of the bubble in buildDmRow). For text bubbles they
-     flow inline after the last word of .msg-text so the tick lands
-     in the bottom-right corner (Telegram style). For image-only
-     bubbles the tick is absolutely positioned over the corner of
-     the image with a subtle dark chip so it stays legible without
-     shifting the image. Height/width of the bubble stays stable in
-     both cases. Public / group rows never get this element because
-     buildDmRow is DM-scoped. */
+     The receipt lives INSIDE the `.bubble` as its last child (appended
+     in buildDmRow). A `.dm-bubble-meta` wrapper pins the ticks + the faint
+     "Delivered"/"Seen" label to the bottom-right of the bubble — on a
+     new line directly under the message text. Image-only bubbles float
+     the meta chip over the image corner with a subtle dark background
+     so it stays legible without shifting the image. Height/width of
+     the bubble stays stable in both cases. Public / group rows never
+     get this element because buildDmRow is DM-scoped. */
+  .dm-bubble-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    margin: 2px 0 0 0;
+    padding: 0;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity .18s ease, color .22s ease;
+    pointer-events: none;
+    color: color-mix(in srgb, var(--bubble-me-text, #fff) 62%, transparent);
+    min-height: 12px;
+    width: 100%;
+  }
+  .dm-bubble-meta.show { opacity: 1; }
+  .dm-status-text {
+    font-size: 10.5px;
+    font-weight: 400;
+    letter-spacing: 0.1px;
+    color: inherit;
+    opacity: 0.8;
+    white-space: nowrap;
+  }
   .dm-read-receipt {
     display: inline-flex;
     align-items: center;
     gap: 0;
-    margin: 0 0 0 6px;
     padding: 0;
-    color: color-mix(in srgb, var(--bubble-me-text, #fff) 62%, transparent);
-    opacity: 0;
-    transition: opacity .18s ease, color .22s ease;
-    pointer-events: none;
+    color: inherit;
     line-height: 1;
-    vertical-align: -1px; /* align with text baseline inside bubble */
     min-width: 14px;
     height: 11px;
     position: relative;
     flex: 0 0 auto;
   }
-  .dm-read-receipt.show { opacity: 1; }
   .dm-read-receipt svg {
     width: 11px; height: 11px; display: block;
     stroke: currentColor; fill: none;
@@ -998,10 +1015,13 @@
   /* Overlap the two ticks when seen = 2 ticks. */
   .dm-read-receipt .tick-2 { margin-left: -5px; }
   .dm-read-receipt[data-state="sent"] .tick-2 { display: none; }
-  .dm-read-receipt[data-state="seen"] {
+  .dm-bubble-meta[data-state="seen"] {
     color: var(--accent-2, #7ecbff);
   }
-  .dm-read-receipt[data-state="seen"] svg {
+  .dm-bubble-meta[data-state="seen"] .dm-status-text {
+    opacity: 0.95;
+  }
+  .dm-bubble-meta[data-state="seen"] .dm-read-receipt svg {
     animation: dmSeenPop .24s cubic-bezier(.2,.8,.2,1) both;
   }
   @keyframes dmSeenPop {
@@ -1010,27 +1030,27 @@
     100% { transform: scale(1); opacity: 1; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .dm-read-receipt, .dm-read-receipt svg { transition: none; animation: none; }
+    .dm-bubble-meta, .dm-read-receipt, .dm-read-receipt svg { transition: none; animation: none; }
   }
-  /* Required so .image-only absolute-positioning of the receipt anchors
+  /* Required so .image-only absolute-positioning of the meta anchors
      to the bubble and not the flex parent. */
   #dm-room-backdrop .bubble { position: relative; }
-  /* Image-only bubbles have no padding/background; float the receipt
+  /* Image-only bubbles have no padding/background; float the meta chip
      over the image bottom-right with a small dark chip so it's readable
      against any image. */
-  #dm-room-backdrop .row.me .bubble.image-only .dm-read-receipt {
+  #dm-room-backdrop .row.me .bubble.image-only .dm-bubble-meta {
     position: absolute;
     right: 8px;
     bottom: 8px;
     margin: 0;
-    padding: 2px 5px;
+    padding: 2px 6px;
     border-radius: 10px;
     background: rgba(0, 0, 0, 0.55);
     color: #fff;
-    height: auto;
+    width: auto;
     min-width: 0;
   }
-  #dm-room-backdrop .row.me .bubble.image-only .dm-read-receipt[data-state="seen"] {
+  #dm-room-backdrop .row.me .bubble.image-only .dm-bubble-meta[data-state="seen"] {
     color: #7ecbff;
   }
 

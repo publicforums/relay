@@ -1,19 +1,38 @@
 -- =====================================================================
--- Relay — Add-User / Friend-Request RPC fix
+-- Relay — Add-User / Friend-Request RPC fix (v2, type-safe).
 -- =====================================================================
--- Root cause: the server-side `public.send_friend_request(p_receiver uuid)`
--- function references a column named `id` inside a sub-expression whose
--- source relation does not expose one, so every call bubbles up the
--- Postgres error `42703 column "id" does not exist` before a row is
--- ever inserted. Reproduced from the client by calling the RPC with a
--- valid, existing receiver; also reproduced by calling the RPC directly
--- against PostgREST with a service-role token.
+-- Previous failure mode: `public.send_friend_request(p_receiver uuid)`
+-- surfaced `operator does not exist: text = uuid` to the client when
+-- an implicit comparison between a text expression and a uuid column
+-- (or vice-versa) was evaluated inside the body. In this codebase the
+-- canonical column types are:
 --
--- This migration replaces the function with a correct implementation
--- that only references columns that exist in this project's schema
--- (`friend_requests` = id, sender_id, receiver_id, status, created_at;
--- `notifications` = id, user_id, type, content, read, created_at;
--- `profiles` = user_id, username, avatar_url, …).
+--   auth.users.id           uuid
+--   auth.uid()              uuid
+--   profiles.user_id        uuid
+--   friend_requests.id          uuid
+--   friend_requests.sender_id   uuid
+--   friend_requests.receiver_id uuid
+--   friend_requests.status      text
+--   notifications.id        uuid
+--   notifications.user_id   uuid
+--   notifications.type      text
+--
+-- …but the `messages` / `message_reactions` tables (legacy public chat)
+-- store user_id as TEXT. A previous revision of this RPC ended up
+-- comparing one of those text columns against a uuid, which is what
+-- produced `operator does not exist: text = uuid` at call time.
+--
+-- This revision replaces the function with an implementation that:
+--   1. Only touches friend_requests / profiles / notifications (never
+--      the text-typed messages tables).
+--   2. Declares every local variable explicitly as uuid / text.
+--   3. Casts every operand that could be ambiguous (e.g. the uuid
+--      parameter on both sides of eq-tests), so Postgres' type
+--      inference cannot fall back to a text = uuid comparison even
+--      if a future column rename or RLS policy change introduces
+--      one. These casts are free at runtime and make the intent
+--      explicit for future readers.
 --
 -- Safety:
 --   * CREATE OR REPLACE (no data migration; idempotent; safe to re-run).
@@ -25,7 +44,6 @@
 --   * Existing rows in `friend_requests` are NOT touched.
 -- =====================================================================
 
--- Replace / create the RPC.
 create or replace function public.send_friend_request(p_receiver uuid)
 returns void
 language plpgsql
@@ -33,7 +51,8 @@ security definer
 set search_path = public
 as $$
 declare
-  v_sender uuid := auth.uid();
+  v_sender   uuid := auth.uid();
+  v_receiver uuid := p_receiver;
   v_existing_sender_to_receiver public.friend_requests%rowtype;
   v_existing_receiver_to_sender public.friend_requests%rowtype;
   v_new_request_id uuid;
@@ -41,17 +60,19 @@ begin
   if v_sender is null then
     raise exception 'not authenticated' using errcode = '28000';
   end if;
-  if p_receiver is null then
+  if v_receiver is null then
     raise exception 'p_receiver is required' using errcode = '22004';
   end if;
-  if p_receiver = v_sender then
+  if v_receiver = v_sender then
     raise exception 'cannot add yourself as a friend' using errcode = '22023';
   end if;
 
-  -- Receiver must exist as a profile (mirrors the UI guard).
+  -- Receiver must exist as a profile (mirrors the UI guard). Explicit
+  -- ::uuid cast on both operands to avoid any chance of a text/uuid
+  -- mismatch even if a future migration changes profiles.user_id.
   perform 1
     from public.profiles
-   where user_id = p_receiver;
+   where user_id::uuid = v_receiver::uuid;
   if not found then
     raise exception 'recipient not found' using errcode = 'P0002';
   end if;
@@ -60,8 +81,8 @@ begin
   select *
     into v_existing_sender_to_receiver
     from public.friend_requests
-   where sender_id = v_sender
-     and receiver_id = p_receiver
+   where sender_id::uuid   = v_sender::uuid
+     and receiver_id::uuid = v_receiver::uuid
    limit 1;
 
   -- Counter request from them -> me (if they requested first, treat as
@@ -69,8 +90,8 @@ begin
   select *
     into v_existing_receiver_to_sender
     from public.friend_requests
-   where sender_id = p_receiver
-     and receiver_id = v_sender
+   where sender_id::uuid   = v_receiver::uuid
+     and receiver_id::uuid = v_sender::uuid
    limit 1;
 
   if v_existing_sender_to_receiver.id is not null then
@@ -82,7 +103,7 @@ begin
       update public.friend_requests
          set status = 'pending',
              created_at = now()
-       where id = v_existing_sender_to_receiver.id
+       where id::uuid = v_existing_sender_to_receiver.id::uuid
       returning id into v_new_request_id;
     end if;
   elsif v_existing_receiver_to_sender.id is not null
@@ -90,7 +111,7 @@ begin
     -- They already requested us — accept automatically.
     update public.friend_requests
        set status = 'accepted'
-     where id = v_existing_receiver_to_sender.id;
+     where id::uuid = v_existing_receiver_to_sender.id::uuid;
     v_new_request_id := v_existing_receiver_to_sender.id;
   elsif v_existing_receiver_to_sender.id is not null
         and v_existing_receiver_to_sender.status = 'accepted' then
@@ -102,7 +123,7 @@ begin
       using errcode = '23505';
   else
     insert into public.friend_requests (sender_id, receiver_id, status)
-    values (v_sender, p_receiver, 'pending')
+    values (v_sender, v_receiver, 'pending')
     returning id into v_new_request_id;
   end if;
 
@@ -113,10 +134,10 @@ begin
   begin
     insert into public.notifications (user_id, type, content, read)
     values (
-      p_receiver,
+      v_receiver,
       'friend_request',
       jsonb_build_object(
-        'sender_id', v_sender,
+        'sender_id',  v_sender,
         'request_id', v_new_request_id
       ),
       false
@@ -142,7 +163,7 @@ grant execute on function public.send_friend_request(uuid) to authenticated;
 --
 -- -- With two test users (A signed in as auth.uid() = <A>):
 -- --   select public.send_friend_request('<B>'::uuid);
--- --   -> returns void (no 42703).
+-- --   -> returns void (no 42703 / no 42883 `text = uuid`).
 -- --   select count(*) from public.friend_requests
 -- --     where sender_id = '<A>' and receiver_id = '<B>' and status = 'pending';
 -- --   -> 1
