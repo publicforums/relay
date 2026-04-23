@@ -37,7 +37,6 @@
 <body data-page="auth">
 <div id="app">
   <section id="login">
-    <div class="auth-left">
     <div class="login-brand" aria-label="Relay">
       <img src="logo.png" alt="" onerror="this.style.display='none'" />
       <span class="brand-name">Relay</span>
@@ -56,11 +55,6 @@
           <input id="auth-remember" type="checkbox" checked />
           <span class="auth-remember-box" aria-hidden="true"></span>
           <span class="auth-remember-text">Remember me on this device</span>
-        </label>
-        <label class="auth-newsletter" for="auth-newsletter">
-          <input id="auth-newsletter" type="checkbox" />
-          <span class="auth-newsletter-box" aria-hidden="true"></span>
-          <span class="auth-newsletter-text">Send me occasional product updates (optional).</span>
         </label>
         <label class="auth-terms" for="auth-terms-agree">
           <input id="auth-terms-agree" type="checkbox" />
@@ -93,67 +87,6 @@
       <a id="auth-support-link" href="#" target="_blank" rel="noopener">Join our support server</a>
       for assistance!
     </div>
-    </div><!-- /.auth-left -->
-    <aside class="auth-hero" aria-hidden="true">
-      <div class="auth-hero-bg"></div>
-      <div class="auth-hero-inner">
-        <div class="auth-phone" role="img" aria-label="Preview of the Relay chat app">
-          <div class="auth-phone-shell">
-            <div class="auth-phone-notch"></div>
-            <div class="auth-phone-screen">
-              <div class="auth-phone-statusbar">
-                <span class="auth-phone-time">9:41</span>
-                <span class="auth-phone-icons" aria-hidden="true">
-                  <svg viewBox="0 0 18 10" width="18" height="10"><path d="M1 7h2v2H1zm4-2h2v4H5zm4-2h2v6H9zm4-3h2v9h-2z" fill="currentColor"/></svg>
-                  <svg viewBox="0 0 14 10" width="14" height="10" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M1 5a9 9 0 0 1 12 0M3 7a5.5 5.5 0 0 1 8 0"/><circle cx="7" cy="9" r="0.7" fill="currentColor"/></svg>
-                  <svg viewBox="0 0 26 11" width="22" height="10" fill="none" stroke="currentColor" stroke-width="1"><rect x="0.5" y="0.5" width="21" height="10" rx="2.2"/><rect x="22.6" y="3.6" width="1.6" height="3.8" rx="0.4" fill="currentColor" stroke="none"/><rect x="2" y="2" width="15" height="7" rx="1.2" fill="currentColor" stroke="none"/></svg>
-                </span>
-              </div>
-              <div class="auth-phone-chathead">
-                <span class="auth-phone-avatar" aria-hidden="true">A</span>
-                <div class="auth-phone-chathead-meta">
-                  <strong>Alex Chen</strong>
-                  <span>online · now</span>
-                </div>
-              </div>
-              <div class="auth-phone-messages">
-                <div class="auth-phone-date">Today</div>
-                <div class="auth-phone-row them">
-                  <div class="auth-phone-bubble">Hey! Ready for the launch tomorrow?</div>
-                </div>
-                <div class="auth-phone-row them">
-                  <div class="auth-phone-bubble">I'm reviewing the onboarding one more time.</div>
-                </div>
-                <div class="auth-phone-row me">
-                  <div class="auth-phone-bubble">Almost done — the new theme looks incredible on mobile.</div>
-                  <div class="auth-phone-meta">
-                    <svg viewBox="0 0 20 12" width="18" height="10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 7l4 4 8-9"/><path d="M7 7l4 4 8-9"/></svg>
-                    <span>Seen</span>
-                  </div>
-                </div>
-                <div class="auth-phone-row me">
-                  <div class="auth-phone-bubble">Sending the final copy now.</div>
-                  <div class="auth-phone-meta">
-                    <svg viewBox="0 0 20 12" width="18" height="10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 7l4 4 8-9"/><path d="M7 7l4 4 8-9"/></svg>
-                    <span>Delivered</span>
-                  </div>
-                </div>
-                <div class="auth-phone-row them">
-                  <div class="auth-phone-bubble auth-phone-typing"><span></span><span></span><span></span></div>
-                </div>
-              </div>
-              <div class="auth-phone-composer">
-                <div class="auth-phone-composer-input">Message…</div>
-                <button class="auth-phone-send" type="button" aria-hidden="true" tabindex="-1">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                </button>
-              </div>
-              <div class="auth-phone-homebar"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </aside>
   </section>
 
   <section id="onboarding">
@@ -371,12 +304,7 @@
                 <div class="mention-box" id="mention-box" role="listbox" hidden></div>
               </div>
 
-              <button id="send" type="button" aria-label="Send" title="Send" disabled>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <line x1="22" y1="2" x2="11" y2="13"/>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                </svg>
-              </button>
+              <button id="send" type="button" disabled>Send</button>
             </footer>
           </div>
         </div>
