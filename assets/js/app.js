@@ -99,6 +99,7 @@
   const obPasswordStrengthLabel = $("ob-password-strength-label");
   const obNewsletter = $("ob-newsletter");
   const authRemember = $("auth-remember");
+  const authNewsletter = $("auth-newsletter");
   const obSteps = document.querySelectorAll("#onboarding .ob-step");
   const chatEl = $("chat");
   const meBtn = $("me-btn"), meAvatar = $("me-avatar"), meName = $("me-name");
@@ -1723,7 +1724,13 @@
         // email, transition into onboarding, and create the account at end
         // of onboarding (so the verification email is sent AFTER the user
         // has filled out their profile).
-        _pendingSignup = { email, agreedAt: Date.now() };
+        // Capture the auth-page newsletter opt-in so it carries through
+        // to the onboarding password step (where it actually gets persisted
+        // onto the profile via `pendingProfile.newsletter_opt_in`). Without
+        // this, a user ticking "Send me occasional product updates" on the
+        // signup form would have their choice silently discarded.
+        const authNewsletterOptIn = !!(authNewsletter && authNewsletter.checked);
+        _pendingSignup = { email, agreedAt: Date.now(), newsletter_opt_in: authNewsletterOptIn };
         _savePendingSignup(_pendingSignup);
         authSubmit.textContent = prevLabel;
         authSubmit.disabled = false;
@@ -2511,7 +2518,17 @@
     // password). Newsletter opt-in preloads from existing profile, if any.
     if (obPassword) obPassword.value = "";
     if (obPasswordConfirm) obPasswordConfirm.value = "";
-    if (obNewsletter) obNewsletter.checked = !!(existing && existing.newsletter_opt_in);
+    // Preload newsletter opt-in. Priority: existing profile (edit flow) →
+    // pre-auth signup stash (_pendingSignup from auth.html) → unchecked.
+    if (obNewsletter) {
+      if (existing && typeof existing.newsletter_opt_in === "boolean") {
+        obNewsletter.checked = !!existing.newsletter_opt_in;
+      } else if (_pendingSignup && typeof _pendingSignup.newsletter_opt_in === "boolean") {
+        obNewsletter.checked = !!_pendingSignup.newsletter_opt_in;
+      } else {
+        obNewsletter.checked = false;
+      }
+    }
     _updatePasswordChecklistUI();
   }
   // Shared helper: set the onboarding error bar. The `.err` div already
