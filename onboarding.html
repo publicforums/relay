@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Relay</title>
+<title>Set up your profile · Relay</title>
 <link rel="icon" type="image/png" href="logo.png" />
 <link rel="apple-touch-icon" href="logo.png" />
 <meta property="og:title" content="Relay" />
@@ -11,10 +11,8 @@
 <meta name="twitter:title" content="Relay" />
 <meta name="twitter:image" content="logo.png" />
 <script>
-  // Boot theme (Phase 5): apply the persisted Relay appearance BEFORE the
-  // main stylesheet paints, so the user doesn't see a flash of the default
-  // palette. Reads `relay-appearance` from localStorage; silently tolerates
-  // quota/SecurityErrors (incognito, storage-blocked contexts).
+  // Boot theme (Phase 5) — same as app.html. Keeps the auth page visually
+  // consistent with whichever theme the user picked in Settings.
   (function(){
     try {
       var raw = localStorage.getItem("relay-appearance");
@@ -36,7 +34,7 @@
 </script>
 <link rel="stylesheet" href="assets/css/app.min.css" />
 </head>
-<body data-page="app">
+<body data-page="onboarding">
 <div id="app">
   <section id="login">
     <div class="login-brand" aria-label="Relay">

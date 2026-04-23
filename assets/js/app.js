@@ -1557,7 +1557,29 @@
   // and creates the auth.users row. If we called it on the auth page, the
   // user would see "check your inbox" before onboarding — reversing the flow
   // the spec mandates.
-  let _pendingSignup = null;            // { email, agreedAt }
+  // Pending-signup state survives the auth.html -> onboarding.html hop via
+  // sessionStorage so the user can still complete the onboarding-first flow
+  // after we redirect them. The avatar File blob is NOT persisted (blobs
+  // don't survive sessionStorage); users who pick an avatar before the
+  // redirect just need to re-pick it on the onboarding page. All other
+  // fields are either unset yet or type-safe primitives.
+  const PENDING_SIGNUP_KEY = "relay-pending-signup";
+  function _loadPendingSignup() {
+    try {
+      const raw = sessionStorage.getItem(PENDING_SIGNUP_KEY);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      if (!obj || typeof obj.email !== "string") return null;
+      return obj;
+    } catch (_) { return null; }
+  }
+  function _savePendingSignup(obj) {
+    try {
+      if (obj) sessionStorage.setItem(PENDING_SIGNUP_KEY, JSON.stringify(obj));
+      else sessionStorage.removeItem(PENDING_SIGNUP_KEY);
+    } catch (_) {}
+  }
+  let _pendingSignup = _loadPendingSignup(); // { email, agreedAt }
   let _pendingProfile = null;           // holds avatarFile across signUp\u2192onSignedIn
   let _forcePendingVerifyModal = false; // forces verify modal even when `me` is null
 
@@ -1702,6 +1724,7 @@
         // of onboarding (so the verification email is sent AFTER the user
         // has filled out their profile).
         _pendingSignup = { email, agreedAt: Date.now() };
+        _savePendingSignup(_pendingSignup);
         authSubmit.textContent = prevLabel;
         authSubmit.disabled = false;
         // Transition to onboarding pre-auth. startOnboarding(null) seeds
@@ -1711,7 +1734,7 @@
         try { startOnboarding(null); } catch(e2) {
           console.error("[Signup] Failed to start onboarding", e2);
           setLoginError("Could not start onboarding. Please refresh and try again.");
-          _pendingSignup = null;
+          _pendingSignup = null; _savePendingSignup(null);
           try { showLogin(); } catch(_) {}
         }
         return; // skip finally-block widget reset
@@ -1764,16 +1787,20 @@
     }
   });
 
-  // Page-aware routing (Phases 1–2). `data-page` is set on <body>:
-  //   "auth" → auth.html (login + onboarding live here)
-  //   "app"  → app.html  (signed-in app lives here)
-  // The inline views still exist on both pages as a safety net (so the
+  // Page-aware routing. `data-page` is set on <body>:
+  //   "auth"       → auth.html       (login + signup live here)
+  //   "onboarding" → onboarding.html (profile setup flow lives here)
+  //   "app"        → app.html        (signed-in app lives here)
+  // The inline views still exist on every page as a safety net (so the
   // rest of the app.js logic that references loginEl / onboardingEl /
   // chatEl never null-derefs), but the guards below redirect the user
   // to the correct page whenever we would otherwise switch view.
   const _pageMode = (document.body && document.body.dataset && document.body.dataset.page) || "app";
   function _gotoAuth() {
     try { window.location.replace("auth.html"); } catch (_) { window.location.href = "auth.html"; }
+  }
+  function _gotoOnboarding() {
+    try { window.location.replace("onboarding.html"); } catch (_) { window.location.href = "onboarding.html"; }
   }
   function _gotoApp(preserveQuery) {
     let target = "app.html";
@@ -1786,7 +1813,7 @@
     try { window.location.replace(target); } catch (_) { window.location.href = target; }
   }
   function showLogin() {
-    if (_pageMode === "app") { _gotoAuth(); return; }
+    if (_pageMode === "app" || _pageMode === "onboarding") { _gotoAuth(); return; }
     loginEl.style.display = "";
     onboardingEl.style.display = "none";
     chatEl.style.display = "none";
@@ -1800,7 +1827,7 @@
     } catch(_) {}
   }
   function showOnboarding() {
-    if (_pageMode === "app") { _gotoAuth(); return; }
+    if (_pageMode !== "onboarding") { _gotoOnboarding(); return; }
     loginEl.style.display = "none";
     onboardingEl.style.display = "flex";
     chatEl.style.display = "none";
@@ -1808,7 +1835,7 @@
     try { unmountHeaderMenu(); } catch(_) {}
   }
   function showChat() {
-    if (_pageMode === "auth") { _gotoApp(true); return; }
+    if (_pageMode === "auth" || _pageMode === "onboarding") { _gotoApp(true); return; }
     loginEl.style.display = "none";
     onboardingEl.style.display = "none";
     chatEl.style.display = "flex";
@@ -2275,7 +2302,7 @@
     try { if (typeof stopVerifyPolling === "function") stopVerifyPolling(); } catch(_) {}
     // Drop any pre-auth signup state so a fresh visitor to the auth page
     // isn't stuck in a half-finished flow.
-    _pendingSignup = null;
+    _pendingSignup = null; _savePendingSignup(null);
     _pendingProfile = null;
     _forcePendingVerifyModal = false;
     myEmailVerified = false;
@@ -2325,7 +2352,15 @@
   (async () => {
     clearRestrictionIfExpired();
     const { data: { session } } = await sb.auth.getSession();
-    if (session && session.user) onSignedIn(session); else showLogin();
+    if (session && session.user) { onSignedIn(session); return; }
+    // On onboarding.html a pre-auth signup flow may be in progress
+    // (email entered on auth.html, profile setup to be completed here
+    // before the Supabase signUp call). In that case, seed onboarding
+    // with blanks instead of bouncing back to the auth page.
+    if (_pageMode === "onboarding" && _pendingSignup) {
+      try { startOnboarding(null); return; } catch (_) {}
+    }
+    showLogin();
   })();
 
   // ---------- Onboarding ----------
@@ -2361,6 +2396,27 @@
     "Choose a strong password — you'll use it to sign back in. We'll also create your account on this step.",
     "We've sent a verification email. Confirm it to unlock messaging."
   ];
+  // Short section labels printed above each stacked step in the scroll
+  // layout (onboarding.html only). Index matches the step number.
+  const OB_SECTIONS = [
+    null,
+    "Step 1 · Profile photo",
+    "Step 2 · Username",
+    "Step 3 · Bio",
+    "Step 4 · Pronouns",
+    "Step 5 · Region",
+    "Step 6 · Password",
+    "Step 7 · Verify email"
+  ];
+  const _obIsScrollMode = _pageMode === "onboarding";
+  // Paint section labels once — data-section-title is read by CSS ::before
+  // to render the small uppercase header on top of each stacked step card.
+  if (_obIsScrollMode && obSteps && obSteps.length) {
+    obSteps.forEach(s => {
+      const n = Number(s.dataset.step);
+      if (OB_SECTIONS[n]) s.setAttribute("data-section-title", OB_SECTIONS[n]);
+    });
+  }
   const obStepPills = document.getElementById("ob-step-pills");
   const obStepSub   = document.getElementById("ob-step-sub");
   function _paintPills() {
@@ -2384,10 +2440,12 @@
   }
   function renderOnboarding() {
     const goingBack = obStep < obPrevStep;
+    let activeStepEl = null;
     obSteps.forEach(s => {
       const on = Number(s.dataset.step) === obStep;
       s.classList.toggle("active", on);
       s.classList.toggle("from-back", on && goingBack);
+      if (on) activeStepEl = s;
     });
     obStepLabel.textContent = "Step " + obStep + " of " + OB_STEPS;
     obProgress.style.width = Math.round((obStep / OB_STEPS) * 100) + "%";
@@ -2395,6 +2453,18 @@
     if (title && OB_TITLES[obStep]) title.textContent = OB_TITLES[obStep];
     if (obStepSub && OB_SUBS[obStep]) obStepSub.textContent = OB_SUBS[obStep];
     _paintPills();
+    // Scroll-based onboarding (onboarding.html only): all form steps are
+    // visible simultaneously, so "active" just means focused. Smooth-scroll
+    // the focused section into view and toggle the verify-terminal class
+    // when on step 7 (which swaps the stack for the single verify panel).
+    if (_obIsScrollMode) {
+      if (onboardingEl) {
+        onboardingEl.classList.toggle("ob-verify-visible", obStep === OB_STEPS);
+      }
+      if (activeStepEl && obStep !== obPrevStep) {
+        try { activeStepEl.scrollIntoView({ behavior: "smooth", block: "start" }); } catch(_) {}
+      }
+    }
     // Last step (verify) hides normal Next/Back/Skip; the in-step Resend /
     // "I've verified" buttons drive the flow there. The password step
     // (final form step) hides Skip because a password is required.
@@ -2801,14 +2871,14 @@
             // 120 s cooldown and the "already-registered" auto-suppression
             // path. The user will click the link in their inbox.
           }
-          _pendingSignup = null;
+          _pendingSignup = null; _savePendingSignup(null);
         } catch (signupErr) {
           console.error("[Signup] signUp failed", signupErr);
           const raw = String((signupErr && signupErr.message) || signupErr || "");
           let msg = formatSbError(signupErr, "Could not create account.");
           if (/already\s*registered|already\s*exists|user\s+already/i.test(raw)) {
             msg = "This email is already registered. Please sign in instead.";
-            _pendingSignup = null;
+            _pendingSignup = null; _savePendingSignup(null);
             _pendingProfile = null;
             try { hideOnboarding(); } catch(_) {}
             try { showLogin(); } catch(_) {}
