@@ -315,6 +315,24 @@
   .auth-remember .auth-remember-text { flex: 1; min-width: 0; color: var(--text, #e6e6e6); }
   /* Hide Remember Me in signup mode (no password field there). */
   .auth-form.signup-mode .auth-remember { display: none !important; }
+  /* Newsletter opt-in — identical styling to .auth-remember; visible in
+     signup mode only (hidden in signin via .signup-mode absence). */
+  .auth-newsletter {
+    display: none;
+    align-items: center; gap: 10px;
+    padding: 2px 0;
+    font-size: 13px; line-height: 1.4;
+    color: var(--muted, #a4a4a4);
+    cursor: pointer;
+    user-select: none;
+  }
+  .auth-form.signup-mode .auth-newsletter { display: flex; }
+  .auth-newsletter input[type="checkbox"] {
+    width: 16px; height: 16px; margin: 0; flex: 0 0 auto;
+    accent-color: #2873ce; cursor: pointer;
+  }
+  .auth-newsletter .auth-newsletter-box { display: none; }
+  .auth-newsletter .auth-newsletter-text { flex: 1; min-width: 0; color: var(--text, #e6e6e6); }
   #login-btn:disabled { opacity: .55; cursor: not-allowed; }
   /* ----- Styled form errors (used by the new error UX system) -------- */
   /* Slide-in red alert; used in onboarding + auth. The `.show` class is
@@ -5042,7 +5060,10 @@
   }
   /* Pin the brand wordmark to the top-left of the left pane. */
   body[data-page="auth"] .login-brand { top: max(22px, env(safe-area-inset-top)); }
-  /* ---------- Right pane: decorative hero (PC only) ------------------ */
+  /* ---------- Right pane: iPhone mockup preview (PC only) ----------- */
+  /* Sleek near-black pane that blends with the theme accent blue via a
+     subtle radial wash. Houses a CSS-drawn iPhone with a live-feel chat
+     preview. No external images. */
   body[data-page="auth"] .auth-hero {
     flex: 1 1 50%;
     min-width: 0;
@@ -5052,19 +5073,20 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 56px 48px;
+    padding: 32px 32px;
     box-sizing: border-box;
     color: #fff;
     background:
-      linear-gradient(135deg, #10274b 0%, #1b4788 40%, #2873ce 100%);
+      radial-gradient(1100px 700px at 30% -10%, rgba(40,115,206,0.32), transparent 60%),
+      radial-gradient(900px 600px at 110% 110%, rgba(40,115,206,0.18), transparent 55%),
+      linear-gradient(180deg, #05070d 0%, #0a0e17 100%);
   }
   body[data-page="auth"] .auth-hero-bg {
     position: absolute; inset: -10% -10%;
     pointer-events: none;
     background:
-      radial-gradient(520px 420px at 18% 12%, rgba(130,190,255,0.45), transparent 60%),
-      radial-gradient(620px 500px at 85% 85%, rgba(255,255,255,0.12), transparent 65%),
-      radial-gradient(360px 300px at 50% 50%, rgba(90,163,255,0.25), transparent 70%);
+      radial-gradient(520px 420px at 18% 12%, rgba(40,115,206,0.22), transparent 60%),
+      radial-gradient(620px 500px at 85% 85%, rgba(40,115,206,0.15), transparent 65%);
     filter: blur(30px);
     animation: authBlobB 22s ease-in-out infinite alternate;
     z-index: 0;
@@ -5072,74 +5094,177 @@
   body[data-page="auth"] .auth-hero-inner {
     position: relative;
     z-index: 1;
-    max-width: 440px;
+    width: 100%;
+    max-width: 520px;
     display: flex;
-    flex-direction: column;
-    gap: 22px;
+    align-items: center;
+    justify-content: center;
   }
-  body[data-page="auth"] .auth-hero-badge {
-    display: inline-flex; align-items: center; gap: 10px;
-    font-weight: 800; font-size: 20px; letter-spacing: 0.02em;
-    color: #fff;
+  /* ---- iPhone frame ---- */
+  body[data-page="auth"] .auth-phone {
+    width: min(320px, 70%);
+    aspect-ratio: 9 / 19.5;
+    max-height: 78vh;
+    display: flex;
   }
-  body[data-page="auth"] .auth-hero-badge img {
-    width: 32px; height: 32px; border-radius: 8px; object-fit: contain;
-    background: rgba(255,255,255,0.08);
-    padding: 3px;
+  body[data-page="auth"] .auth-phone-shell {
+    position: relative;
+    flex: 1 1 auto;
+    background: linear-gradient(160deg, #1a1d25 0%, #0c0e13 100%);
+    border-radius: 40px;
+    padding: 10px;
+    box-shadow:
+      0 30px 60px rgba(0,0,0,0.55),
+      0 6px 18px rgba(40,115,206,0.18),
+      inset 0 0 0 1.5px rgba(255,255,255,0.05);
     box-sizing: border-box;
   }
-  body[data-page="auth"] .auth-hero-title {
-    margin: 0;
-    font-size: 40px;
-    font-weight: 800;
-    line-height: 1.1;
-    letter-spacing: -0.02em;
-    color: #fff;
+  body[data-page="auth"] .auth-phone-notch {
+    position: absolute;
+    top: 14px; left: 50%;
+    width: 96px; height: 26px;
+    transform: translateX(-50%);
+    background: #05060a;
+    border-radius: 999px;
+    z-index: 3;
   }
-  body[data-page="auth"] .auth-hero-sub {
-    margin: 0;
-    font-size: 15px;
-    line-height: 1.55;
-    color: rgba(255,255,255,0.82);
-    max-width: 42ch;
-  }
-  body[data-page="auth"] .auth-hero-features {
-    list-style: none;
-    margin: 8px 0 0;
-    padding: 0;
+  body[data-page="auth"] .auth-phone-screen {
+    position: relative;
+    width: 100%; height: 100%;
+    background: linear-gradient(180deg, #0f1220 0%, #0a0c16 100%);
+    border-radius: 30px;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    color: #e8ebf2;
+    font-size: 12px;
   }
-  body[data-page="auth"] .auth-hero-features li {
-    display: flex; align-items: flex-start; gap: 14px;
-    line-height: 1.5;
+  body[data-page="auth"] .auth-phone-statusbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 22px 2px;
+    font-size: 12.5px; font-weight: 600;
+    color: #fff;
+    flex: 0 0 auto;
   }
-  body[data-page="auth"] .auth-hero-features li > div {
-    display: flex; flex-direction: column; gap: 2px;
+  body[data-page="auth"] .auth-phone-statusbar .auth-phone-icons {
+    display: inline-flex; align-items: center; gap: 4px;
+    color: #fff;
+  }
+  body[data-page="auth"] .auth-phone-chathead {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 14px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    flex: 0 0 auto;
+  }
+  body[data-page="auth"] .auth-phone-avatar {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: linear-gradient(135deg, #2873ce 0%, #5aa3ff 100%);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 700; font-size: 13px;
+  }
+  body[data-page="auth"] .auth-phone-chathead-meta {
+    display: flex; flex-direction: column;
     min-width: 0;
   }
-  body[data-page="auth"] .auth-hero-features strong {
-    font-size: 14.5px;
-    color: #fff;
-    font-weight: 700;
-    letter-spacing: 0.01em;
+  body[data-page="auth"] .auth-phone-chathead-meta strong {
+    font-size: 13px; font-weight: 700; color: #fff;
   }
-  body[data-page="auth"] .auth-hero-features span {
-    font-size: 13px;
-    color: rgba(255,255,255,0.75);
+  body[data-page="auth"] .auth-phone-chathead-meta span {
+    font-size: 11px; color: #6fb0ff;
   }
-  body[data-page="auth"] .auth-hero-ico {
+  body[data-page="auth"] .auth-phone-messages {
+    flex: 1 1 auto;
+    overflow: hidden;
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 10px 12px 6px;
+  }
+  body[data-page="auth"] .auth-phone-date {
+    align-self: center;
+    font-size: 10.5px; color: rgba(255,255,255,0.42);
+    margin: 2px 0 4px;
+  }
+  body[data-page="auth"] .auth-phone-row {
+    display: flex; flex-direction: column;
+    max-width: 82%;
+  }
+  body[data-page="auth"] .auth-phone-row.them { align-self: flex-start; }
+  body[data-page="auth"] .auth-phone-row.me { align-self: flex-end; align-items: flex-end; }
+  body[data-page="auth"] .auth-phone-bubble {
+    padding: 7px 11px;
+    border-radius: 14px;
+    font-size: 12px; line-height: 1.4;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+    max-width: 100%;
+    word-wrap: break-word;
+  }
+  body[data-page="auth"] .auth-phone-row.them .auth-phone-bubble {
+    background: rgba(255,255,255,0.06);
+    color: #eaecf3;
+    border-bottom-left-radius: 6px;
+  }
+  body[data-page="auth"] .auth-phone-row.me .auth-phone-bubble {
+    background: rgba(255,255,255,0.06);
+    color: #eaecf3;
+    border-bottom-right-radius: 6px;
+  }
+  body[data-page="auth"] .auth-phone-meta {
+    display: inline-flex; align-items: center; gap: 4px;
+    margin-top: 2px;
+    font-size: 10px;
+    color: #2873ce;
+    opacity: .9;
+  }
+  body[data-page="auth"] .auth-phone-meta svg { color: #2873ce; }
+  body[data-page="auth"] .auth-phone-typing {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 8px 11px;
+  }
+  body[data-page="auth"] .auth-phone-typing span {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: rgba(255,255,255,0.55);
+    animation: authPhoneDot 1.2s ease-in-out infinite;
+  }
+  body[data-page="auth"] .auth-phone-typing span:nth-child(2) { animation-delay: 0.15s; }
+  body[data-page="auth"] .auth-phone-typing span:nth-child(3) { animation-delay: 0.30s; }
+  @keyframes authPhoneDot {
+    0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+    30%           { opacity: 1;    transform: translateY(-2px); }
+  }
+  body[data-page="auth"] .auth-phone-composer {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px 10px;
+    border-top: 1px solid rgba(255,255,255,0.06);
     flex: 0 0 auto;
-    width: 38px; height: 38px;
-    display: inline-flex; align-items: center; justify-content: center;
-    border-radius: 11px;
-    background: rgba(255,255,255,0.12);
-    color: #fff;
-    border: 1px solid rgba(255,255,255,0.22);
   }
-  body[data-page="auth"] .auth-hero-ico svg {
-    width: 18px; height: 18px;
+  body[data-page="auth"] .auth-phone-composer-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 7px 12px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 999px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.55);
+  }
+  body[data-page="auth"] .auth-phone-send {
+    width: 30px; height: 30px; flex: 0 0 auto;
+    border-radius: 50%;
+    border: none;
+    background: #2873ce;
+    color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: default;
+    box-shadow: 0 3px 10px rgba(40,115,206,0.45);
+  }
+  body[data-page="auth"] .auth-phone-homebar {
+    height: 4px;
+    width: 34%;
+    margin: 0 auto 7px;
+    background: rgba(255,255,255,0.28);
+    border-radius: 2px;
+    flex: 0 0 auto;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body[data-page="auth"] .auth-phone-typing span { animation: none; }
   }
   /* ---------- Mobile: single column, no hero, no scroll -------------- */
   @media (max-width: 900px) {
