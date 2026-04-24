@@ -5281,12 +5281,20 @@
      animation alone isn't a strong enough affordance. */
   body[data-page="auth"] .main .switch-prompt {
     width: 75%;
-    margin: 12px auto 0;
+    margin: 10px auto 0;
     text-align: center;
     font-size: 0.82rem;
     color: #9ba3b4;
     font-family: inherit;
     line-height: 1.4;
+    position: relative;
+  }
+  /* Signup pane's switch-prompt must sit above the login pane's curved top
+     (.login has z-index:2); otherwise the curve intercepts clicks on the
+     "Log in" link. Only when #chk is unchecked (signup mode active) to
+     avoid leaking through when login pane is covering the card. */
+  body[data-page="auth"] .main #chk:not(:checked) ~ .signup .switch-prompt {
+    z-index: 3;
   }
   body[data-page="auth"] .main .switch-prompt .switch-link {
     color: #2873ce;
