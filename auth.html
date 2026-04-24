@@ -121,6 +121,10 @@
               <input type="checkbox" id="remember-me" checked>
               <span>Remember Me</span>
             </label>
+            <label class="opt-row">
+              <input type="checkbox" id="login-agree-terms" required>
+              <span>I agree to the <a href="terms.html" target="_blank" rel="noopener">Terms</a>, <a href="privacy.html" target="_blank" rel="noopener">Privacy</a>, and <a href="contact.html" target="_blank" rel="noopener">Contact</a> policies.</span>
+            </label>
           </div>
           <button type="submit">Login</button>
         </form>
@@ -1295,6 +1299,7 @@
     var loginEmail       = document.getElementById("login-email");
     var loginPassword    = document.getElementById("login-password");
     var rememberMe       = document.getElementById("remember-me");
+    var loginAgree       = document.getElementById("login-agree-terms");
 
     var authForm         = document.getElementById("auth-form");
     var authEmail        = document.getElementById("auth-email");
@@ -1342,11 +1347,20 @@
     chk.checked = true;
 
     /* --- Field mirrors (visible → hidden) --- */
-    if (signupAgree) signupAgree.addEventListener("change", function(){
-      if (!authTermsAgree) return;
-      authTermsAgree.checked = signupAgree.checked;
-      authTermsAgree.dispatchEvent(new Event("change", { bubbles: true }));
-    });
+    /* Terms lives as two visible checkboxes (#agree-terms in the signup pane,
+       #login-agree-terms in the login pane) both mirrored to the single hidden
+       #auth-terms-agree that existing app.js gating reads. Ticking either
+       visible checkbox propagates to both peers so the two panes stay in sync. */
+    function applyTerms(checked) {
+      if (signupAgree && signupAgree.checked !== checked) signupAgree.checked = checked;
+      if (loginAgree  && loginAgree.checked  !== checked) loginAgree.checked  = checked;
+      if (authTermsAgree && authTermsAgree.checked !== checked) {
+        authTermsAgree.checked = checked;
+        authTermsAgree.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }
+    if (signupAgree) signupAgree.addEventListener("change", function(){ applyTerms(signupAgree.checked); });
+    if (loginAgree)  loginAgree.addEventListener("change",  function(){ applyTerms(loginAgree.checked); });
     if (signupNewsletter) signupNewsletter.addEventListener("change", function(){
       if (!authNewsletter) return;
       authNewsletter.checked = signupNewsletter.checked;
@@ -1368,6 +1382,7 @@
       if (authEmail)      authEmail.value = signupEmail.value || "";
       if (authTermsAgree) authTermsAgree.checked = !!(signupAgree && signupAgree.checked);
       if (authNewsletter) authNewsletter.checked = !!(signupNewsletter && signupNewsletter.checked);
+      if (loginAgree && signupAgree) loginAgree.checked = signupAgree.checked;
       if (authTermsAgree) authTermsAgree.dispatchEvent(new Event("change", { bubbles: true }));
       if (!authTermsAgree || !authTermsAgree.checked) {
         if (visErr) visErr.textContent = "Please agree to the Terms, Privacy, and Contact policies to continue.";
@@ -1393,6 +1408,8 @@
       if (authEmail)      authEmail.value = loginEmail.value || "";
       if (authPassword)   authPassword.value = loginPassword.value || "";
       if (authRemember)   authRemember.checked = !!(rememberMe && rememberMe.checked);
+      if (authTermsAgree) authTermsAgree.checked = !!(loginAgree && loginAgree.checked);
+      if (authTermsAgree) authTermsAgree.dispatchEvent(new Event("change", { bubbles: true }));
       if (!authTermsAgree || !authTermsAgree.checked) {
         if (visErr) visErr.textContent = "Please agree to the Terms, Privacy, and Contact policies to continue.";
         return;
