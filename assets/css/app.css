@@ -4920,3 +4920,181 @@
     body[data-page="onboarding"] .ob-actions { width: calc(100% - 28px); padding: 10px 12px; }
   }
 
+  /* ====================================================================
+     Slide auth card (auth.html only) — dark, themed rebuild.
+     ====================================================================
+     Reuses all existing form markup + IDs so Supabase / setAuthMode / the
+     #auth-form submit handler keep working unchanged. Visual layer only:
+       • dark elevated card with subtle gradient + rim highlight
+       • sliding pill indicator behind the active tab, driven purely by
+         `:has(.auth-form.signup-mode)` — no JS change required
+       • form content fade-slides on every mode switch (swap between
+         @keyframes authFormIn / authFormInSignup retriggers the animation
+         each time the `signup-mode` class is added or removed)
+       • Relay primary blue (#2873ce) replaces the old flat blue button
+       • mobile collapses to full-width card with no horizontal overflow */
+  body[data-page="auth"] { background: #0b0f1a; }
+  body[data-page="auth"] #login {
+    background:
+      radial-gradient(1200px 600px at 10% -10%, rgba(40,115,206,0.12), transparent 60%),
+      radial-gradient(900px 500px at 110% 110%, rgba(40,115,206,0.08), transparent 60%),
+      #0b0f1a;
+  }
+  body[data-page="auth"] #login .auth-card {
+    width: min(400px, 100%);
+    padding: 32px 28px;
+    background: linear-gradient(180deg, #121826 0%, #0d1320 100%);
+    border-radius: 18px;
+    box-shadow:
+      0 24px 60px rgba(0,0,0,0.55),
+      0 0 0 1px rgba(255,255,255,0.06) inset;
+    color: #e6e6e6;
+    gap: 12px;
+  }
+  body[data-page="auth"] #login h1#auth-title {
+    color: #ffffff;
+    font-size: 24px;
+    letter-spacing: -0.01em;
+  }
+  body[data-page="auth"] #login p#auth-sub {
+    color: #9ba3b4;
+    font-size: 13.5px;
+  }
+
+  /* Tabs: a sliding blue pill tracks the active mode. */
+  body[data-page="auth"] .auth-tabs {
+    background: rgba(255,255,255,0.04);
+    border-radius: 10px;
+    padding: 4px;
+    gap: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  body[data-page="auth"] .auth-tabs::before {
+    content: "";
+    position: absolute;
+    top: 4px; left: 4px;
+    width: calc(50% - 4px);
+    height: calc(100% - 8px);
+    background: #2873ce;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(40,115,206,0.35);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 0;
+    pointer-events: none;
+  }
+  body[data-page="auth"] #login .auth-card:has(.auth-form.signup-mode) .auth-tabs::before {
+    transform: translateX(100%);
+  }
+  body[data-page="auth"] .auth-tab {
+    position: relative;
+    z-index: 1;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #9ba3b4;
+    font-weight: 600;
+    transition: color 0.25s ease;
+  }
+  body[data-page="auth"] .auth-tab.active {
+    color: #ffffff;
+  }
+
+  /* Form content fade+slide on mode change. Two different animation names
+     (authFormIn vs authFormInSignup) so the browser retriggers the
+     animation on every class toggle. */
+  body[data-page="auth"] .auth-form {
+    animation: authFormIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  }
+  body[data-page="auth"] .auth-form.signup-mode {
+    animation: authFormInSignup 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  }
+  @keyframes authFormIn {
+    0%   { opacity: 0; transform: translateY(6px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes authFormInSignup {
+    0%   { opacity: 0; transform: translateY(-6px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Inputs: dark surface, blue focus ring. */
+  body[data-page="auth"] .auth-form input {
+    background: #1a2236;
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #ffffff;
+    padding: 12px 14px;
+    border-radius: 10px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  body[data-page="auth"] .auth-form input::placeholder { color: #6b7380; }
+  body[data-page="auth"] .auth-form input:focus {
+    border-color: #2873ce;
+    box-shadow: 0 0 0 3px rgba(40,115,206,0.22);
+  }
+
+  /* Submit: solid primary blue with elevated hover. */
+  body[data-page="auth"] .auth-submit {
+    background: #2873ce;
+    box-shadow: 0 6px 20px rgba(40,115,206,0.35);
+  }
+  body[data-page="auth"] .auth-submit:hover {
+    background: #2f86e8;
+    filter: none;
+  }
+  body[data-page="auth"] .auth-submit:disabled {
+    background: #2873ce;
+    opacity: 0.45;
+    box-shadow: none;
+  }
+
+  /* Checkbox row text colors on dark surface. */
+  body[data-page="auth"] .auth-remember,
+  body[data-page="auth"] .auth-newsletter,
+  body[data-page="auth"] .auth-terms {
+    color: #9ba3b4;
+  }
+  body[data-page="auth"] .auth-remember .auth-remember-text,
+  body[data-page="auth"] .auth-newsletter .auth-newsletter-text,
+  body[data-page="auth"] .auth-terms .auth-terms-text {
+    color: #c9d1e0;
+  }
+
+  /* Divider + Google OAuth button on dark surface. */
+  body[data-page="auth"] .auth-divider { color: #6b7380; }
+  body[data-page="auth"] .auth-divider::before,
+  body[data-page="auth"] .auth-divider::after {
+    background: rgba(255,255,255,0.08);
+  }
+  body[data-page="auth"] #login button#login-btn {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    color: #ffffff;
+  }
+  body[data-page="auth"] #login button#login-btn:hover {
+    background: rgba(255,255,255,0.08);
+  }
+
+  /* Support text + brand wordmark colors on the dark page. */
+  body[data-page="auth"] .auth-support { color: #6b7380; }
+  body[data-page="auth"] .auth-support a { color: #2873ce; }
+  body[data-page="auth"] .login-brand { color: #ffffff; }
+  body[data-page="auth"] .login-brand .brand-name {
+    color: #2873ce;
+    text-shadow:
+      0 0 18px rgba(40,115,206,0.55),
+      0 0 10px rgba(40,115,206,0.40),
+      0 0 3px  rgba(40,115,206,0.35);
+  }
+
+  /* Mobile: card goes edge-to-edge, no horizontal overflow, no scroll. */
+  @media (max-width: 480px) {
+    body[data-page="auth"] #login {
+      padding: 16px;
+    }
+    body[data-page="auth"] #login .auth-card {
+      width: 100%;
+      padding: 24px 20px;
+      border-radius: 14px;
+    }
+  }
+
