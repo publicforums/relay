@@ -5151,8 +5151,9 @@
     background: #1a2236;
     border-radius: 60% / 10%;
     transform: translateY(340px);
-    transition: transform 0.8s ease-in-out;
+    transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
     z-index: 2;
+    will-change: transform;
   }
   body[data-page="auth"] .main #chk:checked ~ .login {
     transform: translateY(0);
@@ -5171,7 +5172,7 @@
     margin: 26px 0 14px;
     font-weight: 700;
     cursor: pointer;
-    transition: transform .5s ease-in-out, color .5s ease-in-out;
+    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), color 0.35s ease-out;
     user-select: none;
     letter-spacing: -0.01em;
   }
@@ -5274,6 +5275,51 @@
     font-weight: 600;
   }
   body[data-page="auth"] .main .extra-options a:hover { text-decoration: underline; }
+
+  /* Explicit "Already have an account? / Don't have an account?" prompt
+     under each form. Makes the switch action unmistakable; the slide
+     animation alone isn't a strong enough affordance. */
+  body[data-page="auth"] .main .switch-prompt {
+    width: 75%;
+    margin: 10px auto 0;
+    text-align: center;
+    font-size: 0.82rem;
+    color: #9ba3b4;
+    font-family: inherit;
+    line-height: 1.4;
+    position: relative;
+  }
+  /* Signup pane's switch-prompt must sit above the login pane's curved top
+     (.login has z-index:2); otherwise the curve intercepts clicks on the
+     "Log in" link. Only when #chk is unchecked (signup mode active) to
+     avoid leaking through when login pane is covering the card. */
+  body[data-page="auth"] .main #chk:not(:checked) ~ .signup .switch-prompt {
+    z-index: 3;
+  }
+  body[data-page="auth"] .main .switch-prompt .switch-link {
+    color: #2873ce;
+    font-weight: 700;
+    text-decoration: none;
+    margin-left: 4px;
+    cursor: pointer;
+    transition: color 0.15s ease, text-decoration-color 0.15s ease;
+  }
+  body[data-page="auth"] .main .switch-prompt .switch-link:hover,
+  body[data-page="auth"] .main .switch-prompt .switch-link:focus-visible {
+    color: #2f86e8;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    outline: none;
+  }
+
+  /* Respect users who prefer reduced motion — snap the pane into place
+     without a transition. */
+  @media (prefers-reduced-motion: reduce) {
+    body[data-page="auth"] .main .login,
+    body[data-page="auth"] .main form label[for="chk"] {
+      transition: none;
+    }
+  }
 
   /* Visible error + divider + Google OAuth proxy below the card. */
   body[data-page="auth"] .auth-extras {
