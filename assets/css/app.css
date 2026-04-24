@@ -267,11 +267,19 @@
     transition: max-height .32s cubic-bezier(0.22, 1, 0.36, 1),
                 opacity    .22s ease,
                 margin     .32s cubic-bezier(0.22, 1, 0.36, 1),
-                transform  .32s cubic-bezier(0.22, 1, 0.36, 1);
+                transform  .32s cubic-bezier(0.22, 1, 0.36, 1),
+                visibility 0s linear 0s;
     max-height: 80px;
     opacity: 1;
     transform: translateY(0);
+    visibility: visible;
   }
+  /* Collapse the fields that don't belong in the current mode. `visibility:
+     hidden` is required in addition to max-height/opacity: it removes the
+     element from the keyboard tab order (pointer-events: none only blocks
+     mouse input). The visibility transition is delayed by .32s in the
+     collapse direction so the field stays tabbable until the collapse
+     animation finishes, and flips back to visible instantly on expand. */
   .auth-form.signup-mode .auth-field-password,
   .auth-form.signup-mode .auth-remember,
   .auth-form:not(.signup-mode) .auth-newsletter {
@@ -280,6 +288,12 @@
     margin: 0;
     transform: translateY(-4px);
     pointer-events: none;
+    visibility: hidden;
+    transition: max-height .32s cubic-bezier(0.22, 1, 0.36, 1),
+                opacity    .22s ease,
+                margin     .32s cubic-bezier(0.22, 1, 0.36, 1),
+                transform  .32s cubic-bezier(0.22, 1, 0.36, 1),
+                visibility 0s linear .32s;
   }
   .auth-form[hidden] { display: none; }
   .auth-field {
