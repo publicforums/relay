@@ -32,6 +32,7 @@
     } catch (_) {}
   })();
 </script>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/app.min.css" />
 </head>
 <body data-page="auth">
@@ -41,7 +42,14 @@
       <img src="logo.png" alt="" onerror="this.style.display='none'" />
       <span class="brand-name">Relay</span>
     </div>
-    <div class="auth-card">
+
+    <!-- Legacy auth card (hidden). All original IDs preserved so existing
+         app.js wiring (setAuthMode, #auth-form submit handler, terms gating,
+         #login-btn OAuth, error lines) continues to work unchanged. The
+         visible UI below mirrors values into these fields and dispatches
+         submit on #auth-form so Supabase / pre-auth-signup flows never see
+         a shape change. -->
+    <div class="auth-card auth-card-legacy" aria-hidden="true">
       <h1 id="auth-title">Welcome back</h1>
       <p id="auth-sub">Sign in to continue to Relay.</p>
       <div class="auth-tabs" role="tablist">
@@ -73,8 +81,62 @@
         <button id="auth-submit" class="auth-submit" type="submit" disabled>Sign In</button>
       </form>
       <div class="auth-info" id="auth-info"></div>
-      <div class="auth-divider"><span>or</span></div>
       <button id="login-btn" type="button" disabled>
+        <span id="login-label">Continue with Google</span>
+      </button>
+      <div class="err" id="login-err"></div>
+    </div>
+
+    <!-- Visible slide card — spec HTML structure, themed to Relay. -->
+    <div class="main" role="region" aria-label="Authentication">
+      <input type="checkbox" id="chk" aria-hidden="true">
+
+      <div class="signup">
+        <form id="signup-form" novalidate>
+          <label for="chk">Sign up</label>
+          <input type="text" id="signup-username" placeholder="Username" autocomplete="username" required>
+          <input type="email" id="signup-email" placeholder="Email" autocomplete="email" required>
+          <input type="password" id="signup-password" placeholder="Password" autocomplete="new-password" required>
+          <div class="extra-options">
+            <label class="opt-row">
+              <input type="checkbox" id="signup-newsletter">
+              <span>Send me occasional product updates</span>
+            </label>
+            <label class="opt-row">
+              <input type="checkbox" id="agree-terms" required>
+              <span>I agree to the <a href="terms.html" target="_blank" rel="noopener">Terms</a>, <a href="privacy.html" target="_blank" rel="noopener">Privacy</a>, and <a href="contact.html" target="_blank" rel="noopener">Contact</a> policies.</span>
+            </label>
+          </div>
+          <button type="submit">Sign up</button>
+        </form>
+      </div>
+
+      <div class="login">
+        <form id="login-form" novalidate>
+          <label for="chk">Login</label>
+          <input type="email" id="login-email" placeholder="Email" autocomplete="email" required>
+          <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" required>
+          <div class="extra-options">
+            <label class="opt-row">
+              <input type="checkbox" id="remember-me" checked>
+              <span>Remember Me</span>
+            </label>
+            <label class="opt-row">
+              <input type="checkbox" id="login-agree-terms" required>
+              <span>I agree to the <a href="terms.html" target="_blank" rel="noopener">Terms</a>, <a href="privacy.html" target="_blank" rel="noopener">Privacy</a>, and <a href="contact.html" target="_blank" rel="noopener">Contact</a> policies.</span>
+            </label>
+          </div>
+          <button type="submit">Login</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Visible error, divider, Google OAuth proxy. Clicks are forwarded to
+         the hidden #login-btn so the existing OAuth handler runs unchanged. -->
+    <div class="auth-extras">
+      <div class="auth-err-visible" id="auth-err-visible" aria-live="polite"></div>
+      <div class="auth-divider auth-divider-visible"><span>or</span></div>
+      <button id="login-btn-visible" type="button" disabled>
         <svg viewBox="0 0 48 48" aria-hidden="true">
           <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
           <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
@@ -82,10 +144,10 @@
           <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
           <path fill="none" d="M0 0h48v48H0z"/>
         </svg>
-        <span id="login-label">Continue with Google</span>
+        <span id="login-label-visible">Continue with Google</span>
       </button>
-      <div class="err" id="login-err"></div>
     </div>
+
     <div class="auth-support">
       Having trouble logging in or signing up?
       <a id="auth-support-link" href="#" target="_blank" rel="noopener">Join our support server</a>
@@ -1218,5 +1280,205 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="assets/js/app.min.js"></script>
+<script>
+  /* Auth slide-card adapter.
+     UI-only bridge between the visible spec forms (#signup-form / #login-form
+     with the checkbox-driven slide via #chk) and the legacy hidden #auth-form
+     that existing app.js logic is bound to. No Supabase / auth logic is
+     touched — we only mirror values and dispatch a submit event on the
+     legacy form so the original handler runs. */
+  (function(){
+    var chk              = document.getElementById("chk");
+    var signupForm       = document.getElementById("signup-form");
+    var loginForm        = document.getElementById("login-form");
+    var signupEmail      = document.getElementById("signup-email");
+    var signupPassword   = document.getElementById("signup-password");
+    var signupUsername   = document.getElementById("signup-username");
+    var signupNewsletter = document.getElementById("signup-newsletter");
+    var signupAgree      = document.getElementById("agree-terms");
+    var loginEmail       = document.getElementById("login-email");
+    var loginPassword    = document.getElementById("login-password");
+    var rememberMe       = document.getElementById("remember-me");
+    var loginAgree       = document.getElementById("login-agree-terms");
+
+    var authForm         = document.getElementById("auth-form");
+    var authEmail        = document.getElementById("auth-email");
+    var authPassword     = document.getElementById("auth-password");
+    var authRemember     = document.getElementById("auth-remember");
+    var authNewsletter   = document.getElementById("auth-newsletter");
+    var authTermsAgree   = document.getElementById("auth-terms-agree");
+    var authSubmit       = document.getElementById("auth-submit");
+    var authTabs         = document.querySelectorAll(".auth-card-legacy .auth-tab");
+    var authTermsErr     = document.getElementById("auth-terms-err");
+    var loginErr         = document.getElementById("login-err");
+    var authInfo         = document.getElementById("auth-info");
+    var loginBtnHidden   = document.getElementById("login-btn");
+    var loginLabelHidden = document.getElementById("login-label");
+    var signupSubmitBtn  = signupForm && signupForm.querySelector('button[type="submit"]');
+    var loginSubmitBtn   = loginForm  && loginForm.querySelector('button[type="submit"]');
+
+    var visErr           = document.getElementById("auth-err-visible");
+    var googleVisible    = document.getElementById("login-btn-visible");
+    var googleLabelVis   = document.getElementById("login-label-visible");
+
+    if (!chk || !authForm) return;
+
+    /* --- Mode sync --- */
+    /* chk UNCHECKED = signup pane visible, chk CHECKED = login pane covers card.
+       Map chk.checked → authMode:  checked=signin, unchecked=signup. */
+    function callAuthMode(mode) {
+      for (var i = 0; i < authTabs.length; i++) {
+        if (authTabs[i].dataset.mode === mode) { authTabs[i].click(); return; }
+      }
+    }
+    chk.addEventListener("change", function(){
+      callAuthMode(chk.checked ? "signin" : "signup");
+    });
+    /* If something else (e.g. sign-up-here link inside an error) flips
+       setAuthMode on the hidden form, keep chk in sync. */
+    new MutationObserver(function(){
+      var isSignup = authForm.classList.contains("signup-mode");
+      var want = isSignup ? false : true;
+      if (chk.checked !== want) chk.checked = want;
+    }).observe(authForm, { attributes: true, attributeFilter: ["class"] });
+
+    /* Initial state: chk checked → login (signin) visible, matches the
+       legacy default (authMode === "signin"). */
+    chk.checked = true;
+
+    /* --- Field mirrors (visible → hidden) --- */
+    /* Terms lives as two visible checkboxes (#agree-terms in the signup pane,
+       #login-agree-terms in the login pane) both mirrored to the single hidden
+       #auth-terms-agree that existing app.js gating reads. Ticking either
+       visible checkbox propagates to both peers so the two panes stay in sync. */
+    function applyTerms(checked) {
+      if (signupAgree && signupAgree.checked !== checked) signupAgree.checked = checked;
+      if (loginAgree  && loginAgree.checked  !== checked) loginAgree.checked  = checked;
+      if (authTermsAgree && authTermsAgree.checked !== checked) {
+        authTermsAgree.checked = checked;
+        authTermsAgree.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }
+    if (signupAgree) signupAgree.addEventListener("change", function(){ applyTerms(signupAgree.checked); });
+    if (loginAgree)  loginAgree.addEventListener("change",  function(){ applyTerms(loginAgree.checked); });
+    if (signupNewsletter) signupNewsletter.addEventListener("change", function(){
+      if (!authNewsletter) return;
+      authNewsletter.checked = signupNewsletter.checked;
+      authNewsletter.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    if (rememberMe) rememberMe.addEventListener("change", function(){
+      if (!authRemember) return;
+      authRemember.checked = rememberMe.checked;
+      authRemember.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    /* Seed visible remember-me from the hidden field at boot. app.js already
+       ran and restored the user's persisted preference from localStorage into
+       #auth-remember; we mirror that out to the visible checkbox so the user
+       sees their real saved state (not the HTML default). */
+    if (authRemember && rememberMe) rememberMe.checked = authRemember.checked;
+
+    /* --- Submit bridges --- */
+    if (signupForm) signupForm.addEventListener("submit", function(e){
+      e.preventDefault();
+      callAuthMode("signup");
+      if (authEmail)      authEmail.value = signupEmail.value || "";
+      if (authTermsAgree) authTermsAgree.checked = !!(signupAgree && signupAgree.checked);
+      if (authNewsletter) authNewsletter.checked = !!(signupNewsletter && signupNewsletter.checked);
+      if (loginAgree && signupAgree) loginAgree.checked = signupAgree.checked;
+      if (authTermsAgree) authTermsAgree.dispatchEvent(new Event("change", { bubbles: true }));
+      if (!authTermsAgree || !authTermsAgree.checked) {
+        if (visErr) visErr.textContent = "Please agree to the Terms, Privacy, and Contact policies to continue.";
+        return;
+      }
+      if (visErr) visErr.textContent = "";
+      /* Stash the username + password the user typed here in sessionStorage
+         so the onboarding step for password / username can later read them
+         if desired. This does NOT change existing product logic — the
+         onboarding UI keeps its own input fields and validation. */
+      try {
+        sessionStorage.setItem("relay-pending-signup-aux", JSON.stringify({
+          username: (signupUsername && signupUsername.value) || "",
+          password: (signupPassword && signupPassword.value) || ""
+        }));
+      } catch(_) {}
+      authForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+    });
+
+    if (loginForm) loginForm.addEventListener("submit", function(e){
+      e.preventDefault();
+      callAuthMode("signin");
+      if (authEmail)      authEmail.value = loginEmail.value || "";
+      if (authPassword)   authPassword.value = loginPassword.value || "";
+      if (authRemember)   authRemember.checked = !!(rememberMe && rememberMe.checked);
+      if (authTermsAgree) authTermsAgree.checked = !!(loginAgree && loginAgree.checked);
+      if (authTermsAgree) authTermsAgree.dispatchEvent(new Event("change", { bubbles: true }));
+      if (!authTermsAgree || !authTermsAgree.checked) {
+        if (visErr) visErr.textContent = "Please agree to the Terms, Privacy, and Contact policies to continue.";
+        return;
+      }
+      if (visErr) visErr.textContent = "";
+      authForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+    });
+
+    /* --- Google OAuth proxy: forward click to hidden #login-btn. --- */
+    if (googleVisible && loginBtnHidden) {
+      googleVisible.addEventListener("click", function(){ loginBtnHidden.click(); });
+    }
+
+    /* --- Mirror disabled state from hidden to visible. --- */
+    function syncDisabled() {
+      var disabledSubmit = !!(authSubmit && authSubmit.disabled);
+      if (signupSubmitBtn) signupSubmitBtn.disabled = disabledSubmit;
+      if (loginSubmitBtn)  loginSubmitBtn.disabled  = disabledSubmit;
+      if (googleVisible && loginBtnHidden) googleVisible.disabled = !!loginBtnHidden.disabled;
+    }
+    if (authSubmit) new MutationObserver(syncDisabled).observe(authSubmit, { attributes: true, attributeFilter: ["disabled"] });
+    if (loginBtnHidden) new MutationObserver(syncDisabled).observe(loginBtnHidden, { attributes: true, attributeFilter: ["disabled"] });
+    syncDisabled();
+
+    /* --- Mirror errors + info from hidden to visible. --- */
+    function syncError() {
+      var parts = [];
+      if (loginErr && loginErr.textContent)       parts.push(loginErr.textContent);
+      else if (authTermsErr && authTermsErr.textContent) parts.push(authTermsErr.textContent);
+      else if (authInfo && authInfo.textContent)  parts.push(authInfo.textContent);
+      if (!visErr) return;
+      /* Preserve any sign-up-here link if it was appended to loginErr.
+         cloneNode does NOT copy addEventListener handlers, so any anchor we
+         clone needs a fresh click handler wired to flip into signup mode. */
+      if (loginErr && loginErr.childNodes.length && parts.length) {
+        visErr.textContent = "";
+        for (var i = 0; i < loginErr.childNodes.length; i++) {
+          var src = loginErr.childNodes[i];
+          if (src.nodeType === 1 && src.tagName === "A") {
+            var a = document.createElement("a");
+            a.href = src.getAttribute("href") || "#";
+            a.textContent = src.textContent || "";
+            a.addEventListener("click", function(e){
+              e.preventDefault();
+              if (chk) chk.checked = false;
+              callAuthMode("signup");
+            });
+            visErr.appendChild(a);
+          } else {
+            visErr.appendChild(src.cloneNode(true));
+          }
+        }
+      } else {
+        visErr.textContent = parts.join(" ") || "";
+      }
+    }
+    if (loginErr)     new MutationObserver(syncError).observe(loginErr,     { childList: true, characterData: true, subtree: true });
+    if (authTermsErr) new MutationObserver(syncError).observe(authTermsErr, { childList: true, characterData: true, subtree: true });
+    if (authInfo)     new MutationObserver(syncError).observe(authInfo,     { childList: true, characterData: true, subtree: true });
+
+    if (loginLabelHidden && googleLabelVis) {
+      new MutationObserver(function(){
+        googleLabelVis.textContent = loginLabelHidden.textContent || "Continue with Google";
+      }).observe(loginLabelHidden, { childList: true, characterData: true, subtree: true });
+    }
+  })();
+</script>
 </body>
 </html>
