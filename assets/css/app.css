@@ -228,20 +228,6 @@
     #login .auth-card { width: min(400px, 100%); }
     .auth-support { max-width: min(400px, 100%); }
   }
-  /* Mobile polish: generous touch targets, tighter vertical rhythm so the
-     full card (including Google button + support link) fits above the fold
-     on 375×667 without scrolling. 16px input font-size prevents iOS Safari
-     from auto-zooming when the email field is focused. */
-  @media (max-width: 520px) {
-    #login { padding: 12px 14px; }
-    #login .auth-card { padding: 18px 18px; gap: 8px; }
-    .auth-form { gap: 9px; }
-    .auth-form input { font-size: 16px; padding: 14px 14px; }
-    .auth-field input { padding-left: 42px; }
-    .auth-submit { padding: 14px 16px; font-size: 15px; }
-    .auth-tab { padding: 10px 12px; }
-    .auth-remember, .auth-newsletter, .auth-terms { padding: 4px 0; }
-  }
   #login h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
   #login p { margin: 0 0 4px; color: var(--muted); font-size: 13px; max-width: 100%; }
   .auth-tabs {
@@ -342,6 +328,21 @@
   .auth-submit:hover { filter: brightness(1.08); }
   .auth-submit:active { transform: scale(0.98); }
   .auth-submit:disabled { opacity: .6; cursor: not-allowed; }
+  /* Mobile polish: generous touch targets, tighter vertical rhythm so the
+     full card (including Google button + support link) fits above the fold
+     on 375×667 without scrolling. 16px input font-size prevents iOS Safari
+     from auto-zooming when the email field is focused. Placed AFTER the
+     base .auth-form input rules so mobile values win the cascade. */
+  @media (max-width: 520px) {
+    #login { padding: 12px 14px; }
+    #login .auth-card { padding: 18px 18px; gap: 8px; }
+    .auth-form { gap: 9px; }
+    .auth-form input { font-size: 16px; padding: 14px 14px; }
+    .auth-field input { padding-left: 42px; }
+    .auth-submit { padding: 14px 16px; font-size: 15px; }
+    .auth-tab { padding: 10px 12px; }
+    .auth-remember, .auth-newsletter, .auth-terms { padding: 4px 0; }
+  }
   .auth-terms {
     display: flex; align-items: flex-start; gap: 8px;
     margin: 2px 0 0;
