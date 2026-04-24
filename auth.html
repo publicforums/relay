@@ -1372,8 +1372,11 @@
       authRemember.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
-    /* Seed hidden remember-me from visible default at boot. */
-    if (authRemember && rememberMe) authRemember.checked = rememberMe.checked;
+    /* Seed visible remember-me from the hidden field at boot. app.js already
+       ran and restored the user's persisted preference from localStorage into
+       #auth-remember; we mirror that out to the visible checkbox so the user
+       sees their real saved state (not the HTML default). */
+    if (authRemember && rememberMe) rememberMe.checked = authRemember.checked;
 
     /* --- Submit bridges --- */
     if (signupForm) signupForm.addEventListener("submit", function(e){
@@ -1441,11 +1444,26 @@
       else if (authTermsErr && authTermsErr.textContent) parts.push(authTermsErr.textContent);
       else if (authInfo && authInfo.textContent)  parts.push(authInfo.textContent);
       if (!visErr) return;
-      /* Preserve any sign-up-here link if it was appended to loginErr. */
+      /* Preserve any sign-up-here link if it was appended to loginErr.
+         cloneNode does NOT copy addEventListener handlers, so any anchor we
+         clone needs a fresh click handler wired to flip into signup mode. */
       if (loginErr && loginErr.childNodes.length && parts.length) {
         visErr.textContent = "";
         for (var i = 0; i < loginErr.childNodes.length; i++) {
-          visErr.appendChild(loginErr.childNodes[i].cloneNode(true));
+          var src = loginErr.childNodes[i];
+          if (src.nodeType === 1 && src.tagName === "A") {
+            var a = document.createElement("a");
+            a.href = src.getAttribute("href") || "#";
+            a.textContent = src.textContent || "";
+            a.addEventListener("click", function(e){
+              e.preventDefault();
+              if (chk) chk.checked = false;
+              callAuthMode("signup");
+            });
+            visErr.appendChild(a);
+          } else {
+            visErr.appendChild(src.cloneNode(true));
+          }
         }
       } else {
         visErr.textContent = parts.join(" ") || "";
