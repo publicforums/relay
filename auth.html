@@ -108,6 +108,7 @@
             </label>
           </div>
           <button type="submit">Sign up</button>
+          <p class="switch-prompt">Already have an account? <a href="#" class="switch-link" data-target="signin">Log in</a></p>
         </form>
       </div>
 
@@ -127,6 +128,7 @@
             </label>
           </div>
           <button type="submit">Login</button>
+          <p class="switch-prompt">Don't have an account? <a href="#" class="switch-link" data-target="signup">Sign up</a></p>
         </form>
       </div>
     </div>
@@ -1341,6 +1343,23 @@
       var want = isSignup ? false : true;
       if (chk.checked !== want) chk.checked = want;
     }).observe(authForm, { attributes: true, attributeFilter: ["class"] });
+
+    /* Explicit "Already have an account? / Don't have an account?" switch
+       links under each form. Clicking them flips #chk, which drives the
+       slide animation AND triggers the existing change handler to keep
+       the legacy authMode in sync. */
+    var switchLinks = document.querySelectorAll(".main .switch-link");
+    for (var i = 0; i < switchLinks.length; i++) {
+      switchLinks[i].addEventListener("click", function(e){
+        e.preventDefault();
+        var target = this.getAttribute("data-target");
+        var want = target === "signin";
+        if (chk.checked !== want) {
+          chk.checked = want;
+          chk.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      });
+    }
 
     /* Initial state: chk checked → login (signin) visible, matches the
        legacy default (authMode === "signin"). */
