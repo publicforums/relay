@@ -228,6 +228,20 @@
     #login .auth-card { width: min(400px, 100%); }
     .auth-support { max-width: min(400px, 100%); }
   }
+  /* Mobile polish: generous touch targets, tighter vertical rhythm so the
+     full card (including Google button + support link) fits above the fold
+     on 375×667 without scrolling. 16px input font-size prevents iOS Safari
+     from auto-zooming when the email field is focused. */
+  @media (max-width: 520px) {
+    #login { padding: 12px 14px; }
+    #login .auth-card { padding: 18px 18px; gap: 8px; }
+    .auth-form { gap: 9px; }
+    .auth-form input { font-size: 16px; padding: 14px 14px; }
+    .auth-field input { padding-left: 42px; }
+    .auth-submit { padding: 14px 16px; font-size: 15px; }
+    .auth-tab { padding: 10px 12px; }
+    .auth-remember, .auth-newsletter, .auth-terms { padding: 4px 0; }
+  }
   #login h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
   #login p { margin: 0 0 4px; color: var(--muted); font-size: 13px; max-width: 100%; }
   .auth-tabs {
@@ -254,15 +268,53 @@
     color: var(--text);
     box-shadow: var(--shadow);
   }
-  .auth-form { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 0; }
-  /* SIGNUP mode hides the password field — signup is email-only; the account
-     is created with a cryptographically-random password at end of onboarding
-     and the user signs back in via magic link / OAuth / password reset. */
-  .auth-form.signup-mode #auth-password { display: none !important; }
+  .auth-form { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 0; }
+  /* SIGNUP mode hides the password field via max-height + opacity so the
+     transition between signin and signup feels like a fluid reveal instead
+     of a snap. Signup is email-only; the account is created with a
+     cryptographically-random password at end of onboarding and the user
+     signs back in via magic link / OAuth / password reset. */
+  .auth-form .auth-field-password,
+  .auth-form .auth-remember,
+  .auth-form .auth-newsletter {
+    overflow: hidden;
+    transition: max-height .32s cubic-bezier(0.22, 1, 0.36, 1),
+                opacity    .22s ease,
+                margin     .32s cubic-bezier(0.22, 1, 0.36, 1),
+                transform  .32s cubic-bezier(0.22, 1, 0.36, 1);
+    max-height: 80px;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .auth-form.signup-mode .auth-field-password,
+  .auth-form.signup-mode .auth-remember,
+  .auth-form:not(.signup-mode) .auth-newsletter {
+    max-height: 0;
+    opacity: 0;
+    margin: 0;
+    transform: translateY(-4px);
+    pointer-events: none;
+  }
   .auth-form[hidden] { display: none; }
+  .auth-field {
+    position: relative;
+    display: block;
+  }
+  .auth-field .auth-field-icon {
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    color: var(--muted);
+    pointer-events: none;
+    transition: color .15s ease;
+  }
+  .auth-field:focus-within .auth-field-icon { color: #2873ce; }
   .auth-form input {
     width: 100%;
-    padding: 12px 14px;
+    padding: 13px 14px;
     border-radius: 10px;
     border: 1px solid var(--border);
     background: var(--input-bg);
@@ -270,9 +322,11 @@
     font: inherit;
     font-size: 15px;
     outline: none;
-    transition: border-color .15s ease;
+    transition: border-color .15s ease, box-shadow .15s ease;
+    box-sizing: border-box;
   }
-  .auth-form input:focus { border-color: #2873ce; }
+  .auth-field input { padding-left: 42px; }
+  .auth-form input:focus { border-color: #2873ce; box-shadow: 0 0 0 3px rgba(40, 115, 206, 0.15); }
   .auth-submit {
     margin-top: 4px;
     background: #2873ce;
@@ -295,9 +349,11 @@
     cursor: pointer; user-select: none;
   }
   .auth-terms input[type="checkbox"] {
-    width: 16px; height: 16px; margin: 2px 0 0; flex: 0 0 auto;
-    accent-color: #2873ce; cursor: pointer;
+    /* Native input kept for accessibility; visually replaced by .auth-check-box. */
+    position: absolute; opacity: 0; width: 18px; height: 18px; margin: 0;
+    pointer-events: none;
   }
+  .auth-terms .auth-check-box { margin-top: 1px; }
   .auth-terms .auth-terms-text { flex: 1; min-width: 0; }
   .auth-terms a { color: #2873ce; text-decoration: none; font-weight: 600; }
   .auth-terms a:hover { text-decoration: underline; }
@@ -316,30 +372,81 @@
     cursor: pointer; user-select: none;
   }
   /* "Send me occasional product updates" — signup-only, sits above Terms.
-     Hidden in signin mode; shown (as a flex row) when the form carries the
-     .signup-mode class. The checked value carries through to the onboarding
-     newsletter step via `_pendingSignup.newsletter_opt_in`. */
+     Always rendered (display: flex) so the signin ↔ signup transition can
+     animate via max-height + opacity; the collapsed state is defined by
+     .auth-form:not(.signup-mode) .auth-newsletter above. The checked value
+     carries through to the onboarding newsletter step via
+     `_pendingSignup.newsletter_opt_in`. */
   .auth-newsletter {
-    display: none;
+    display: flex;
     align-items: center; gap: 8px;
     margin: 0;
     font-size: 13px; color: var(--muted); line-height: 1.4;
     cursor: pointer; user-select: none;
   }
-  .auth-form.signup-mode .auth-newsletter { display: flex; }
-  .auth-newsletter input[type="checkbox"] {
-    width: 16px; height: 16px; margin: 0; flex: 0 0 auto;
-    accent-color: #2873ce; cursor: pointer;
-  }
-  .auth-newsletter .auth-newsletter-text { flex: 1; min-width: 0; color: var(--text, #e6e6e6); }
+  .auth-newsletter input[type="checkbox"],
   .auth-remember input[type="checkbox"] {
-    width: 16px; height: 16px; margin: 0; flex: 0 0 auto;
-    accent-color: #2873ce; cursor: pointer;
+    position: absolute; opacity: 0; width: 18px; height: 18px; margin: 0;
+    pointer-events: none;
   }
-  .auth-remember .auth-remember-box { display: none; } /* native checkbox used */
+  .auth-newsletter .auth-newsletter-text,
   .auth-remember .auth-remember-text { flex: 1; min-width: 0; color: var(--text, #e6e6e6); }
-  /* Hide Remember Me in signup mode (no password field there). */
-  .auth-form.signup-mode .auth-remember { display: none !important; }
+  /* ----- Custom checkbox (Apple-style rounded, theme-blue tick) ----- */
+  /* Applies to every auth-form checkbox. Native input is visually hidden but
+     remains keyboard/click-focusable via the <label> wrapper, so the behavior
+     is unchanged. The .auth-check-box span is what the user actually sees. */
+  .auth-check-box,
+  .auth-remember .auth-remember-box {
+    flex: 0 0 auto;
+    position: relative;
+    width: 18px;
+    height: 18px;
+    border-radius: 6px;
+    background: var(--input-bg, rgba(255,255,255,0.04));
+    border: 1px solid var(--border, rgba(255,255,255,0.12));
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .18s ease, border-color .18s ease,
+                transform .12s ease, box-shadow .18s ease;
+  }
+  .auth-check-box::after,
+  .auth-remember .auth-remember-box::after {
+    content: "";
+    width: 4px;
+    height: 8px;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    transform: rotate(45deg) scale(0);
+    transform-origin: center;
+    opacity: 0;
+    margin-top: -1px;
+    transition: transform .22s cubic-bezier(0.22, 1, 0.36, 1), opacity .18s ease;
+  }
+  .auth-remember input[type="checkbox"]:checked ~ .auth-remember-box,
+  .auth-remember input[type="checkbox"]:checked ~ .auth-check-box,
+  .auth-newsletter input[type="checkbox"]:checked ~ .auth-check-box,
+  .auth-terms input[type="checkbox"]:checked ~ .auth-check-box {
+    background: #2873ce;
+    border-color: #2873ce;
+  }
+  .auth-remember input[type="checkbox"]:checked ~ .auth-remember-box::after,
+  .auth-remember input[type="checkbox"]:checked ~ .auth-check-box::after,
+  .auth-newsletter input[type="checkbox"]:checked ~ .auth-check-box::after,
+  .auth-terms input[type="checkbox"]:checked ~ .auth-check-box::after {
+    transform: rotate(45deg) scale(1);
+    opacity: 1;
+  }
+  .auth-remember input[type="checkbox"]:focus-visible ~ .auth-remember-box,
+  .auth-remember input[type="checkbox"]:focus-visible ~ .auth-check-box,
+  .auth-newsletter input[type="checkbox"]:focus-visible ~ .auth-check-box,
+  .auth-terms input[type="checkbox"]:focus-visible ~ .auth-check-box {
+    box-shadow: 0 0 0 3px rgba(40, 115, 206, 0.25);
+  }
+  .auth-remember:hover .auth-remember-box,
+  .auth-remember:hover .auth-check-box,
+  .auth-newsletter:hover .auth-check-box,
+  .auth-terms:hover .auth-check-box { border-color: rgba(40, 115, 206, 0.55); }
   #login-btn:disabled { opacity: .55; cursor: not-allowed; }
   /* ----- Styled form errors (used by the new error UX system) -------- */
   /* Slide-in red alert; used in onboarding + auth. The `.show` class is
