@@ -307,12 +307,17 @@
     color: var(--text);
     font: inherit;
     font-size: 15px;
-    outline: none;
-    transition: border-color .15s ease, box-shadow .15s ease;
+    transition: border-color .15s ease, outline-color .15s ease;
     box-sizing: border-box;
+    outline: 3px solid transparent;
+    outline-offset: 0;
   }
   .auth-field input { padding-left: 42px; }
-  .auth-form input:focus { border-color: #2873ce; box-shadow: 0 0 0 3px rgba(40, 115, 206, 0.15); }
+  /* Use outline (not box-shadow) for the focus ring so it is NOT clipped by
+     the parent .auth-field-password div's overflow:hidden (needed for the
+     signup-mode collapse animation). Both fields render a visually identical
+     3px translucent-blue glow on focus. */
+  .auth-form input:focus { border-color: #2873ce; outline-color: rgba(40, 115, 206, 0.35); }
   .auth-submit {
     margin-top: 4px;
     background: #2873ce;
