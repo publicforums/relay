@@ -832,12 +832,37 @@
       <button type="button" class="popup-tab" id="friends-tab-requests" data-friends-tab="requests" role="tab" aria-selected="false">
         Requests <span class="popup-tab-badge" id="friends-requests-badge" hidden>0</span>
       </button>
+      <button type="button" class="popup-tab-add" id="friends-add-btn" aria-label="Add friend" title="Add friend">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+      </button>
     </div>
     <div class="popup-body" id="friends-body">
       <div class="popup-empty">Loading…</div>
     </div>
     <div class="popup-body" id="friends-requests-body" hidden>
       <div class="popup-empty">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Friend overlay (live username/user-id search) -->
+<div class="modal-backdrop" id="add-friend-backdrop" role="dialog" aria-modal="true" aria-label="Add friend">
+  <div class="popup-list" id="add-friend-modal">
+    <div class="popup-head">
+      <h3 class="popup-title">
+        <svg class="popup-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+        Add Friend
+      </h3>
+      <button class="popup-close" id="add-friend-close" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="add-friend-search">
+      <svg class="add-friend-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="add-friend-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Enter username or user ID" aria-label="Search by username or user ID" />
+    </div>
+    <div class="popup-body" id="add-friend-body">
+      <div class="popup-empty">Start typing a username or user ID to find people.</div>
     </div>
   </div>
 </div>
