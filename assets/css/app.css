@@ -5005,6 +5005,104 @@
   }
 
   /* ====================================================================
+     DATA & PRIVACY tab
+     Reuses .opt-preferences-section / .opt-item / .opt-toggle for the
+     toggle rows (so the layout, hover state, and motion match the Opt
+     Preferences tab). Adds a `.dp-segmented` segmented control for the
+     enum-style fields ("who can message you", "cookie preferences") and
+     a small `.dp-cookie-legend` describing each cookie level. Persisted
+     in localStorage keyed by the signed-in user id; see app.js
+     `_dataPrivacyHTML / _wireDataPrivacyTab / _syncDataPrivacyUI`.
+     ==================================================================== */
+  .opt-preferences-section.dp-section { gap: 24px; }
+  .dp-field {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .dp-field-label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .dp-field-label > span:first-child {
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+  }
+  .dp-field-hint {
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  .dp-segmented {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    align-self: flex-start;
+    max-width: 100%;
+  }
+  .dp-seg-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: background .18s ease, color .18s ease, transform .12s ease;
+    line-height: 1.2;
+    min-height: 36px;
+    white-space: nowrap;
+  }
+  .dp-seg-btn:hover {
+    color: var(--text);
+    background: color-mix(in srgb, var(--text, #000) 6%, transparent);
+  }
+  .dp-seg-btn:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent, #2873ce) 55%, transparent);
+    outline-offset: 2px;
+  }
+  .dp-seg-btn.active {
+    background: var(--accent, #2873ce);
+    color: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+  .dp-seg-btn.active:hover {
+    background: color-mix(in srgb, var(--accent, #2873ce) 90%, #000);
+  }
+  .dp-cookie-legend {
+    list-style: none;
+    padding: 0;
+    margin: 6px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .dp-cookie-legend strong { color: var(--text); font-weight: 600; }
+  @media (prefers-reduced-motion: reduce) {
+    .dp-seg-btn { transition: none; }
+  }
+  @media (max-width: 520px) {
+    .dp-segmented { padding: 3px; gap: 3px; }
+    .dp-seg-btn { padding: 7px 11px; font-size: 13px; min-height: 34px; }
+    .dp-cookie-legend { font-size: 12px; }
+  }
+
+  /* ====================================================================
      Onboarding layout (onboarding.html only) — floating single-step
      ====================================================================
      Reverts the continuous-scroll stack to the original single-step-

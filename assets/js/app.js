@@ -6900,6 +6900,15 @@
   let presenceChannel = null;
   async function pingPresence() {
     if (!me || document.hidden) return;
+    // Honor the per-user "Show online status" preference from Data & Privacy.
+    // When disabled, we stop heartbeating so `last_seen` ages out and the user
+    // appears offline to everyone after the presence window expires.
+    try {
+      if (typeof _dataPrivacyLoad === "function") {
+        const dp = _dataPrivacyLoad();
+        if (dp && dp.show_online_status === false) return;
+      }
+    } catch (_) {}
     try { await sb.rpc("touch_presence"); } catch (_) {}
   }
   function startPresenceLoop() {
@@ -8601,6 +8610,12 @@
           '</svg>' +
           '<span class="label">Opt Preferences</span>' +
         '</button>' +
+        '<button type="button" class="settings-nav-item" data-section="data-privacy">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+            '<path d="M12 3l7 3v5c0 4.5-3 8.4-7 10-4-1.6-7-5.5-7-10V6l7-3z"/><path d="M9.5 12.5l1.8 1.8 3.7-3.7"/>' +
+          '</svg>' +
+          '<span class="label">Data &amp; Privacy</span>' +
+        '</button>' +
         '<button type="button" class="settings-nav-item" data-section="account-center">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
             '<circle cx="9" cy="9" r="3.4"/><path d="M2.5 20.5a6.5 6.5 0 0 1 13 0"/><circle cx="18" cy="6.5" r="2.2"/><circle cx="18" cy="14" r="2.2"/><circle cx="18" cy="21" r="2.2"/>' +
@@ -8610,6 +8625,7 @@
       contentEl.innerHTML =
         '<div data-section-panel="appearance">' + _appearanceHTML() + '</div>' +
         '<div data-section-panel="opt-preferences" hidden>' + _optPreferencesHTML() + '</div>' +
+        '<div data-section-panel="data-privacy" hidden>' + _dataPrivacyHTML() + '</div>' +
         '<div data-section-panel="account-center" hidden></div>';
       // Adopt the existing Account Center content (.ac-wrap) into the new
       // Settings tab panel. The element keeps its existing IDs so all
@@ -8621,6 +8637,7 @@
       if (acPanel && acWrap) acPanel.appendChild(acWrap);
       _wireAppearanceTab(contentEl);
       _wireOptPreferencesTab(contentEl);
+      _wireDataPrivacyTab(contentEl);
       navEl.addEventListener("click", (e) => {
         const btn = e.target && e.target.closest ? e.target.closest(".settings-nav-item") : null;
         if (!btn) return;
@@ -8632,6 +8649,7 @@
     _selectSettingsSection(_activeSettingsSection);
     _syncAppearanceUI(contentEl);
     _syncOptPreferencesUI(contentEl);
+    _syncDataPrivacyUI(contentEl);
   }
   function _selectSettingsSection(section) {
     if (!settingsOverlayEl) return;
@@ -8903,6 +8921,196 @@
       const key = input.getAttribute("data-opt-pref");
       const v = !!state[key];
       if (input.checked !== v) input.checked = v;
+    }
+  }
+
+  // =====================================================================
+  //  DATA & PRIVACY tab
+  //  Per-user preferences for analytics opt-in, presence visibility, DM
+  //  reachability, and cookie scope. Persisted in localStorage keyed by
+  //  the signed-in user id (mirrors the OPT PREFERENCES pattern). The
+  //  presence toggle wires into `pingPresence()` above so disabling it
+  //  actually stops the heartbeat — no fake toggles.
+  // =====================================================================
+  const DATA_PRIVACY_KEY_PREFIX = "relay-data-privacy:";
+  const DATA_PRIVACY_TOGGLES = [
+    { id: "data_improve",    title: "Use data to improve Relay",                            desc: "Help us find bugs and improve performance with anonymous usage data." },
+    { id: "data_personalize", title: "Use data to personalize my experience on Relay",      desc: "Tailor recommendations, theme defaults, and feature highlights to you." },
+    { id: "data_sponsored",  title: "Use my Relay activity to personalize sponsored content", desc: "Make occasional sponsored recommendations more relevant. Off by default." }
+  ];
+  const DM_REACH_OPTIONS = [
+    { value: "everyone", label: "Everyone" },
+    { value: "friends",  label: "Friends" },
+    { value: "nobody",   label: "Nobody" }
+  ];
+  const COOKIE_OPTIONS = [
+    { value: "necessary",  label: "Necessary only", desc: "Only what's required to keep Relay working." },
+    { value: "functional", label: "Functional",     desc: "Adds preferences like theme + language memory." },
+    { value: "analytics",  label: "Analytics",      desc: "Anonymous usage telemetry to improve Relay." },
+    { value: "marketing",  label: "Marketing",      desc: "Relevant promos and tailored content." }
+  ];
+  function _dataPrivacyDefaults() {
+    return {
+      data_improve: true,
+      data_personalize: true,
+      data_sponsored: false,
+      show_online_status: true,
+      who_can_message: "everyone",
+      cookie_pref: "necessary"
+    };
+  }
+  function _dataPrivacyStorageKey() {
+    const uid = (me && me.id) ? me.id : "anon";
+    return DATA_PRIVACY_KEY_PREFIX + uid;
+  }
+  function _dataPrivacyLoad() {
+    const def = _dataPrivacyDefaults();
+    try {
+      const raw = localStorage.getItem(_dataPrivacyStorageKey());
+      if (!raw) return def;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return def;
+      const merged = Object.assign({}, def);
+      for (const k of Object.keys(def)) {
+        if (typeof parsed[k] === typeof def[k]) merged[k] = parsed[k];
+      }
+      // Validate enums
+      if (!DM_REACH_OPTIONS.some(o => o.value === merged.who_can_message)) merged.who_can_message = def.who_can_message;
+      if (!COOKIE_OPTIONS.some(o => o.value === merged.cookie_pref)) merged.cookie_pref = def.cookie_pref;
+      return merged;
+    } catch (_) { return def; }
+  }
+  function _dataPrivacySave(state) {
+    try { localStorage.setItem(_dataPrivacyStorageKey(), JSON.stringify(state)); } catch (_) {}
+  }
+  function _dataPrivacyToggleHTML(t) {
+    const inputId = "dp-toggle-" + t.id;
+    return (
+      '<li class="opt-item">' +
+        '<div class="opt-item-text">' +
+          '<span class="opt-item-title">' + escapeHtml(t.title) + '</span>' +
+          '<span class="opt-item-desc">' + escapeHtml(t.desc) + '</span>' +
+        '</div>' +
+        '<label class="opt-toggle" for="' + inputId + '">' +
+          '<input type="checkbox" id="' + inputId + '" data-dp-toggle="' + t.id + '" role="switch" aria-label="' + escapeHtml(t.title) + '" />' +
+          '<span class="opt-toggle-track" aria-hidden="true"></span>' +
+          '<span class="opt-toggle-thumb" aria-hidden="true"></span>' +
+        '</label>' +
+      '</li>'
+    );
+  }
+  function _dataPrivacySegmentedHTML(name, options, ariaLabel) {
+    let buttons = "";
+    for (const o of options) {
+      buttons +=
+        '<button type="button" class="dp-seg-btn" role="radio" aria-checked="false" ' +
+          'data-dp-segmented="' + escapeHtml(name) + '" data-value="' + escapeHtml(o.value) + '">' +
+          escapeHtml(o.label) +
+        '</button>';
+    }
+    return (
+      '<div class="dp-segmented" role="radiogroup" aria-label="' + escapeHtml(ariaLabel) + '" data-dp-group="' + escapeHtml(name) + '">' +
+        buttons +
+      '</div>'
+    );
+  }
+  function _dataPrivacyHTML() {
+    let dataToggles = "";
+    for (const t of DATA_PRIVACY_TOGGLES) dataToggles += _dataPrivacyToggleHTML(t);
+    const onlineToggle = _dataPrivacyToggleHTML({
+      id: "show_online_status",
+      title: "Show my online status",
+      desc: "When off, others see you as offline and we stop sending presence heartbeats."
+    });
+    let cookieDescItems = "";
+    for (const o of COOKIE_OPTIONS) {
+      cookieDescItems += '<li><strong>' + escapeHtml(o.label) + '</strong> &mdash; ' + escapeHtml(o.desc) + '</li>';
+    }
+    return (
+      '<div class="opt-preferences-section dp-section">' +
+        '<div>' +
+          '<div class="opt-intro-h">Data Usage</div>' +
+          '<div class="opt-intro-sub">Control how Relay uses your activity data. Saved per device, per account.</div>' +
+          '<ul class="opt-list">' + dataToggles + '</ul>' +
+        '</div>' +
+        '<div>' +
+          '<div class="opt-intro-h">Privacy Controls</div>' +
+          '<div class="opt-intro-sub">Decide who can see your presence, who can message you, and how cookies are used on this device.</div>' +
+          '<ul class="opt-list">' + onlineToggle + '</ul>' +
+          '<div class="dp-field">' +
+            '<div class="dp-field-label"><span>Who can message you</span><span class="dp-field-hint">Friends-only or nobody hides your DMs from strangers.</span></div>' +
+            _dataPrivacySegmentedHTML("who_can_message", DM_REACH_OPTIONS, "Who can message you") +
+          '</div>' +
+          '<div class="dp-field">' +
+            '<div class="dp-field-label"><span>Cookie preferences</span><span class="dp-field-hint">Highest level you allow on this device.</span></div>' +
+            _dataPrivacySegmentedHTML("cookie_pref", COOKIE_OPTIONS, "Cookie preferences") +
+            '<ul class="dp-cookie-legend">' + cookieDescItems + '</ul>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+  function _wireDataPrivacyTab(root) {
+    const panel = root.querySelector('[data-section-panel="data-privacy"]');
+    if (!panel) return;
+    panel.addEventListener("change", (e) => {
+      const t = e.target;
+      if (!t || !t.matches || !t.matches('input[data-dp-toggle]')) return;
+      const key = t.getAttribute("data-dp-toggle");
+      const state = _dataPrivacyLoad();
+      state[key] = !!t.checked;
+      _dataPrivacySave(state);
+      // If user just disabled "show online status", expire their presence
+      // row immediately so peers see them flip offline. RLS only permits the
+      // owner to UPDATE their own row (DELETE is reserved for the presence
+      // sweep job), so we push `last_seen` outside the live presence window
+      // — that's how `subscribePresence` reads "offline" anyway.
+      if (key === "show_online_status" && t.checked === false && me && me.id) {
+        try {
+          sb.from("user_presence")
+            .update({ last_seen: "1970-01-01T00:00:00+00:00" })
+            .eq("user_id", me.id)
+            .then(()=>{}, ()=>{});
+        } catch (_) {}
+      }
+      // If just re-enabled, immediately heartbeat so dots flip green.
+      if (key === "show_online_status" && t.checked === true) {
+        try { pingPresence(); } catch (_) {}
+      }
+    });
+    panel.addEventListener("click", (e) => {
+      const btn = e.target && e.target.closest ? e.target.closest("[data-dp-segmented]") : null;
+      if (!btn) return;
+      const name = btn.getAttribute("data-dp-segmented");
+      const value = btn.getAttribute("data-value");
+      if (!name || !value) return;
+      const state = _dataPrivacyLoad();
+      if (state[name] === value) return;
+      state[name] = value;
+      _dataPrivacySave(state);
+      _syncDataPrivacyUI(root);
+    });
+  }
+  function _syncDataPrivacyUI(root) {
+    const panel = root.querySelector('[data-section-panel="data-privacy"]');
+    if (!panel) return;
+    const state = _dataPrivacyLoad();
+    const toggles = panel.querySelectorAll('input[data-dp-toggle]');
+    for (const input of toggles) {
+      const key = input.getAttribute("data-dp-toggle");
+      const v = !!state[key];
+      if (input.checked !== v) input.checked = v;
+    }
+    const groups = panel.querySelectorAll('[data-dp-group]');
+    for (const g of groups) {
+      const name = g.getAttribute("data-dp-group");
+      const current = state[name];
+      const buttons = g.querySelectorAll("[data-dp-segmented]");
+      for (const b of buttons) {
+        const isOn = b.getAttribute("data-value") === current;
+        b.classList.toggle("active", isOn);
+        b.setAttribute("aria-checked", isOn ? "true" : "false");
+      }
     }
   }
 
