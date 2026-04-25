@@ -4495,13 +4495,28 @@
     overflow-y: auto; overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     padding: 24px max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) 24px;
-    display: flex; align-items: center; justify-content: center;
+  }
+  /* Each settings panel claims a sensible reading width on PC and stretches
+     edge-to-edge on mobile. Panels that already define their own inner
+     wrapper (e.g. .ac-wrap, .appearance-section) keep their layout intact. */
+  .settings-content > [data-section-panel] {
+    width: 100%;
+    max-width: 780px;
+    margin: 0 auto;
+    min-width: 0;
+  }
+  /* Account Center panel inherits the same reading width via .ac-wrap, so
+     it doesn't need to constrain itself again. */
+  .settings-content [data-section-panel="account-center"] .ac-wrap {
+    max-width: 720px;
+    margin: 0 auto;
   }
   .settings-empty {
     max-width: 420px;
     text-align: center;
     color: var(--muted);
     display: flex; flex-direction: column; align-items: center; gap: 12px;
+    margin: 32px auto 0;
   }
   .settings-empty-icon {
     width: 56px; height: 56px;
@@ -4520,8 +4535,54 @@
     font-size: 13.5px; line-height: 1.5;
   }
   @media (max-width: 720px) {
-    .settings-sidebar { width: 240px; }
+    .settings-sidebar { width: 220px; }
     #settings-overlay.collapsed .settings-sidebar { width: 56px; }
+  }
+  /* On phone-sized viewports collapse the vertical sidebar into a
+     horizontal tab strip pinned above the content. The strip scrolls
+     horizontally if the tabs overflow so we never clip or wrap. */
+  @media (max-width: 600px) {
+    #settings-overlay.open { flex-direction: column; }
+    .settings-sidebar {
+      width: 100% !important;
+      max-width: none;
+      flex: 0 0 auto;
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+      transition: none;
+    }
+    .settings-sidebar-header {
+      padding: calc(env(safe-area-inset-top) + 10px) 12px 8px;
+      min-height: 0;
+      border-bottom: 0;
+    }
+    .settings-sidebar-toggle { display: none; }
+    .settings-sidebar-title { font-size: 13px; color: var(--muted); font-weight: 600; }
+    .settings-nav {
+      flex-direction: row;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 6px 10px 10px;
+      gap: 6px;
+      scrollbar-width: none;
+    }
+    .settings-nav::-webkit-scrollbar { display: none; }
+    .settings-nav .settings-nav-item {
+      flex: 0 0 auto;
+      white-space: nowrap;
+      margin: 0;
+    }
+    .settings-sidebar-footer { display: none; }
+    .settings-content { padding: 16px max(14px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
+    .settings-main-header { padding: 12px max(14px, env(safe-area-inset-right)) 12px 14px; min-height: 48px; }
+    .settings-main-header h2 { font-size: 16px; }
+  }
+  /* Account Center inside Settings: drop the legacy ac-wrap centering so it
+     fills the panel width naturally, and keep the per-section spacing tight
+     enough to share the viewport with the Settings sidebar/strip. */
+  .settings-content [data-section-panel="account-center"] .ac-section {
+    margin: 0;
   }
 
 

@@ -1889,10 +1889,6 @@
         <span class="hm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
         <span>Friends</span>
       </button>
-      <button type="button" class="header-menu-item" data-hm="account-center" role="menuitem">
-        <span class="hm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="9" r="3.4"/><path d="M2.5 20.5a6.5 6.5 0 0 1 13 0"/><circle cx="18" cy="6.5" r="2.2"/><circle cx="18" cy="14" r="2.2"/><circle cx="18" cy="21" r="2.2"/></svg></span>
-        <span>Account Center</span>
-      </button>
       <button type="button" class="header-menu-item" data-hm="settings" role="menuitem">
         <span class="hm-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
         <span>Settings</span>
@@ -1940,12 +1936,6 @@
           e.preventDefault();
           closeHeaderMenu();
           openFriendsList();
-          return;
-        }
-        if (el.dataset.hm === "account-center") {
-          e.preventDefault();
-          closeHeaderMenu();
-          if (typeof openAccountCenter === "function") openAccountCenter();
           return;
         }
         if (el.dataset.hm === "settings") {
@@ -8247,52 +8237,38 @@
     if (acPwConfirm) acPwConfirm.value = "";
   }
 
+  // Account Center is now hosted as a Settings tab. `openAccountCenter` is
+  // kept as a thin shim so the header-menu drawer (legacy entry removed),
+  // any deep-links (e.g. `?view=account`), and downstream callers all land on
+  // the same Settings overlay with the Account Center section selected.
   function openAccountCenter() {
-    if (!acOverlayEl) return;
     if (!me) return; // Never openable while logged out.
+    if (typeof openSettings === "function") openSettings();
+    if (typeof _selectSettingsSection === "function") {
+      _activeSettingsSection = "account-center";
+      _selectSettingsSection("account-center");
+    }
     acSyncCurrentSessionToRegistry().finally(() => {
-      acRenderList();
-      acSyncActiveAccountFields();
+      try { acRenderList(); } catch (_) {}
+      try { acSyncActiveAccountFields(); } catch (_) {}
     });
-    acOverlayEl.classList.add("open");
-    acOverlayEl.setAttribute("aria-hidden", "false");
-    // Prevent body scroll behind the overlay.
-    document.documentElement.style.overflow = "hidden";
-    document.body.style.overflow = "hidden";
-    if (acCloseBtn) setTimeout(() => { try { acCloseBtn.focus(); } catch (_) {} }, 0);
-    document.addEventListener("keydown", acOverlayKeydown);
   }
   function closeAccountCenter() {
-    if (!acOverlayEl) return;
-    acOverlayEl.classList.remove("open");
-    acOverlayEl.setAttribute("aria-hidden", "true");
-    document.documentElement.style.overflow = "";
-    document.body.style.overflow = "";
-    document.removeEventListener("keydown", acOverlayKeydown);
-    acCloseConfirm();
-  }
-  function acOverlayKeydown(e) {
-    if (e.key === "Escape") {
-      if (acConfirmBack && acConfirmBack.classList.contains("open")) {
-        acCloseConfirm();
-      } else {
-        closeAccountCenter();
-      }
-    }
+    // Backwards-compat alias. Account Center now lives inside Settings, so
+    // closing it means closing the whole Settings overlay.
+    if (typeof closeSettings === "function") closeSettings();
+    try { acCloseConfirm(); } catch (_) {}
   }
   // Make openAccountCenter reachable from the 3-dot menu handler.
   window.openAccountCenter = openAccountCenter;
 
-  if (acCloseBtn) acCloseBtn.addEventListener("click", closeAccountCenter);
+  // The legacy Account Center overlay (#ac-overlay) is no longer shown — its
+  // body is migrated into the Settings overlay on first render. Hide it
+  // permanently and detach the close-button listener it would otherwise own.
   if (acOverlayEl) {
-    // Clicking the solid background inside the overlay should not close it;
-    // it's a full-screen page, so only the X button closes. But we still
-    // guard against accidental bubbling from the close button.
-    acOverlayEl.addEventListener("click", (e) => {
-      if (e.target === acOverlayEl) {
-        // Don't auto-close on background click — fullscreen is intentional.
-      }
-    });
+    acOverlayEl.classList.remove("open");
+    acOverlayEl.setAttribute("aria-hidden", "true");
+    acOverlayEl.style.display = "none";
   }
   if (acAddBtn) acAddBtn.addEventListener("click", acHandleAddAccount);
   if (acSignoutBtn) acSignoutBtn.addEventListener("click", async () => {
@@ -8624,10 +8600,25 @@
             '<path d="M4 6h16M4 12h16M4 18h10"/><circle cx="8" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="12" cy="18" r="2" fill="currentColor" stroke="none"/>' +
           '</svg>' +
           '<span class="label">Opt Preferences</span>' +
+        '</button>' +
+        '<button type="button" class="settings-nav-item" data-section="account-center">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+            '<circle cx="9" cy="9" r="3.4"/><path d="M2.5 20.5a6.5 6.5 0 0 1 13 0"/><circle cx="18" cy="6.5" r="2.2"/><circle cx="18" cy="14" r="2.2"/><circle cx="18" cy="21" r="2.2"/>' +
+          '</svg>' +
+          '<span class="label">Account Center</span>' +
         '</button>';
       contentEl.innerHTML =
         '<div data-section-panel="appearance">' + _appearanceHTML() + '</div>' +
-        '<div data-section-panel="opt-preferences" hidden>' + _optPreferencesHTML() + '</div>';
+        '<div data-section-panel="opt-preferences" hidden>' + _optPreferencesHTML() + '</div>' +
+        '<div data-section-panel="account-center" hidden></div>';
+      // Adopt the existing Account Center content (.ac-wrap) into the new
+      // Settings tab panel. The element keeps its existing IDs so all
+      // pre-attached event handlers (acRenderList, acSyncActiveAccountFields,
+      // save-email, save-password, sign-out, delete) continue to work without
+      // re-wiring. The legacy `#ac-overlay` shell is hidden in CSS+JS above.
+      const acPanel = contentEl.querySelector('[data-section-panel="account-center"]');
+      const acWrap = document.querySelector('#ac-overlay .ac-wrap');
+      if (acPanel && acWrap) acPanel.appendChild(acWrap);
       _wireAppearanceTab(contentEl);
       _wireOptPreferencesTab(contentEl);
       navEl.addEventListener("click", (e) => {
@@ -8658,6 +8649,17 @@
     const panels = contentEl.querySelectorAll("[data-section-panel]");
     for (const p of panels) {
       p.hidden = p.getAttribute("data-section-panel") !== _activeSettingsSection;
+    }
+    // When the user lands on the Account Center tab, refresh the live data
+    // (registry of accounts on this device + the active-account email field)
+    // so it reflects any sign-ins / sign-outs that happened since last open.
+    if (_activeSettingsSection === "account-center") {
+      try {
+        acSyncCurrentSessionToRegistry().finally(() => {
+          try { acRenderList(); } catch (_) {}
+          try { acSyncActiveAccountFields(); } catch (_) {}
+        });
+      } catch (_) {}
     }
   }
   // Back-compat alias kept because existing code calls `_renderAppearanceTab`.
