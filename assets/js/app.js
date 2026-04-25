@@ -7221,6 +7221,174 @@
     if (friendsBackdrop) friendsBackdrop.classList.remove("open");
   }
 
+  // ---------- Add Friend overlay (live username / user-id search) ----------
+  const ADD_FRIEND_UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+  const ICON_AF_PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+  const ICON_AF_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+  const ICON_AF_PENDING = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>';
+  let addFriendSearchSeq = 0;
+  let addFriendDebounceTimer = 0;
+
+  function openAddFriend() {
+    const backdrop = document.getElementById("add-friend-backdrop");
+    const input = document.getElementById("add-friend-input");
+    const body = document.getElementById("add-friend-body");
+    if (!backdrop || !me) return;
+    backdrop.classList.add("open");
+    if (input) {
+      input.value = "";
+      setTimeout(() => { try { input.focus(); } catch (_) {} }, 0);
+    }
+    if (body) body.innerHTML = '<div class="popup-empty">Start typing a username or user ID to find people.</div>';
+  }
+  function closeAddFriend() {
+    const backdrop = document.getElementById("add-friend-backdrop");
+    if (backdrop) backdrop.classList.remove("open");
+    if (addFriendDebounceTimer) { clearTimeout(addFriendDebounceTimer); addFriendDebounceTimer = 0; }
+    addFriendSearchSeq++;
+  }
+
+  function _afStateToButton(state) {
+    if (state === "accepted") {
+      return { html: ICON_AF_CHECK, cls: "accepted",  disabled: true,  label: "Already friends" };
+    }
+    if (state === "outgoing_pending" || state === "incoming_pending") {
+      return { html: ICON_AF_PENDING, cls: "pending", disabled: true,  label: "Friend request pending" };
+    }
+    return { html: ICON_AF_PLUS, cls: "",             disabled: false, label: "Send friend request" };
+  }
+
+  async function _afRenderRow(profile) {
+    const row = document.createElement("div");
+    row.className = "add-friend-row";
+    row.dataset.peerId = profile.user_id;
+
+    const avatarWrap = document.createElement("span");
+    avatarWrap.className = "friend-avatar";
+    const avImg = document.createElement("img"); avImg.alt = "";
+    if (profile.avatar_url) avImg.src = profile.avatar_url;
+    else avImg.style.visibility = "hidden";
+    avImg.onerror = () => { avImg.style.visibility = "hidden"; };
+    avatarWrap.appendChild(avImg);
+
+    const main = document.createElement("div");
+    main.className = "friend-main";
+    const name = document.createElement("div");
+    name.className = "friend-name";
+    name.textContent = profile.username || "Unknown";
+    const sub = document.createElement("div");
+    sub.className = "friend-since";
+    sub.textContent = "@" + (profile.username || "user");
+    main.appendChild(name);
+    main.appendChild(sub);
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "af-add-btn";
+    btn.dataset.peerId = profile.user_id;
+
+    let initialState = "none";
+    try {
+      const s = await getFriendStatus(profile.user_id);
+      initialState = (s && s.state) ? s.state : "none";
+    } catch (_) {}
+    const init = _afStateToButton(initialState);
+    btn.innerHTML = init.html;
+    btn.disabled = init.disabled;
+    if (init.cls) btn.classList.add(init.cls);
+    btn.setAttribute("aria-label", init.label);
+    btn.title = init.label;
+
+    btn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (btn.disabled) return;
+      btn.disabled = true;
+      try {
+        const { error } = await sb.rpc("send_friend_request", { p_receiver: profile.user_id });
+        if (error) throw error;
+        friendStatusCache.set(profile.user_id, { state: "outgoing_pending", request_id: null });
+        const s = _afStateToButton("outgoing_pending");
+        btn.classList.remove("accepted");
+        btn.classList.add(s.cls);
+        btn.innerHTML = s.html;
+        btn.setAttribute("aria-label", s.label);
+        btn.title = s.label;
+        if (typeof toast === "function") toast("Friend request sent", "default", 1600);
+      } catch (err) {
+        console.error("[AddFriend] send failed", err);
+        const msg = err && err.message ? err.message : "Could not send friend request";
+        if (/already|duplicate|pending|accepted/i.test(msg)) {
+          friendStatusCache.set(profile.user_id, { state: "outgoing_pending", request_id: null });
+          const s = _afStateToButton("outgoing_pending");
+          btn.classList.add(s.cls);
+          btn.innerHTML = s.html;
+          btn.setAttribute("aria-label", s.label);
+          btn.title = s.label;
+          if (typeof toast === "function") toast("Friend request already pending", "warn", 2000);
+        } else {
+          btn.disabled = false;
+          if (typeof toast === "function") toast(msg, "error");
+        }
+      }
+    });
+
+    row.appendChild(avatarWrap);
+    row.appendChild(main);
+    row.appendChild(btn);
+    return row;
+  }
+
+  async function _afRunSearch(raw) {
+    const body = document.getElementById("add-friend-body");
+    if (!body) return;
+    const seq = ++addFriendSearchSeq;
+    const q = (raw || "").trim();
+    if (!q) {
+      body.innerHTML = '<div class="popup-empty">Start typing a username or user ID to find people.</div>';
+      return;
+    }
+    body.innerHTML = '<div class="popup-empty">Searching\u2026</div>';
+    try {
+      let query;
+      if (ADD_FRIEND_UUID_RE.test(q)) {
+        query = sb.from("profiles").select("user_id, username, avatar_url").eq("user_id", q).limit(1);
+      } else {
+        const stripped = q.replace(/^@+/, "");
+        if (!stripped) {
+          body.innerHTML = '<div class="popup-empty">Start typing a username or user ID to find people.</div>';
+          return;
+        }
+        const usernameLike = _escapeLikePattern(stripped);
+        query = sb.from("profiles")
+          .select("user_id, username, avatar_url")
+          .not("username", "is", null)
+          .ilike("username", usernameLike + "%")
+          .order("username", { ascending: true })
+          .limit(20);
+      }
+      const { data, error } = await query;
+      if (seq !== addFriendSearchSeq) return; // a newer keystroke superseded us
+      if (error) throw error;
+      const rows = (data || []).filter(p => p && p.user_id && (!me || p.user_id !== me.id));
+      if (!rows.length) {
+        body.innerHTML = '<div class="popup-empty">No matching users.</div>';
+        return;
+      }
+      body.innerHTML = "";
+      for (const p of rows) {
+        if (seq !== addFriendSearchSeq) return;
+        const row = await _afRenderRow(p);
+        if (seq !== addFriendSearchSeq) return;
+        body.appendChild(row);
+      }
+    } catch (err) {
+      if (seq !== addFriendSearchSeq) return;
+      console.error("[AddFriend] search failed", err);
+      body.innerHTML = '<div class="add-friend-error">Search failed. Please try again.</div>';
+    }
+  }
+
   // ---------- Friend requests (Friends → Requests tab) ----------
   let friendRequestRows = []; // [{ requestId, peerId, created_at }]
   let pendingAcceptRequest = null; // { requestId, peerId, peerName }
@@ -7813,6 +7981,25 @@
   if (friendsBackdrop) friendsBackdrop.addEventListener("click", (e) => { if (e.target === friendsBackdrop) closeFriendsList(); });
   if (friendsTabFriends) friendsTabFriends.addEventListener("click", () => setFriendsActiveTab("friends"));
   if (friendsTabRequests) friendsTabRequests.addEventListener("click", () => setFriendsActiveTab("requests"));
+
+  // Add Friend overlay wiring
+  const friendsAddBtn = document.getElementById("friends-add-btn");
+  const addFriendBackdrop = document.getElementById("add-friend-backdrop");
+  const addFriendClose = document.getElementById("add-friend-close");
+  const addFriendInput = document.getElementById("add-friend-input");
+  if (friendsAddBtn) friendsAddBtn.addEventListener("click", () => { closeFriendsList(); openAddFriend(); });
+  if (addFriendClose) addFriendClose.addEventListener("click", closeAddFriend);
+  if (addFriendBackdrop) addFriendBackdrop.addEventListener("click", (e) => { if (e.target === addFriendBackdrop) closeAddFriend(); });
+  if (addFriendInput) {
+    addFriendInput.addEventListener("input", () => {
+      const v = addFriendInput.value;
+      if (addFriendDebounceTimer) clearTimeout(addFriendDebounceTimer);
+      addFriendDebounceTimer = setTimeout(() => { _afRunSearch(v); }, 180);
+    });
+    addFriendInput.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { e.stopPropagation(); closeAddFriend(); }
+    });
+  }
   if (confirmRemoveFriendCancel) confirmRemoveFriendCancel.addEventListener("click", closeRemoveFriendConfirm);
   if (confirmRemoveFriendBackdrop) confirmRemoveFriendBackdrop.addEventListener("click", (e) => { if (e.target === confirmRemoveFriendBackdrop) closeRemoveFriendConfirm(); });
   if (confirmRemoveFriendOk) confirmRemoveFriendOk.addEventListener("click", handleConfirmRemoveFriend);
@@ -7938,6 +8125,10 @@
     if (confirmDenyRequestBackdrop && confirmDenyRequestBackdrop.classList.contains("open")) { closeDenyRequestConfirm(); return; }
     if (confirmRemoveFriendBackdrop && confirmRemoveFriendBackdrop.classList.contains("open")) { closeRemoveFriendConfirm(); return; }
     if (friendsBackdrop && friendsBackdrop.classList.contains("open")) { closeFriendsList(); return; }
+    {
+      const _afBd = document.getElementById("add-friend-backdrop");
+      if (_afBd && _afBd.classList.contains("open")) { closeAddFriend(); return; }
+    }
     if (groupSettingsBackdrop && groupSettingsBackdrop.classList.contains("open")) { closeGroupSettings(); return; }
     if (groupAddBackdrop && groupAddBackdrop.classList.contains("open")) { closeAddMember(); return; }
     if (groupCreateBackdrop && groupCreateBackdrop.classList.contains("open")) { closeCreateGroup(); return; }
@@ -8999,18 +9190,28 @@
       '</li>'
     );
   }
-  function _dataPrivacySegmentedHTML(name, options, ariaLabel) {
-    let buttons = "";
+  const DP_SELECT_CARET = '<svg class="dp-select-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
+  const DP_SELECT_CHECK = '<svg class="dp-select-opt-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+  function _dataPrivacySelectHTML(name, options, ariaLabel) {
+    let opts = "";
     for (const o of options) {
-      buttons +=
-        '<button type="button" class="dp-seg-btn" role="radio" aria-checked="false" ' +
-          'data-dp-segmented="' + escapeHtml(name) + '" data-value="' + escapeHtml(o.value) + '">' +
-          escapeHtml(o.label) +
+      opts +=
+        '<button type="button" class="dp-select-opt" role="option" aria-selected="false" ' +
+          'data-dp-select-opt="' + escapeHtml(name) + '" data-value="' + escapeHtml(o.value) + '">' +
+          '<span>' + escapeHtml(o.label) + '</span>' +
+          DP_SELECT_CHECK +
         '</button>';
     }
     return (
-      '<div class="dp-segmented" role="radiogroup" aria-label="' + escapeHtml(ariaLabel) + '" data-dp-group="' + escapeHtml(name) + '">' +
-        buttons +
+      '<div class="dp-select" data-dp-select="' + escapeHtml(name) + '">' +
+        '<button type="button" class="dp-select-btn" data-dp-select-btn="' + escapeHtml(name) + '" ' +
+          'aria-haspopup="listbox" aria-expanded="false" aria-label="' + escapeHtml(ariaLabel) + '">' +
+          '<span class="dp-select-label" data-dp-select-label="' + escapeHtml(name) + '"></span>' +
+          DP_SELECT_CARET +
+        '</button>' +
+        '<div class="dp-select-menu" role="listbox" aria-label="' + escapeHtml(ariaLabel) + '">' +
+          opts +
+        '</div>' +
       '</div>'
     );
   }
@@ -9039,11 +9240,11 @@
           '<ul class="opt-list">' + onlineToggle + '</ul>' +
           '<div class="dp-field">' +
             '<div class="dp-field-label"><span>Who can message you</span><span class="dp-field-hint">Friends-only or nobody hides your DMs from strangers.</span></div>' +
-            _dataPrivacySegmentedHTML("who_can_message", DM_REACH_OPTIONS, "Who can message you") +
+            _dataPrivacySelectHTML("who_can_message", DM_REACH_OPTIONS, "Who can message you") +
           '</div>' +
           '<div class="dp-field">' +
             '<div class="dp-field-label"><span>Cookie preferences</span><span class="dp-field-hint">Highest level you allow on this device.</span></div>' +
-            _dataPrivacySegmentedHTML("cookie_pref", COOKIE_OPTIONS, "Cookie preferences") +
+            _dataPrivacySelectHTML("cookie_pref", COOKIE_OPTIONS, "Cookie preferences") +
             '<ul class="dp-cookie-legend">' + cookieDescItems + '</ul>' +
           '</div>' +
         '</div>' +
@@ -9078,17 +9279,49 @@
         try { pingPresence(); } catch (_) {}
       }
     });
+    function closeAllSelects(except) {
+      const opens = panel.querySelectorAll('.dp-select.open');
+      for (const el of opens) {
+        if (except && el === except) continue;
+        el.classList.remove("open");
+        const btn = el.querySelector(".dp-select-btn");
+        if (btn) btn.setAttribute("aria-expanded", "false");
+      }
+    }
     panel.addEventListener("click", (e) => {
-      const btn = e.target && e.target.closest ? e.target.closest("[data-dp-segmented]") : null;
-      if (!btn) return;
-      const name = btn.getAttribute("data-dp-segmented");
-      const value = btn.getAttribute("data-value");
-      if (!name || !value) return;
-      const state = _dataPrivacyLoad();
-      if (state[name] === value) return;
-      state[name] = value;
-      _dataPrivacySave(state);
-      _syncDataPrivacyUI(root);
+      const trigger = e.target && e.target.closest ? e.target.closest("[data-dp-select-btn]") : null;
+      if (trigger) {
+        const wrap = trigger.closest(".dp-select");
+        if (!wrap) return;
+        const willOpen = !wrap.classList.contains("open");
+        closeAllSelects(willOpen ? wrap : null);
+        wrap.classList.toggle("open", willOpen);
+        trigger.setAttribute("aria-expanded", willOpen ? "true" : "false");
+        return;
+      }
+      const opt = e.target && e.target.closest ? e.target.closest("[data-dp-select-opt]") : null;
+      if (opt) {
+        const name = opt.getAttribute("data-dp-select-opt");
+        const value = opt.getAttribute("data-value");
+        if (!name || !value) return;
+        const state = _dataPrivacyLoad();
+        if (state[name] !== value) {
+          state[name] = value;
+          _dataPrivacySave(state);
+        }
+        closeAllSelects(null);
+        _syncDataPrivacyUI(root);
+        return;
+      }
+      // Click anywhere else inside the panel collapses any open selects.
+      if (!e.target.closest('.dp-select')) closeAllSelects(null);
+    });
+    // Close open selects on outside click + escape key.
+    document.addEventListener("click", (e) => {
+      if (!panel.contains(e.target)) closeAllSelects(null);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeAllSelects(null);
     });
   }
   function _syncDataPrivacyUI(root) {
@@ -9101,15 +9334,19 @@
       const v = !!state[key];
       if (input.checked !== v) input.checked = v;
     }
-    const groups = panel.querySelectorAll('[data-dp-group]');
-    for (const g of groups) {
-      const name = g.getAttribute("data-dp-group");
+    const enumOptions = { who_can_message: DM_REACH_OPTIONS, cookie_pref: COOKIE_OPTIONS };
+    const wraps = panel.querySelectorAll("[data-dp-select]");
+    for (const wrap of wraps) {
+      const name = wrap.getAttribute("data-dp-select");
       const current = state[name];
-      const buttons = g.querySelectorAll("[data-dp-segmented]");
-      for (const b of buttons) {
-        const isOn = b.getAttribute("data-value") === current;
-        b.classList.toggle("active", isOn);
-        b.setAttribute("aria-checked", isOn ? "true" : "false");
+      const optsList = enumOptions[name] || [];
+      const selected = optsList.find(o => o.value === current);
+      const labelEl = wrap.querySelector('[data-dp-select-label="' + name + '"]');
+      if (labelEl) labelEl.textContent = selected ? selected.label : (current || "");
+      const opts = wrap.querySelectorAll("[data-dp-select-opt]");
+      for (const o of opts) {
+        const isOn = o.getAttribute("data-value") === current;
+        o.setAttribute("aria-selected", isOn ? "true" : "false");
       }
     }
   }

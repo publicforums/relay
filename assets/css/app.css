@@ -5008,11 +5008,11 @@
      DATA & PRIVACY tab
      Reuses .opt-preferences-section / .opt-item / .opt-toggle for the
      toggle rows (so the layout, hover state, and motion match the Opt
-     Preferences tab). Adds a `.dp-segmented` segmented control for the
-     enum-style fields ("who can message you", "cookie preferences") and
-     a small `.dp-cookie-legend` describing each cookie level. Persisted
-     in localStorage keyed by the signed-in user id; see app.js
-     `_dataPrivacyHTML / _wireDataPrivacyTab / _syncDataPrivacyUI`.
+     Preferences tab). The two enum-style fields ("who can message you",
+     "cookie preferences") use a custom `.dp-select` dropdown with a soft
+     open/close animation. Persisted in localStorage keyed by the signed-
+     in user id; see app.js `_dataPrivacyHTML / _wireDataPrivacyTab /
+     _syncDataPrivacyUI`.
      ==================================================================== */
   .opt-preferences-section.dp-section { gap: 24px; }
   .dp-field {
@@ -5037,50 +5037,127 @@
     color: var(--muted);
     line-height: 1.45;
   }
-  .dp-segmented {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 4px;
+  .dp-select {
+    position: relative;
+    align-self: flex-start;
+    max-width: 100%;
+    width: min(280px, 100%);
+  }
+  .dp-select-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.2;
+    min-height: 42px;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+  }
+  .dp-select-btn:hover { border-color: color-mix(in srgb, var(--text, #000) 22%, var(--border)); }
+  .dp-select-btn:focus-visible {
+    outline: none;
+    border-color: var(--accent, #2873ce);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #2873ce) 25%, transparent);
+  }
+  .dp-select.open > .dp-select-btn {
+    border-color: var(--accent, #2873ce);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #2873ce) 25%, transparent);
+  }
+  .dp-select-label {
+    flex: 1; min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dp-select-caret {
+    width: 16px; height: 16px;
+    color: var(--muted);
+    flex-shrink: 0;
+    transition: transform .22s cubic-bezier(.4,.0,.2,1), color .15s ease;
+  }
+  .dp-select.open .dp-select-caret {
+    transform: rotate(180deg);
+    color: var(--accent, #2873ce);
+  }
+  .dp-select-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0; right: 0;
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 12px;
-    align-self: flex-start;
-    max-width: 100%;
+    padding: 6px;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.18);
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    opacity: 0;
+    transform: translateY(-6px) scale(0.985);
+    transform-origin: top center;
+    pointer-events: none;
+    visibility: hidden;
+    transition: opacity .18s cubic-bezier(.4,.0,.2,1),
+                transform .18s cubic-bezier(.4,.0,.2,1),
+                visibility 0s linear .18s;
+    max-height: 280px;
+    overflow-y: auto;
   }
-  .dp-seg-btn {
+  .dp-select.open .dp-select-menu {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+    visibility: visible;
+    transition: opacity .18s cubic-bezier(.4,.0,.2,1),
+                transform .18s cubic-bezier(.4,.0,.2,1),
+                visibility 0s linear 0s;
+  }
+  .dp-select-opt {
     appearance: none;
     -webkit-appearance: none;
-    border: 0;
     background: transparent;
-    color: var(--muted);
+    border: 0;
+    color: var(--text);
     font: inherit;
     font-size: 13.5px;
-    font-weight: 600;
-    padding: 8px 14px;
-    border-radius: 9px;
+    font-weight: 500;
+    text-align: left;
+    padding: 9px 12px;
+    border-radius: 8px;
     cursor: pointer;
-    transition: background .18s ease, color .18s ease, transform .12s ease;
-    line-height: 1.2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    line-height: 1.25;
     min-height: 36px;
-    white-space: nowrap;
+    transition: background .14s ease, color .14s ease;
   }
-  .dp-seg-btn:hover {
-    color: var(--text);
-    background: color-mix(in srgb, var(--text, #000) 6%, transparent);
+  .dp-select-opt:hover { background: color-mix(in srgb, var(--text, #000) 6%, transparent); }
+  .dp-select-opt[aria-selected="true"] {
+    color: var(--accent, #2873ce);
+    font-weight: 600;
   }
-  .dp-seg-btn:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--accent, #2873ce) 55%, transparent);
-    outline-offset: 2px;
+  .dp-select-opt-check {
+    width: 14px; height: 14px;
+    color: var(--accent, #2873ce);
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity .14s ease;
   }
-  .dp-seg-btn.active {
-    background: var(--accent, #2873ce);
-    color: #fff;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
-  }
-  .dp-seg-btn.active:hover {
-    background: color-mix(in srgb, var(--accent, #2873ce) 90%, #000);
-  }
+  .dp-select-opt[aria-selected="true"] .dp-select-opt-check { opacity: 1; }
   .dp-cookie-legend {
     list-style: none;
     padding: 0;
@@ -5094,12 +5171,136 @@
   }
   .dp-cookie-legend strong { color: var(--text); font-weight: 600; }
   @media (prefers-reduced-motion: reduce) {
-    .dp-seg-btn { transition: none; }
+    .dp-select-btn,
+    .dp-select-caret,
+    .dp-select-menu,
+    .dp-select-opt,
+    .dp-select-opt-check { transition: none; }
   }
   @media (max-width: 520px) {
-    .dp-segmented { padding: 3px; gap: 3px; }
-    .dp-seg-btn { padding: 7px 11px; font-size: 13px; min-height: 34px; }
+    .dp-select { width: 100%; }
+    .dp-select-btn { font-size: 16px; min-height: 44px; padding: 11px 14px; }
+    .dp-select-opt { font-size: 14px; min-height: 40px; padding: 10px 12px; }
     .dp-cookie-legend { font-size: 12px; }
+  }
+
+  /* ====================================================================
+     Add Friend overlay
+     Live username / user-id search opened from the Friends modal "+"
+     icon. Reuses .modal-backdrop / .popup-list / .popup-head / .popup-
+     close / .popup-body shell so it feels native to Friends + Inbox.
+     ==================================================================== */
+  .add-friend-search {
+    position: relative;
+    padding: 12px 14px 8px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+  .add-friend-search-icon {
+    position: absolute;
+    left: 26px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px; height: 16px;
+    color: var(--muted);
+    pointer-events: none;
+    transition: color .15s ease;
+  }
+  #add-friend-input {
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--input-bg, color-mix(in srgb, var(--text, #000) 4%, var(--panel)));
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px 10px 36px;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.2;
+    min-height: 42px;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  #add-friend-input::placeholder { color: var(--muted); }
+  #add-friend-input:focus {
+    outline: none;
+    border-color: var(--accent, #2873ce);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #2873ce) 25%, transparent);
+  }
+  .add-friend-search:focus-within .add-friend-search-icon { color: var(--accent, #2873ce); }
+  .popup-list .add-friend-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    width: 100%;
+  }
+  .popup-list .add-friend-row:last-child { border-bottom: 0; }
+  .popup-list .add-friend-row .friend-avatar {
+    position: relative;
+    width: 40px; height: 40px; flex-shrink: 0;
+    border-radius: 50%;
+    overflow: visible;
+  }
+  .popup-list .add-friend-row .friend-avatar img {
+    width: 100%; height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+  }
+  .popup-list .add-friend-row .friend-main {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .popup-list .add-friend-row .friend-name {
+    font-size: 14px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .popup-list .add-friend-row .friend-since {
+    font-size: 12px; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .popup-list .add-friend-row .af-add-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--accent, #2873ce);
+    color: #fff;
+    border: 1px solid var(--accent, #2873ce);
+    width: 32px; height: 32px;
+    padding: 0;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background .15s ease, color .15s ease, border-color .15s ease, transform .12s ease, opacity .15s ease;
+  }
+  .popup-list .add-friend-row .af-add-btn:hover {
+    background: color-mix(in srgb, var(--accent, #2873ce) 90%, #000);
+  }
+  .popup-list .add-friend-row .af-add-btn:active { transform: scale(.94); }
+  .popup-list .add-friend-row .af-add-btn svg { width: 16px; height: 16px; display: block; }
+  .popup-list .add-friend-row .af-add-btn.pending,
+  .popup-list .add-friend-row .af-add-btn[disabled] {
+    background: transparent;
+    color: var(--muted);
+    border-color: var(--border);
+    cursor: default;
+  }
+  .popup-list .add-friend-row .af-add-btn.accepted {
+    background: color-mix(in srgb, var(--accent, #2873ce) 18%, transparent);
+    color: var(--accent, #2873ce);
+    border-color: color-mix(in srgb, var(--accent, #2873ce) 35%, var(--border));
+  }
+  .add-friend-error {
+    color: var(--danger, #ff3b30);
+    padding: 14px;
+    text-align: center;
+    font-size: 13px;
+  }
+  @media (max-width: 520px) {
+    #add-friend-input { font-size: 16px; }
   }
 
   /* ====================================================================
