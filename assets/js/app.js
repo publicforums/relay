@@ -7354,7 +7354,12 @@
       if (ADD_FRIEND_UUID_RE.test(q)) {
         query = sb.from("profiles").select("user_id, username, avatar_url").eq("user_id", q).limit(1);
       } else {
-        const usernameLike = q.replace(/^@+/, "");
+        const stripped = q.replace(/^@+/, "");
+        if (!stripped) {
+          body.innerHTML = '<div class="popup-empty">Start typing a username or user ID to find people.</div>';
+          return;
+        }
+        const usernameLike = _escapeLikePattern(stripped);
         query = sb.from("profiles")
           .select("user_id, username, avatar_url")
           .not("username", "is", null)
