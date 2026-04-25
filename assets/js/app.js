@@ -9060,11 +9060,18 @@
       const state = _dataPrivacyLoad();
       state[key] = !!t.checked;
       _dataPrivacySave(state);
-      // If user just disabled "show online status", clear their existing
-      // presence row so peers immediately see them go offline (instead of
-      // waiting for the row to age out of the presence window).
+      // If user just disabled "show online status", expire their presence
+      // row immediately so peers see them flip offline. RLS only permits the
+      // owner to UPDATE their own row (DELETE is reserved for the presence
+      // sweep job), so we push `last_seen` outside the live presence window
+      // — that's how `subscribePresence` reads "offline" anyway.
       if (key === "show_online_status" && t.checked === false && me && me.id) {
-        try { sb.from("user_presence").delete().eq("user_id", me.id).then(()=>{}, ()=>{}); } catch (_) {}
+        try {
+          sb.from("user_presence")
+            .update({ last_seen: "1970-01-01T00:00:00+00:00" })
+            .eq("user_id", me.id)
+            .then(()=>{}, ()=>{});
+        } catch (_) {}
       }
       // If just re-enabled, immediately heartbeat so dots flip green.
       if (key === "show_online_status" && t.checked === true) {
