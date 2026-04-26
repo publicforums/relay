@@ -306,6 +306,9 @@
                 <div class="mention-box" id="mention-box" role="listbox" hidden></div>
               </div>
 
+              <button class="mic-btn" type="button" data-voice-open="main" id="main-mic-btn" title="Voice" aria-label="Voice">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+              </button>
               <button id="send" type="button" aria-label="Send" title="Send" disabled>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <line x1="22" y1="2" x2="11" y2="13"/>
@@ -665,6 +668,9 @@
         </button>
         <input type="file" id="dm-file-input" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none" />
         <textarea id="dm-room-input" rows="1" placeholder="Message" maxlength="4000"></textarea>
+        <button class="mic-btn dm-mic" type="button" data-voice-open="dm" id="dm-mic-btn" title="Voice" aria-label="Voice">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+        </button>
         <button class="dm-send" id="dm-room-send" type="button" aria-label="Send" disabled>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <line x1="22" y1="2" x2="11" y2="13"/>
@@ -753,6 +759,9 @@
         </button>
         <input type="file" id="group-file-input" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none" />
         <textarea id="group-room-input" rows="1" placeholder="Message" maxlength="4000"></textarea>
+        <button class="mic-btn dm-mic" type="button" data-voice-open="group" id="group-mic-btn" title="Voice" aria-label="Voice">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+        </button>
         <button class="dm-send" id="group-room-send" type="button" aria-label="Send" disabled>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
@@ -1168,6 +1177,69 @@
         <div class="mod-mod-grid" id="mod-mods-list"></div>
       </section>
 
+    </div>
+  </div>
+</div>
+
+<!-- Voice messaging drawer — shared across all 3 composers (main, dm, group).
+     Slides up from the bottom. Two tabs: Voice Recording (MediaRecorder →
+     Supabase Storage → send as audio message) and Voice to Text (Web Speech
+     API → live transcript injected into the active composer's input). -->
+<div id="voice-drawer-backdrop" role="dialog" aria-modal="true" aria-label="Voice">
+  <div id="voice-drawer">
+    <div class="vd-grabber" aria-hidden="true"></div>
+    <div class="vd-head">
+      <div class="vd-tabs" role="tablist" aria-label="Voice mode">
+        <button type="button" class="vd-tab active" data-vd-tab="record" role="tab" aria-selected="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+          <span>Voice Recording</span>
+        </button>
+        <button type="button" class="vd-tab" data-vd-tab="stt" role="tab" aria-selected="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h16"/><circle cx="18" cy="12" r="2"/></svg>
+          <span>Voice to Text</span>
+        </button>
+      </div>
+      <button type="button" class="vd-close" id="vd-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="vd-body">
+      <div class="vd-pane active" data-vd-pane="record">
+        <div class="vd-rec-status" id="vd-rec-status">Tap the mic to start recording</div>
+        <div class="vd-rec-meter" aria-hidden="true">
+          <div class="vd-rec-meter-fill" id="vd-rec-meter-fill"></div>
+        </div>
+        <div class="vd-rec-timer" id="vd-rec-timer">0:00</div>
+        <div class="vd-rec-controls">
+          <button type="button" class="vd-rec-cancel" id="vd-rec-cancel" disabled aria-label="Cancel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+          </button>
+          <button type="button" class="vd-rec-toggle" id="vd-rec-toggle" aria-label="Start recording">
+            <svg class="vd-rec-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+            <svg class="vd-rec-stop" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          </button>
+          <button type="button" class="vd-rec-send" id="vd-rec-send" disabled aria-label="Send voice message">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+        <audio id="vd-rec-preview" controls style="display:none"></audio>
+      </div>
+      <div class="vd-pane" data-vd-pane="stt" hidden>
+        <div class="vd-stt-status" id="vd-stt-status">Tap to start — your speech will be transcribed live.</div>
+        <div class="vd-stt-output" id="vd-stt-output" contenteditable="true" spellcheck="true" role="textbox" aria-label="Transcribed text"></div>
+        <div class="vd-stt-controls">
+          <button type="button" class="vd-stt-clear" id="vd-stt-clear">Clear</button>
+          <button type="button" class="vd-stt-toggle" id="vd-stt-toggle">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+            <span>Start</span>
+          </button>
+          <button type="button" class="vd-stt-insert" id="vd-stt-insert" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>Use as message</span>
+          </button>
+        </div>
+        <div class="vd-stt-hint" id="vd-stt-hint" hidden></div>
+      </div>
     </div>
   </div>
 </div>

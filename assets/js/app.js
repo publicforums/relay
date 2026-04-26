@@ -317,7 +317,13 @@
   }
   function snippetFromMessage(m) {
     if (!m) return "";
-    if (m.content && m.content.trim()) return m.content;
+    if (m.content && m.content.trim()) {
+      if (typeof voiceMarkerPreview === "function") {
+        const vp = voiceMarkerPreview(m.content);
+        if (vp) return vp;
+      }
+      return m.content;
+    }
     if (m.image_url) return "📷 Photo";
     return "Message";
   }
@@ -386,6 +392,26 @@
     /\b[a-z0-9-]+\.(com|net|org|io|gg|xyz|app|dev|co|me|info|biz|tv|link|site|online|shop|store|club|pro|live|fun|ly)\b/i
   ];
   const hasLink = (s) => LINK_REGEXES.some(rx => rx.test(s));
+  // Voice messages are encoded as `[[voice:<url>:<duration>]]` inside the
+  // existing `content` column. They contain a `https://...` URL by design
+  // (the storage object's public URL), so the link-detection that protects
+  // public chat from arbitrary URLs would otherwise flag every voice send
+  // and trigger the 5-hour restriction. Bypass that gate ONLY when the
+  // marker's URL points at our own Supabase Storage public URL for the
+  // chat-images bucket's `voice/` prefix — otherwise an attacker could
+  // type `[[voice:https://malicious.example/x:1]]` into the input box and
+  // smuggle an arbitrary URL into public chat (which the renderer would
+  // then expose as an <audio src=...> the victim's browser fetches on
+  // play). Anchored, escapes regex-special chars in the URL prefix.
+  const _VOICE_TRUSTED_PREFIX =
+    SUPABASE_URL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
+    "\\/storage\\/v1\\/object\\/public\\/" +
+    STORAGE_BUCKET.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
+    "\\/voice\\/";
+  const VOICE_MARKER_BYPASS_RE = new RegExp(
+    "^\\[\\[voice:" + _VOICE_TRUSTED_PREFIX + "[^\\]]+:[\\d.]+\\]\\]$"
+  );
+  const isVoiceMarkerContent = (s) => VOICE_MARKER_BYPASS_RE.test((s || "").trim());
   function hasExcessiveSpacing(s) {
     if (/\s{6,}/.test(s)) return true;
     for (const l of s.split(/\r?\n/)) if (l.length > 0 && /^\s+$/.test(l)) return true;
@@ -637,10 +663,15 @@
       bubble.appendChild(mi);
     }
     if (hasText) {
-      const textNode = document.createElement("span");
-      textNode.className = "msg-text";
-      renderTextWithMentions(textNode, m.content);
-      bubble.appendChild(textNode);
+      // Voice message marker — render as inline audio bubble instead of text.
+      if (typeof renderVoiceBubble === "function" && renderVoiceBubble(bubble, m.content)) {
+        // rendered
+      } else {
+        const textNode = document.createElement("span");
+        textNode.className = "msg-text";
+        renderTextWithMentions(textNode, m.content);
+        bubble.appendChild(textNode);
+      }
     }
 
     // Double-click → reaction picker
@@ -1941,7 +1972,9 @@
         if (el.dataset.hm === "settings") {
           e.preventDefault();
           closeHeaderMenu();
-          if (typeof openSettings === "function") openSettings();
+          // Settings now lives on its own page (/settings/). Navigate instead
+          // of opening the in-app overlay so the URL reflects the route.
+          try { window.location.href = "/settings/"; } catch (_) { window.location.href = "settings.html"; }
           return;
         }
         closeHeaderMenu();
@@ -3726,8 +3759,8 @@
 
     if (!text && !hasPendingImage) { toast("Type a message first", "warn", 1200); return; }
     if (rawText.length > 0 && !text) { toast("Whitespace-only messages aren't allowed", "warn"); return; }
-    if (text && hasExcessiveSpacing(text)) { toast("Excessive spacing not allowed", "warn"); return; }
-    if (text && hasLink(text)) {
+    if (text && !isVoiceMarkerContent(text) && hasExcessiveSpacing(text)) { toast("Excessive spacing not allowed", "warn"); return; }
+    if (text && !isVoiceMarkerContent(text) && hasLink(text)) {
       setRestriction();
       toast("Links aren't allowed. Messaging disabled for 5 hours.", "error", 3500);
       console.warn("[Security] Link detected — restriction applied");
@@ -4827,6 +4860,10 @@
   function groupSnippet(m) {
     if (!m) return "";
     if (m.image_url) return "\uD83D\uDCF7 Photo";
+    if (m.content && typeof voiceMarkerPreview === "function") {
+      const vp = voiceMarkerPreview(m.content);
+      if (vp) return vp;
+    }
     return (m.content || "").slice(0, 180);
   }
 
@@ -5402,15 +5439,19 @@
       bubble.appendChild(mi);
     }
     if (hasText) {
-      const textNode = document.createElement("span");
-      textNode.className = "msg-text";
-      // Groups allow links (same as DMs) — no mention processing.
-      if (typeof autolinkDmContent === "function") {
-        textNode.innerHTML = autolinkDmContent(m.content);
+      if (typeof renderVoiceBubble === "function" && renderVoiceBubble(bubble, m.content)) {
+        // rendered as inline voice bubble
       } else {
-        textNode.textContent = m.content;
+        const textNode = document.createElement("span");
+        textNode.className = "msg-text";
+        // Groups allow links (same as DMs) — no mention processing.
+        if (typeof autolinkDmContent === "function") {
+          textNode.innerHTML = autolinkDmContent(m.content);
+        } else {
+          textNode.textContent = m.content;
+        }
+        bubble.appendChild(textNode);
       }
-      bubble.appendChild(textNode);
     }
 
     // Double-click → reaction picker
@@ -5954,6 +5995,10 @@
     if (!m) return "";
     if (m.image_url && !m.content) return "\uD83D\uDCF7 Photo";
     const t = (m.content || "").trim();
+    if (t && typeof voiceMarkerPreview === "function") {
+      const vp = voiceMarkerPreview(t);
+      if (vp) return vp;
+    }
     return t.length > 120 ? t.slice(0, 117) + "\u2026" : t;
   }
 
@@ -6366,11 +6411,15 @@
       bubble.appendChild(mi);
     }
     if (hasText) {
-      const textNode = document.createElement("span");
-      textNode.className = "msg-text";
-      // DMs allow links (no blocking). Render text + autolink, no mention processing needed.
-      textNode.innerHTML = autolinkDmContent(m.content);
-      bubble.appendChild(textNode);
+      if (typeof renderVoiceBubble === "function" && renderVoiceBubble(bubble, m.content)) {
+        // rendered as inline voice bubble
+      } else {
+        const textNode = document.createElement("span");
+        textNode.className = "msg-text";
+        // DMs allow links (no blocking). Render text + autolink, no mention processing needed.
+        textNode.innerHTML = autolinkDmContent(m.content);
+        bubble.appendChild(textNode);
+      }
     }
 
     // ---- Telegram-style read receipt (sender-only; DM-only) ----
@@ -8807,6 +8856,12 @@
           '</svg>' +
           '<span class="label">Data &amp; Privacy</span>' +
         '</button>' +
+        '<button type="button" class="settings-nav-item" data-section="voice-audio">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+            '<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>' +
+          '</svg>' +
+          '<span class="label">Voice &amp; Audio</span>' +
+        '</button>' +
         '<button type="button" class="settings-nav-item" data-section="account-center">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
             '<circle cx="9" cy="9" r="3.4"/><path d="M2.5 20.5a6.5 6.5 0 0 1 13 0"/><circle cx="18" cy="6.5" r="2.2"/><circle cx="18" cy="14" r="2.2"/><circle cx="18" cy="21" r="2.2"/>' +
@@ -8817,6 +8872,7 @@
         '<div data-section-panel="appearance">' + _appearanceHTML() + '</div>' +
         '<div data-section-panel="opt-preferences" hidden>' + _optPreferencesHTML() + '</div>' +
         '<div data-section-panel="data-privacy" hidden>' + _dataPrivacyHTML() + '</div>' +
+        '<div data-section-panel="voice-audio" hidden>' + _voiceAudioHTML() + '</div>' +
         '<div data-section-panel="account-center" hidden></div>';
       // Adopt the existing Account Center content (.ac-wrap) into the new
       // Settings tab panel. The element keeps its existing IDs so all
@@ -8829,6 +8885,7 @@
       _wireAppearanceTab(contentEl);
       _wireOptPreferencesTab(contentEl);
       _wireDataPrivacyTab(contentEl);
+      _wireVoiceAudioTab(contentEl);
       navEl.addEventListener("click", (e) => {
         const btn = e.target && e.target.closest ? e.target.closest(".settings-nav-item") : null;
         if (!btn) return;
@@ -8841,6 +8898,7 @@
     _syncAppearanceUI(contentEl);
     _syncOptPreferencesUI(contentEl);
     _syncDataPrivacyUI(contentEl);
+    _syncVoiceAudioUI(contentEl);
   }
   function _selectSettingsSection(section) {
     if (!settingsOverlayEl) return;
@@ -9351,6 +9409,391 @@
     }
   }
 
+  // =====================================================================
+  // Voice & Audio settings tab.
+  // Persisted per-user in localStorage at relay-voice-audio:<uid>. The
+  // settings drive (a) live mic-test in this tab via Web Audio AnalyserNode,
+  // (b) microphone constraints for voice messages (`getUserMedia` with
+  // deviceId / noiseSuppression / echoCancellation), and (c) audio output
+  // routing for received voice messages via HTMLMediaElement.setSinkId where
+  // the browser supports it.
+  // =====================================================================
+  const VOICE_AUDIO_KEY_PREFIX = "relay-voice-audio:";
+  const VOICE_AUDIO_DEFAULTS = Object.freeze({
+    inputDeviceId: "default",
+    outputDeviceId: "default",
+    inputVolume: 100,
+    inputSensitivity: 25,
+    outputVolume: 100,
+    noiseSuppression: true,
+    echoCancellation: true,
+  });
+  function _voiceAudioStorageKey() {
+    if (!me || !me.id) return null;
+    return VOICE_AUDIO_KEY_PREFIX + me.id;
+  }
+  function _voiceAudioLoad() {
+    try {
+      const k = _voiceAudioStorageKey();
+      if (!k) return Object.assign({}, VOICE_AUDIO_DEFAULTS);
+      const raw = localStorage.getItem(k);
+      if (!raw) return Object.assign({}, VOICE_AUDIO_DEFAULTS);
+      const parsed = JSON.parse(raw);
+      return Object.assign({}, VOICE_AUDIO_DEFAULTS, parsed && typeof parsed === "object" ? parsed : {});
+    } catch (_) { return Object.assign({}, VOICE_AUDIO_DEFAULTS); }
+  }
+  function _voiceAudioSave(state) {
+    try {
+      const k = _voiceAudioStorageKey();
+      if (!k) return;
+      const next = Object.assign({}, VOICE_AUDIO_DEFAULTS, state || {});
+      localStorage.setItem(k, JSON.stringify(next));
+    } catch (_) {}
+  }
+  // Public accessor — used by the voice-message recorder to apply current
+  // device + suppression settings as getUserMedia constraints.
+  function getVoiceAudioSettings() { return _voiceAudioLoad(); }
+  window.getVoiceAudioSettings = getVoiceAudioSettings;
+  function _voiceAudioHTML() {
+    return (
+      '<div class="opt-preferences-section va-section">' +
+        '<div>' +
+          '<div class="opt-intro-h">Voice &amp; Audio</div>' +
+          '<div class="opt-intro-sub">Configure microphone, output, and audio processing for voice messages.</div>' +
+        '</div>' +
+        '<div class="va-block">' +
+          '<div class="va-block-title">Input</div>' +
+          '<label class="va-row">' +
+            '<span class="va-label">Microphone</span>' +
+            '<select class="va-select" data-va-select="inputDeviceId" aria-label="Input device">' +
+              '<option value="default">Default</option>' +
+            '</select>' +
+          '</label>' +
+          '<label class="va-row">' +
+            '<span class="va-label">Input volume</span>' +
+            '<div class="va-slider-wrap"><input type="range" min="0" max="100" step="1" data-va-range="inputVolume" /><span class="va-slider-val" data-va-val="inputVolume">100</span></div>' +
+          '</label>' +
+          '<label class="va-row">' +
+            '<span class="va-label">Input sensitivity <span class="va-hint">(noise gate)</span></span>' +
+            '<div class="va-slider-wrap"><input type="range" min="0" max="100" step="1" data-va-range="inputSensitivity" /><span class="va-slider-val" data-va-val="inputSensitivity">25</span></div>' +
+          '</label>' +
+          '<div class="va-mic-test">' +
+            '<div class="va-mic-test-row">' +
+              '<button type="button" class="va-test-btn" data-va-mic-test>Let\u2019s check</button>' +
+              '<span class="va-mic-test-hint">Speak \u2014 the bar should react in real time.</span>' +
+            '</div>' +
+            '<div class="va-meter" role="meter" aria-label="Microphone input level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' +
+              '<div class="va-meter-fill" data-va-meter-fill></div>' +
+              '<div class="va-meter-gate" data-va-meter-gate></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="va-block">' +
+          '<div class="va-block-title">Output</div>' +
+          '<label class="va-row">' +
+            '<span class="va-label">Speaker</span>' +
+            '<select class="va-select" data-va-select="outputDeviceId" aria-label="Output device">' +
+              '<option value="default">Default</option>' +
+            '</select>' +
+          '</label>' +
+          '<label class="va-row">' +
+            '<span class="va-label">Output volume</span>' +
+            '<div class="va-slider-wrap"><input type="range" min="0" max="100" step="1" data-va-range="outputVolume" /><span class="va-slider-val" data-va-val="outputVolume">100</span></div>' +
+          '</label>' +
+          '<div class="va-mic-test-row">' +
+            '<button type="button" class="va-test-btn" data-va-output-test>Test sound</button>' +
+            '<span class="va-mic-test-hint">Plays a short test tone on the selected speaker.</span>' +
+          '</div>' +
+        '</div>' +
+        '<div class="va-block">' +
+          '<div class="va-block-title">Audio processing</div>' +
+          '<ul class="opt-list">' +
+            '<li class="opt-item">' +
+              '<div class="opt-item-text">' +
+                '<span class="opt-item-title">Noise suppression</span>' +
+                '<span class="opt-item-desc">Reduces background hum, fan noise, and keyboard clicks.</span>' +
+              '</div>' +
+              '<label class="opt-toggle">' +
+                '<input type="checkbox" data-va-toggle="noiseSuppression" />' +
+                '<span class="opt-toggle-track" aria-hidden="true"></span>' +
+                '<span class="opt-toggle-thumb" aria-hidden="true"></span>' +
+              '</label>' +
+            '</li>' +
+            '<li class="opt-item">' +
+              '<div class="opt-item-text">' +
+                '<span class="opt-item-title">Echo cancellation</span>' +
+                '<span class="opt-item-desc">Removes echo when using speakers instead of headphones.</span>' +
+              '</div>' +
+              '<label class="opt-toggle">' +
+                '<input type="checkbox" data-va-toggle="echoCancellation" />' +
+                '<span class="opt-toggle-track" aria-hidden="true"></span>' +
+                '<span class="opt-toggle-thumb" aria-hidden="true"></span>' +
+              '</label>' +
+            '</li>' +
+          '</ul>' +
+        '</div>' +
+        '<div class="va-perm-hint" data-va-perm-hint hidden>' +
+          'Microphone access is blocked. Click the lock icon in your browser\u2019s address bar to allow Relay to use your microphone.' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  // Cache of MediaDeviceInfo from enumerateDevices(); refreshed on devicechange
+  // and on `setupDevices` button click. Used to populate the input/output
+  // selects in the Voice & Audio tab AND the same selects in the
+  // voice-message drawer.
+  let _vaDeviceList = { input: [], output: [] };
+  let _vaDeviceListLoaded = false;
+  let _vaPermissionGranted = null; // null=unknown, true/false otherwise
+  async function _vaRefreshDeviceList() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      _vaDeviceList.input = devices.filter(d => d.kind === "audioinput");
+      _vaDeviceList.output = devices.filter(d => d.kind === "audiooutput");
+      _vaDeviceListLoaded = true;
+      // Re-paint device selects in any open settings panel.
+      const panel = document.querySelector('[data-section-panel="voice-audio"]');
+      if (panel) _vaPaintDeviceSelects(panel);
+    } catch (e) { console.warn("[VoiceAudio] enumerateDevices failed", e); }
+  }
+  function _vaPaintDeviceSelects(panel) {
+    if (!panel) return;
+    const state = _voiceAudioLoad();
+    const inputSel = panel.querySelector('select[data-va-select="inputDeviceId"]');
+    const outputSel = panel.querySelector('select[data-va-select="outputDeviceId"]');
+    if (inputSel) {
+      const cur = state.inputDeviceId || "default";
+      inputSel.innerHTML = '<option value="default">System default</option>';
+      for (const d of _vaDeviceList.input) {
+        const opt = document.createElement("option");
+        opt.value = d.deviceId;
+        opt.textContent = d.label || ("Microphone " + (d.deviceId || "").slice(0, 6));
+        inputSel.appendChild(opt);
+      }
+      // Try to restore selection
+      try { inputSel.value = cur; } catch (_) {}
+      if (inputSel.value !== cur) inputSel.value = "default";
+    }
+    if (outputSel) {
+      const cur = state.outputDeviceId || "default";
+      // setSinkId support — only show output picker if browser supports it
+      const supports = typeof HTMLMediaElement !== "undefined" && "setSinkId" in HTMLMediaElement.prototype;
+      const wrap = outputSel.closest(".va-row");
+      if (!supports && wrap) wrap.style.display = "none";
+      outputSel.innerHTML = '<option value="default">System default</option>';
+      for (const d of _vaDeviceList.output) {
+        const opt = document.createElement("option");
+        opt.value = d.deviceId;
+        opt.textContent = d.label || ("Speaker " + (d.deviceId || "").slice(0, 6));
+        outputSel.appendChild(opt);
+      }
+      try { outputSel.value = cur; } catch (_) {}
+      if (outputSel.value !== cur) outputSel.value = "default";
+    }
+  }
+
+  function _wireVoiceAudioTab(root) {
+    const panel = root.querySelector('[data-section-panel="voice-audio"]');
+    if (!panel) return;
+    // Refresh devices once on first wire; also on devicechange.
+    _vaRefreshDeviceList();
+    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+      try {
+        navigator.mediaDevices.addEventListener("devicechange", () => _vaRefreshDeviceList());
+      } catch (_) {}
+    }
+    // Persist + react on change for selects, ranges, and toggles.
+    panel.addEventListener("change", (e) => {
+      const tgt = e.target;
+      if (!tgt) return;
+      if (tgt.matches('select[data-va-select]')) {
+        const k = tgt.getAttribute("data-va-select");
+        const s = _voiceAudioLoad(); s[k] = tgt.value; _voiceAudioSave(s);
+      } else if (tgt.matches('input[data-va-toggle]')) {
+        const k = tgt.getAttribute("data-va-toggle");
+        const s = _voiceAudioLoad(); s[k] = !!tgt.checked; _voiceAudioSave(s);
+      }
+    });
+    panel.addEventListener("input", (e) => {
+      const tgt = e.target;
+      if (!tgt || !tgt.matches('input[data-va-range]')) return;
+      const k = tgt.getAttribute("data-va-range");
+      const v = parseInt(tgt.value, 10) || 0;
+      const s = _voiceAudioLoad(); s[k] = v; _voiceAudioSave(s);
+      const valEl = panel.querySelector('[data-va-val="' + k + '"]');
+      if (valEl) valEl.textContent = String(v);
+      // If the gate threshold changed, repaint the gate marker on the meter.
+      if (k === "inputSensitivity") _vaUpdateGateMarker(panel, v);
+    });
+    // Mic-test toggle.
+    const micBtn = panel.querySelector("[data-va-mic-test]");
+    if (micBtn) micBtn.addEventListener("click", () => _vaToggleMicTest(panel, micBtn));
+    // Output test tone.
+    const outBtn = panel.querySelector("[data-va-output-test]");
+    if (outBtn) outBtn.addEventListener("click", () => _vaPlayTestTone(panel));
+    _vaPaintDeviceSelects(panel);
+  }
+  function _syncVoiceAudioUI(root) {
+    const panel = root && root.querySelector ? root.querySelector('[data-section-panel="voice-audio"]') : null;
+    if (!panel) return;
+    const state = _voiceAudioLoad();
+    const ranges = panel.querySelectorAll('input[data-va-range]');
+    for (const r of ranges) {
+      const k = r.getAttribute("data-va-range");
+      const v = state[k];
+      r.value = String(v == null ? VOICE_AUDIO_DEFAULTS[k] : v);
+      const valEl = panel.querySelector('[data-va-val="' + k + '"]');
+      if (valEl) valEl.textContent = r.value;
+    }
+    const toggles = panel.querySelectorAll('input[data-va-toggle]');
+    for (const t of toggles) {
+      const k = t.getAttribute("data-va-toggle");
+      t.checked = !!state[k];
+    }
+    _vaUpdateGateMarker(panel, state.inputSensitivity);
+    _vaPaintDeviceSelects(panel);
+  }
+  function _vaUpdateGateMarker(panel, sensitivity) {
+    const gate = panel.querySelector("[data-va-meter-gate]");
+    if (!gate) return;
+    const v = Math.max(0, Math.min(100, parseInt(sensitivity, 10) || 0));
+    gate.style.left = v + "%";
+  }
+
+  // Live mic-test using AnalyserNode — Discord-style. Toggles on/off via the
+  // Let's check button. Stops automatically if the user navigates away from
+  // the Voice & Audio panel or closes Settings.
+  let _vaTestStream = null;
+  let _vaTestCtx = null;
+  let _vaTestRAF = 0;
+  let _vaTestPanel = null;
+  async function _vaToggleMicTest(panel, btn) {
+    if (_vaTestStream) { _vaStopMicTest(); btn.textContent = "Let\u2019s check"; btn.classList.remove("active"); return; }
+    btn.textContent = "Connecting\u2026";
+    btn.disabled = true;
+    try {
+      const s = _voiceAudioLoad();
+      const constraints = {
+        audio: {
+          deviceId: s.inputDeviceId && s.inputDeviceId !== "default" ? { exact: s.inputDeviceId } : undefined,
+          noiseSuppression: !!s.noiseSuppression,
+          echoCancellation: !!s.echoCancellation,
+          autoGainControl: false,
+        },
+      };
+      _vaTestStream = await navigator.mediaDevices.getUserMedia(constraints);
+      _vaPermissionGranted = true;
+      const hint = panel.querySelector("[data-va-perm-hint]");
+      if (hint) hint.hidden = true;
+      _vaTestCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = _vaTestCtx.createMediaStreamSource(_vaTestStream);
+      const an = _vaTestCtx.createAnalyser();
+      an.fftSize = 1024;
+      an.smoothingTimeConstant = 0.6;
+      src.connect(an);
+      const buf = new Uint8Array(an.fftSize);
+      const fill = panel.querySelector("[data-va-meter-fill]");
+      const meter = panel.querySelector(".va-meter");
+      _vaTestPanel = panel;
+      const tick = () => {
+        if (!_vaTestStream || !fill) return;
+        an.getByteTimeDomainData(buf);
+        // RMS over the buffer → 0..1 → percent
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) {
+          const x = (buf[i] - 128) / 128;
+          sum += x * x;
+        }
+        const rms = Math.sqrt(sum / buf.length);
+        const inputVol = (_voiceAudioLoad().inputVolume || 100) / 100;
+        const pct = Math.min(100, Math.round(rms * 220 * inputVol));
+        fill.style.width = pct + "%";
+        if (meter) meter.setAttribute("aria-valuenow", String(pct));
+        // Below sensitivity threshold = dimmer fill (visual gate).
+        const sens = _voiceAudioLoad().inputSensitivity || 0;
+        fill.classList.toggle("muted", pct < sens);
+        _vaTestRAF = requestAnimationFrame(tick);
+      };
+      _vaTestRAF = requestAnimationFrame(tick);
+      btn.textContent = "Stop";
+      btn.classList.add("active");
+    } catch (e) {
+      console.warn("[VoiceAudio] mic-test getUserMedia failed", e);
+      _vaPermissionGranted = false;
+      const hint = panel.querySelector("[data-va-perm-hint]");
+      if (hint) hint.hidden = false;
+      btn.textContent = "Let\u2019s check";
+      btn.classList.remove("active");
+    } finally { btn.disabled = false; }
+  }
+  function _vaStopMicTest() {
+    try { if (_vaTestRAF) cancelAnimationFrame(_vaTestRAF); } catch (_) {}
+    _vaTestRAF = 0;
+    try { if (_vaTestStream) for (const t of _vaTestStream.getTracks()) t.stop(); } catch (_) {}
+    _vaTestStream = null;
+    try { if (_vaTestCtx && _vaTestCtx.close) _vaTestCtx.close(); } catch (_) {}
+    _vaTestCtx = null;
+    if (_vaTestPanel) {
+      const fill = _vaTestPanel.querySelector("[data-va-meter-fill]");
+      if (fill) { fill.style.width = "0%"; fill.classList.remove("muted"); }
+      const meter = _vaTestPanel.querySelector(".va-meter");
+      if (meter) meter.setAttribute("aria-valuenow", "0");
+    }
+    _vaTestPanel = null;
+  }
+  // Stop the mic test if user closes Settings (the overlay closes) so we
+  // don't leak a hot mic in the background.
+  document.addEventListener("visibilitychange", () => { if (document.hidden) _vaStopMicTest(); });
+  function _vaPlayTestTone(panel) {
+    try {
+      const s = _voiceAudioLoad();
+      const a = new Audio();
+      // 880Hz sine for 600ms encoded as a tiny WAV data URL.
+      a.src = _vaToneDataUri(880, 0.6);
+      a.volume = Math.max(0, Math.min(1, (s.outputVolume || 100) / 100));
+      if (s.outputDeviceId && s.outputDeviceId !== "default" && a.setSinkId) {
+        try { a.setSinkId(s.outputDeviceId); } catch (_) {}
+      }
+      a.play().catch((e) => console.warn("[VoiceAudio] tone play failed", e));
+    } catch (e) { console.warn("[VoiceAudio] tone build failed", e); }
+  }
+  // Generates a small WAV file (mono, 8kHz, 16-bit) for a sine wave at the
+  // given freq (Hz) and duration (s). Returned as a data: URI suitable for
+  // <audio>.src.
+  function _vaToneDataUri(freq, durSec) {
+    const sr = 8000;
+    const n = Math.max(1, Math.floor(sr * durSec));
+    const buf = new ArrayBuffer(44 + n * 2);
+    const dv = new DataView(buf);
+    const wstr = (off, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(off + i, s.charCodeAt(i)); };
+    wstr(0, "RIFF");
+    dv.setUint32(4, 36 + n * 2, true);
+    wstr(8, "WAVE");
+    wstr(12, "fmt ");
+    dv.setUint32(16, 16, true);
+    dv.setUint16(20, 1, true);
+    dv.setUint16(22, 1, true);
+    dv.setUint32(24, sr, true);
+    dv.setUint32(28, sr * 2, true);
+    dv.setUint16(32, 2, true);
+    dv.setUint16(34, 16, true);
+    wstr(36, "data");
+    dv.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) {
+      const t = i / sr;
+      // Quick attack/release envelope so the tone doesn't click.
+      const env = Math.min(1, i / (sr * 0.02), (n - i) / (sr * 0.04));
+      const v = Math.sin(2 * Math.PI * freq * t) * 0.4 * env;
+      dv.setInt16(44 + i * 2, Math.max(-1, Math.min(1, v)) * 32767, true);
+    }
+    let s = "";
+    const u8 = new Uint8Array(buf);
+    for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
+    return "data:audio/wav;base64," + btoa(s);
+  }
+
   function openSettings() {
     if (!settingsOverlayEl) return;
     if (!me) return; // Never openable while logged out.
@@ -9366,6 +9809,12 @@
   }
   function closeSettings() {
     if (!settingsOverlayEl) return;
+    // Standalone-page flow: closing returns the user to the chat app.
+    // Don't bother removing the overlay class first — we're navigating away.
+    if (settingsOverlayEl.classList.contains("fullpage")) {
+      try { window.location.href = "/app.html"; } catch (_) { window.location.href = "app.html"; }
+      return;
+    }
     settingsOverlayEl.classList.remove("open");
     settingsOverlayEl.setAttribute("aria-hidden", "true");
     document.documentElement.style.overflow = "";
@@ -10572,6 +11021,582 @@
   try { _decorateChatList("#dm-side-body", "side"); } catch(_){}
   try { _decorateChatList("#dm-list-body", "modal"); } catch(_){}
 
+  // =====================================================================
+  // Voice messaging — drawer (slide-up) shared across all 3 composers,
+  // plus MediaRecorder-driven recording, Web Speech-API voice-to-text,
+  // and rendering of received voice messages as inline audio bubbles.
+  // Voice messages are encoded as `[[voice:<url>:<duration>]]` inside the
+  // existing `content` field so no schema change is required.
+  // =====================================================================
+  const VOICE_MARKER_RE = /^\[\[voice:(https?:\/\/[^\]]+):([\d.]+)\]\]$/;
+  function parseVoiceMarker(content) {
+    if (!content || typeof content !== "string") return null;
+    const m = content.trim().match(VOICE_MARKER_RE);
+    if (!m) return null;
+    return { url: m[1], duration: parseFloat(m[2]) || 0 };
+  }
+  // Renderer for inline voice messages. Returns true if it took over the
+  // bubble's content rendering (caller should skip plain-text rendering).
+  function renderVoiceBubble(bubble, content) {
+    const v = parseVoiceMarker(content);
+    if (!v) return false;
+    bubble.classList.add("voice-bubble");
+    const wrap = document.createElement("div");
+    wrap.className = "voice-msg";
+    const playBtn = document.createElement("button");
+    playBtn.type = "button";
+    playBtn.className = "voice-play";
+    playBtn.setAttribute("aria-label", "Play voice message");
+    playBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
+    const meter = document.createElement("div");
+    meter.className = "voice-bar";
+    const fill = document.createElement("div");
+    fill.className = "voice-bar-fill";
+    meter.appendChild(fill);
+    const dur = document.createElement("span");
+    dur.className = "voice-dur";
+    dur.textContent = formatVoiceDuration(v.duration);
+    const audio = document.createElement("audio");
+    audio.preload = "none";
+    audio.src = v.url;
+    // Apply persisted output device + volume from Voice & Audio settings.
+    try {
+      const s = (typeof getVoiceAudioSettings === "function") ? getVoiceAudioSettings() : null;
+      if (s) {
+        audio.volume = Math.max(0, Math.min(1, (s.outputVolume || 100) / 100));
+        if (s.outputDeviceId && s.outputDeviceId !== "default" && audio.setSinkId) {
+          try { audio.setSinkId(s.outputDeviceId); } catch (_) {}
+        }
+      }
+    } catch (_) {}
+    audio.addEventListener("timeupdate", () => {
+      if (!audio.duration) return;
+      const pct = Math.max(0, Math.min(100, (audio.currentTime / audio.duration) * 100));
+      fill.style.width = pct + "%";
+      dur.textContent = formatVoiceDuration(audio.currentTime) + " / " + formatVoiceDuration(audio.duration || v.duration);
+    });
+    audio.addEventListener("ended", () => {
+      playBtn.classList.remove("playing");
+      playBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
+      fill.style.width = "0%";
+      dur.textContent = formatVoiceDuration(audio.duration || v.duration);
+    });
+    playBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (audio.paused) {
+        // Pause any other voice bubbles currently playing.
+        try {
+          for (const a of document.querySelectorAll(".voice-bubble audio")) { if (a !== audio) a.pause(); }
+        } catch (_) {}
+        audio.play().then(() => {
+          playBtn.classList.add("playing");
+          playBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>';
+        }).catch((err) => console.warn("[Voice] play failed", err));
+      } else {
+        audio.pause();
+        playBtn.classList.remove("playing");
+        playBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
+      }
+    });
+    wrap.appendChild(playBtn);
+    wrap.appendChild(meter);
+    wrap.appendChild(dur);
+    wrap.appendChild(audio);
+    bubble.appendChild(wrap);
+    return true;
+  }
+  function formatVoiceDuration(secs) {
+    const s = Math.max(0, Math.floor(secs || 0));
+    const mm = Math.floor(s / 60);
+    const ss = s % 60;
+    return mm + ":" + (ss < 10 ? "0" : "") + ss;
+  }
+  // Expose so the existing render paths can call into it.
+  window.renderVoiceBubble = renderVoiceBubble;
+  window.parseVoiceMarker = parseVoiceMarker;
+  // Lastmessage previews — replace the marker with a friendly label.
+  function voiceMarkerPreview(content) {
+    const v = parseVoiceMarker(content);
+    if (!v) return null;
+    return "\uD83C\uDF99\uFE0F Voice message (" + formatVoiceDuration(v.duration) + ")";
+  }
+  window.voiceMarkerPreview = voiceMarkerPreview;
+
+  // --- Voice drawer ---------------------------------------------------------
+  const vdBackdrop  = document.getElementById("voice-drawer-backdrop");
+  const vdEl        = document.getElementById("voice-drawer");
+  const vdCloseBtn  = document.getElementById("vd-close");
+  const vdRecStatus = document.getElementById("vd-rec-status");
+  const vdRecMeter  = document.getElementById("vd-rec-meter-fill");
+  const vdRecTimer  = document.getElementById("vd-rec-timer");
+  const vdRecCancel = document.getElementById("vd-rec-cancel");
+  const vdRecToggle = document.getElementById("vd-rec-toggle");
+  const vdRecSend   = document.getElementById("vd-rec-send");
+  const vdRecPrev   = document.getElementById("vd-rec-preview");
+  const vdSttStatus = document.getElementById("vd-stt-status");
+  const vdSttOutput = document.getElementById("vd-stt-output");
+  const vdSttClear  = document.getElementById("vd-stt-clear");
+  const vdSttToggle = document.getElementById("vd-stt-toggle");
+  const vdSttInsert = document.getElementById("vd-stt-insert");
+  const vdSttHint   = document.getElementById("vd-stt-hint");
+
+  // Per-context composer wiring. Lookup the input + send button + a
+  // function to insert a fully-formed text payload (e.g. the voice marker
+  // or the STT transcript) and trigger the existing send pipeline.
+  const VOICE_CTX_MAP = {
+    main: { input: "input",          send: "send"          },
+    dm:   { input: "dm-room-input",  send: "dm-room-send"  },
+    group:{ input: "group-room-input",send: "group-room-send" },
+  };
+  function _voiceCtxAvailable(ctx) {
+    const m = VOICE_CTX_MAP[ctx];
+    if (!m) return false;
+    const inputEl = document.getElementById(m.input);
+    return !!inputEl;
+  }
+  function _voicePickActiveCtx() {
+    // Prefer the most recently visible composer.
+    if (document.getElementById("dm-room-backdrop") &&
+        document.getElementById("dm-room-backdrop").classList.contains("open")) return "dm";
+    if (document.getElementById("group-room-backdrop") &&
+        document.getElementById("group-room-backdrop").classList.contains("open")) return "group";
+    return "main";
+  }
+  function _voiceInjectAndSend(ctx, payload, opts) {
+    const m = VOICE_CTX_MAP[ctx];
+    if (!m) return false;
+    const inputEl = document.getElementById(m.input);
+    const sendBtn = document.getElementById(m.send);
+    if (!inputEl || !sendBtn) return false;
+    inputEl.value = payload;
+    try { inputEl.dispatchEvent(new Event("input", { bubbles: true })); } catch (_) {}
+    if (opts && opts.send) {
+      // Force-enable then click — many composers gate the send button on
+      // text length; setting value + dispatching input above already does.
+      try { sendBtn.disabled = false; } catch (_) {}
+      try { sendBtn.click(); } catch (_) {}
+    } else {
+      try { inputEl.focus(); } catch (_) {}
+    }
+    return true;
+  }
+
+  let _vdActiveCtx = "main";
+  let _vdMR = null;          // MediaRecorder
+  let _vdMRStream = null;    // active MediaStream (kept for stop)
+  let _vdMRChunks = [];      // received Blob chunks
+  let _vdMRStart = 0;        // performance.now() when recording started
+  let _vdMRDuration = 0;     // captured at MediaRecorder "stop" — not "send" — so review time isn't counted
+  let _vdMRBlob = null;      // Blob ready to send
+  let _vdMRAborted = false;  // user clicked Cancel — drop late dataavailable/stop events
+  let _vdMRMime = "audio/webm";
+  let _vdMRTimerHandle = 0;
+  let _vdMRMeterCtx = null;
+  let _vdMRMeterRAF = 0;
+  let _vdSttRec = null;      // SpeechRecognition instance
+  let _vdSttFinal = "";      // committed transcript
+  let _vdSttInterim = "";    // live in-progress transcript
+
+  function openVoiceDrawer(ctx) {
+    if (!vdBackdrop || !vdEl) return;
+    if (!me) return;
+    if (!_voiceCtxAvailable(ctx)) ctx = _voicePickActiveCtx();
+    _vdActiveCtx = ctx;
+    vdBackdrop.classList.add("open");
+    vdEl.classList.add("open");
+    document.body.classList.add("vd-open");
+    _vdSelectTab("record");
+    _vdResetRecorderUI();
+    _vdResetSttUI();
+    document.addEventListener("keydown", _vdKeydown);
+  }
+  function closeVoiceDrawer() {
+    if (!vdBackdrop || !vdEl) return;
+    _vdAbortRecording();
+    _vdStopStt();
+    vdBackdrop.classList.remove("open");
+    vdEl.classList.remove("open");
+    document.body.classList.remove("vd-open");
+    document.removeEventListener("keydown", _vdKeydown);
+  }
+  function _vdKeydown(e) { if (e.key === "Escape") closeVoiceDrawer(); }
+  function _vdSelectTab(name) {
+    if (!vdEl) return;
+    const tabs = vdEl.querySelectorAll(".vd-tab");
+    for (const t of tabs) {
+      const isOn = t.getAttribute("data-vd-tab") === name;
+      t.classList.toggle("active", isOn);
+      t.setAttribute("aria-selected", isOn ? "true" : "false");
+    }
+    const panes = vdEl.querySelectorAll(".vd-pane");
+    for (const p of panes) {
+      const isOn = p.getAttribute("data-vd-pane") === name;
+      p.classList.toggle("active", isOn);
+      p.hidden = !isOn;
+    }
+  }
+  if (vdEl) {
+    vdEl.addEventListener("click", (e) => {
+      const tab = e.target && e.target.closest ? e.target.closest(".vd-tab") : null;
+      if (tab) { _vdSelectTab(tab.getAttribute("data-vd-tab")); return; }
+    });
+  }
+  if (vdCloseBtn) vdCloseBtn.addEventListener("click", closeVoiceDrawer);
+  if (vdBackdrop) vdBackdrop.addEventListener("click", (e) => {
+    // Click on backdrop (not the drawer itself) closes.
+    if (e.target === vdBackdrop) closeVoiceDrawer();
+  });
+  // Composer mic-button delegated handler.
+  document.addEventListener("click", (e) => {
+    const trigger = e.target && e.target.closest ? e.target.closest("[data-voice-open]") : null;
+    if (!trigger) return;
+    e.preventDefault();
+    if (me && !myEmailVerified) {
+      try { toast("Verify your email to send messages", "warn"); } catch(_){}
+      try { updateVerifyBanner(); } catch(_){}
+      return;
+    }
+    openVoiceDrawer(trigger.getAttribute("data-voice-open"));
+  }, true);
+
+  // --- Recording state machine ---
+  function _vdResetRecorderUI() {
+    if (vdRecStatus) vdRecStatus.textContent = "Tap the mic to start recording";
+    if (vdRecTimer)  vdRecTimer.textContent = "0:00";
+    if (vdRecMeter)  vdRecMeter.style.width = "0%";
+    if (vdRecCancel) vdRecCancel.disabled = true;
+    if (vdRecSend)   vdRecSend.disabled = true;
+    if (vdRecToggle) {
+      vdRecToggle.classList.remove("recording");
+      vdRecToggle.setAttribute("aria-label", "Start recording");
+    }
+    if (vdRecPrev) { vdRecPrev.style.display = "none"; vdRecPrev.removeAttribute("src"); }
+    _vdMRBlob = null;
+  }
+  async function _vdStartRecording() {
+    if (_vdMR && _vdMR.state === "recording") return;
+    if (!navigator.mediaDevices || !window.MediaRecorder) {
+      if (vdRecStatus) vdRecStatus.textContent = "Recording isn't supported in this browser.";
+      return;
+    }
+    // Synchronously park the previous recording's state so the queued
+    // `stop` event from a just-stopped recorder can't fire DURING the
+    // upcoming await getUserMedia(...) and re-arm Send with the old
+    // Blob. Marking aborted makes the late stop handler bail; clearing
+    // the Blob + disabling Send prevents any window where a Send click
+    // would ship the previous recording.
+    if (_vdMR && _vdMR.state !== "recording") _vdMRAborted = true;
+    _vdMRBlob = null;
+    if (vdRecSend) vdRecSend.disabled = true;
+    if (vdRecPrev) { vdRecPrev.style.display = "none"; vdRecPrev.removeAttribute("src"); }
+    try {
+      const s = (typeof getVoiceAudioSettings === "function") ? getVoiceAudioSettings() : {};
+      const constraints = {
+        audio: {
+          deviceId: s.inputDeviceId && s.inputDeviceId !== "default" ? { exact: s.inputDeviceId } : undefined,
+          noiseSuppression: !!s.noiseSuppression,
+          echoCancellation: !!s.echoCancellation,
+          autoGainControl: false,
+        },
+      };
+      _vdMRStream = await navigator.mediaDevices.getUserMedia(constraints);
+      _voiceMarkPermissionGranted(true);
+      // Pick the best supported MIME (ogg/opus on Firefox, webm/opus on
+      // Chromium, mp4 on Safari). Browsers reject invalid MIMEs, so
+      // we test before constructing.
+      const candidates = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/webm", "audio/mp4", ""];
+      let chosen = "";
+      for (const c of candidates) {
+        if (!c) { chosen = ""; break; }
+        try { if (window.MediaRecorder.isTypeSupported && window.MediaRecorder.isTypeSupported(c)) { chosen = c; break; } } catch (_) {}
+      }
+      _vdMRMime = chosen || "audio/webm";
+      _vdMR = new MediaRecorder(_vdMRStream, chosen ? { mimeType: chosen } : undefined);
+      _vdMRChunks = [];
+      _vdMRAborted = false;
+      // MediaRecorder.stop() asynchronously queues `dataavailable` then
+      // `stop` events. If the user cancels mid-recording we synchronously
+      // wipe state, but those queued events still fire afterwards — and
+      // would otherwise re-populate _vdMRChunks, build a Blob, re-enable
+      // Send, and ship the recording the user just discarded. Drop late
+      // events when the abort flag is set.
+      _vdMR.addEventListener("dataavailable", (ev) => {
+        if (_vdMRAborted) return;
+        if (ev.data && ev.data.size) _vdMRChunks.push(ev.data);
+      });
+      _vdMR.addEventListener("stop", () => {
+        if (_vdMRAborted) {
+          // _vdAbortRecording already cleared state and stopped the meter;
+          // just release the underlying tracks and bail without touching UI.
+          try { if (_vdMRStream) for (const t of _vdMRStream.getTracks()) t.stop(); } catch (_) {}
+          _vdMRStream = null;
+          return;
+        }
+        // Freeze the recorded duration at stop-time — the user may then preview
+        // the clip for an arbitrary amount of time before clicking Send, and
+        // we don't want that idle review time embedded in the [[voice:...]] marker.
+        _vdMRDuration = (performance.now() - _vdMRStart) / 1000;
+        if (_vdMRChunks.length) {
+          _vdMRBlob = new Blob(_vdMRChunks, { type: _vdMRMime });
+          if (vdRecPrev) {
+            try { vdRecPrev.src = URL.createObjectURL(_vdMRBlob); vdRecPrev.style.display = "block"; } catch (_) {}
+          }
+          if (vdRecSend) vdRecSend.disabled = false;
+          if (vdRecStatus) vdRecStatus.textContent = "Recorded — preview, send, or cancel.";
+        } else {
+          if (vdRecStatus) vdRecStatus.textContent = "Recording was empty. Try again.";
+        }
+        _vdStopMRMeter();
+        try { for (const t of _vdMRStream.getTracks()) t.stop(); } catch (_) {}
+        _vdMRStream = null;
+      });
+      _vdMR.start();
+      _vdMRStart = performance.now();
+      _vdStartMRMeter(_vdMRStream);
+      if (vdRecStatus) vdRecStatus.textContent = "Recording — speak now.";
+      if (vdRecToggle) {
+        vdRecToggle.classList.add("recording");
+        vdRecToggle.setAttribute("aria-label", "Stop recording");
+      }
+      if (vdRecCancel) vdRecCancel.disabled = false;
+      if (_vdMRTimerHandle) clearInterval(_vdMRTimerHandle);
+      _vdMRTimerHandle = setInterval(() => {
+        const sec = Math.floor((performance.now() - _vdMRStart) / 1000);
+        if (vdRecTimer) vdRecTimer.textContent = formatVoiceDuration(sec);
+        // Cap at 5 minutes — same UX feel as Slack/Discord.
+        if (sec >= 300) _vdStopRecording();
+      }, 250);
+    } catch (e) {
+      console.warn("[Voice] getUserMedia failed", e);
+      _voiceMarkPermissionGranted(false);
+      if (vdRecStatus) vdRecStatus.textContent = "Microphone access is blocked. Allow microphone in your browser settings.";
+    }
+  }
+  function _vdStopRecording() {
+    if (_vdMRTimerHandle) { clearInterval(_vdMRTimerHandle); _vdMRTimerHandle = 0; }
+    if (vdRecToggle) {
+      vdRecToggle.classList.remove("recording");
+      vdRecToggle.setAttribute("aria-label", "Start recording");
+    }
+    try { if (_vdMR && _vdMR.state === "recording") _vdMR.stop(); } catch (_) {}
+  }
+  function _vdAbortRecording() {
+    if (_vdMRTimerHandle) { clearInterval(_vdMRTimerHandle); _vdMRTimerHandle = 0; }
+    // Mark BEFORE calling stop() so the queued dataavailable/stop events
+    // (which fire asynchronously per the MediaRecorder spec) drop their
+    // payloads instead of re-arming Send with the discarded recording.
+    _vdMRAborted = true;
+    try { if (_vdMR && _vdMR.state === "recording") _vdMR.stop(); } catch (_) {}
+    try { if (_vdMRStream) for (const t of _vdMRStream.getTracks()) t.stop(); } catch (_) {}
+    _vdStopMRMeter();
+    _vdMR = null; _vdMRStream = null; _vdMRChunks = []; _vdMRBlob = null;
+  }
+  function _vdStartMRMeter(stream) {
+    try {
+      _vdMRMeterCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = _vdMRMeterCtx.createMediaStreamSource(stream);
+      const an = _vdMRMeterCtx.createAnalyser();
+      an.fftSize = 1024;
+      an.smoothingTimeConstant = 0.6;
+      src.connect(an);
+      const buf = new Uint8Array(an.fftSize);
+      const tick = () => {
+        if (!_vdMRMeterCtx) return;
+        an.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) { const x = (buf[i] - 128) / 128; sum += x * x; }
+        const rms = Math.sqrt(sum / buf.length);
+        const pct = Math.min(100, Math.round(rms * 220));
+        if (vdRecMeter) vdRecMeter.style.width = pct + "%";
+        _vdMRMeterRAF = requestAnimationFrame(tick);
+      };
+      _vdMRMeterRAF = requestAnimationFrame(tick);
+    } catch (e) { console.warn("[Voice] meter failed", e); }
+  }
+  function _vdStopMRMeter() {
+    try { if (_vdMRMeterRAF) cancelAnimationFrame(_vdMRMeterRAF); } catch (_) {}
+    _vdMRMeterRAF = 0;
+    try { if (_vdMRMeterCtx && _vdMRMeterCtx.close) _vdMRMeterCtx.close(); } catch (_) {}
+    _vdMRMeterCtx = null;
+    if (vdRecMeter) vdRecMeter.style.width = "0%";
+  }
+  async function _vdSendRecording() {
+    if (!_vdMRBlob || !me) return;
+    if (vdRecSend) vdRecSend.disabled = true;
+    if (vdRecStatus) vdRecStatus.textContent = "Uploading\u2026";
+    try {
+      const ext = (_vdMRMime.indexOf("ogg") !== -1) ? "ogg"
+                : (_vdMRMime.indexOf("mp4") !== -1) ? "m4a"
+                : "webm";
+      const path = "voice/" + (me.id || "anon") + "/" + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + "." + ext;
+      // Supabase Storage matches `allowed_mime_types` by exact string, so
+      // `audio/webm;codecs=opus` (the MediaRecorder type chosen on
+      // Chrome/Firefox) does NOT match the bucket's `audio/webm` entry
+      // and the upload would 400. Strip codec params before uploading;
+      // the Blob keeps the full type for in-browser playback.
+      const uploadMime = (_vdMRMime || "audio/webm").split(";")[0].trim() || "audio/webm";
+      const { error } = await sb.storage.from("chat-images").upload(path, _vdMRBlob, {
+        cacheControl: "3600", upsert: false, contentType: uploadMime,
+      });
+      if (error) throw error;
+      const { data } = sb.storage.from("chat-images").getPublicUrl(path);
+      const url = data && data.publicUrl;
+      if (!url) throw new Error("missing public URL");
+      const dur = Math.max(1, Math.round(_vdMRDuration)) || 1;
+      const payload = "[[voice:" + url + ":" + dur + "]]";
+      const ok = _voiceInjectAndSend(_vdActiveCtx, payload, { send: true });
+      if (!ok) throw new Error("composer not available");
+      try { toast("Voice message sent", "ok"); } catch (_) {}
+      closeVoiceDrawer();
+    } catch (err) {
+      console.error("[Voice] send failed", err);
+      if (vdRecStatus) vdRecStatus.textContent = "Could not send. Try again.";
+      if (vdRecSend) vdRecSend.disabled = false;
+    }
+  }
+
+  if (vdRecToggle) vdRecToggle.addEventListener("click", () => {
+    if (_vdMR && _vdMR.state === "recording") { _vdStopRecording(); return; }
+    _vdStartRecording();
+  });
+  if (vdRecCancel) vdRecCancel.addEventListener("click", () => {
+    _vdAbortRecording(); _vdResetRecorderUI();
+  });
+  if (vdRecSend) vdRecSend.addEventListener("click", _vdSendRecording);
+
+  // --- Voice-to-text (Web Speech API) ---
+  function _vdSttSupported() {
+    return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  }
+  function _vdResetSttUI() {
+    _vdSttFinal = ""; _vdSttInterim = "";
+    if (vdSttOutput) vdSttOutput.textContent = "";
+    if (vdSttToggle) { vdSttToggle.classList.remove("active"); vdSttToggle.querySelector("span").textContent = "Start"; }
+    if (vdSttInsert) vdSttInsert.disabled = true;
+    if (vdSttStatus) {
+      vdSttStatus.textContent = _vdSttSupported()
+        ? "Tap to start \u2014 your speech will be transcribed live."
+        : "Voice-to-text isn't supported in this browser.";
+    }
+    if (vdSttHint) { vdSttHint.hidden = true; vdSttHint.textContent = ""; }
+  }
+  function _vdStartStt() {
+    if (!_vdSttSupported()) return;
+    if (_vdSttRec) return;
+    try {
+      const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const r = new Rec();
+      r.continuous = true;
+      r.interimResults = true;
+      r.lang = (navigator.language || "en-US");
+      r.onresult = (ev) => {
+        let interim = "";
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          const res = ev.results[i];
+          if (res.isFinal) _vdSttFinal += res[0].transcript;
+          else interim += res[0].transcript;
+        }
+        _vdSttInterim = interim;
+        if (vdSttOutput) {
+          // Render final (committed) + interim (italic dim).
+          vdSttOutput.innerHTML = "";
+          if (_vdSttFinal) {
+            const f = document.createElement("span"); f.textContent = _vdSttFinal;
+            vdSttOutput.appendChild(f);
+          }
+          if (_vdSttInterim) {
+            const i = document.createElement("span"); i.className = "vd-stt-interim"; i.textContent = _vdSttInterim;
+            vdSttOutput.appendChild(i);
+          }
+        }
+        if (vdSttInsert) vdSttInsert.disabled = !(_vdSttFinal || _vdSttInterim);
+      };
+      r.onerror = (ev) => {
+        console.warn("[Voice] stt error", ev);
+        if (vdSttHint) {
+          vdSttHint.hidden = false;
+          vdSttHint.textContent = ev && ev.error === "not-allowed"
+            ? "Microphone permission denied — allow Relay to use the mic."
+            : "Voice-to-text failed (" + (ev && ev.error || "unknown") + ").";
+        }
+      };
+      r.onend = () => {
+        if (_vdSttRec) {
+          if (vdSttToggle) { vdSttToggle.classList.remove("active"); vdSttToggle.querySelector("span").textContent = "Start"; }
+        }
+        _vdSttRec = null;
+      };
+      r.start();
+      _vdSttRec = r;
+      _voiceMarkPermissionGranted(true);
+      if (vdSttToggle) { vdSttToggle.classList.add("active"); vdSttToggle.querySelector("span").textContent = "Stop"; }
+      if (vdSttStatus) vdSttStatus.textContent = "Listening — speak now.";
+    } catch (e) {
+      console.warn("[Voice] stt start failed", e);
+    }
+  }
+  function _vdStopStt() {
+    try { if (_vdSttRec) _vdSttRec.stop(); } catch (_) {}
+    _vdSttRec = null;
+    if (vdSttToggle) { vdSttToggle.classList.remove("active"); vdSttToggle.querySelector("span").textContent = "Start"; }
+  }
+  if (vdSttToggle) vdSttToggle.addEventListener("click", () => {
+    if (_vdSttRec) _vdStopStt();
+    else _vdStartStt();
+  });
+  if (vdSttClear) vdSttClear.addEventListener("click", () => {
+    _vdSttFinal = ""; _vdSttInterim = "";
+    if (vdSttOutput) vdSttOutput.textContent = "";
+    if (vdSttInsert) vdSttInsert.disabled = true;
+  });
+  if (vdSttInsert) vdSttInsert.addEventListener("click", () => {
+    // Prefer the contenteditable's textContent so any manual corrections
+    // the user typed into the transcript are preserved; fall back to the
+    // raw STT state for the headless test path where vdSttOutput is empty.
+    const edited = vdSttOutput ? (vdSttOutput.textContent || "").trim() : "";
+    const text = edited || ((_vdSttFinal || "") + (_vdSttInterim || "")).trim();
+    if (!text) return;
+    _voiceInjectAndSend(_vdActiveCtx, text, { send: false });
+    closeVoiceDrawer();
+    try { toast("Inserted into composer", "ok"); } catch (_) {}
+  });
+
+  // --- Permission bootstrap ---------------------------------------------
+  // Fire a one-shot, low-friction permission prompt when the user enters
+  // the app and the browser hasn't decided yet. This is the same pattern
+  // Discord uses — getting the prompt out of the way early so the actual
+  // mic button is instant when the user goes to use it.
+  let _voicePermBootstrapped = false;
+  function _voiceMarkPermissionGranted(state) {
+    if (state === true) {
+      try { document.body.classList.add("voice-perm-ok"); document.body.classList.remove("voice-perm-denied"); } catch (_) {}
+    } else if (state === false) {
+      try { document.body.classList.add("voice-perm-denied"); document.body.classList.remove("voice-perm-ok"); } catch (_) {}
+    }
+  }
+  async function _voiceBootstrapPermission() {
+    if (_voicePermBootstrapped) return;
+    _voicePermBootstrapped = true;
+    if (!navigator || !navigator.permissions || !navigator.permissions.query) return;
+    try {
+      const status = await navigator.permissions.query({ name: "microphone" });
+      if (status.state === "granted") { _voiceMarkPermissionGranted(true); return; }
+      if (status.state === "denied")  { _voiceMarkPermissionGranted(false); return; }
+      // 'prompt' — request once, immediately stop the stream. Some browsers
+      // (Safari) block silent prompts unless tied to a user gesture; if so,
+      // we just bail and let the actual mic button trigger the prompt.
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        for (const t of stream.getTracks()) t.stop();
+        _voiceMarkPermissionGranted(true);
+      } catch (e) {
+        // Don't surface a failure here — the user simply hasn't engaged yet.
+      }
+    } catch (_) {}
+  }
+  // Bootstrap shortly after the app boots — give auth/profile-load a head start.
+  setTimeout(() => { try { _voiceBootstrapPermission(); } catch (_) {} }, 1200);
+
   // ---------- Init ----------
   applyRestrictionUI();
   updateSendDisabled();
@@ -10584,20 +11609,41 @@
   // don't re-trigger. Only runs on app.html (data-page="app").
   (function _initViewQueryHandler() {
     if (_pageMode !== "app") return;
-    let qs; let targetView = null;
-    try { qs = new URLSearchParams(window.location.search); targetView = qs.get("view"); } catch (_) {}
+    let qs; let targetView = null; let fullpage = false;
+    try {
+      qs = new URLSearchParams(window.location.search);
+      targetView = qs.get("view");
+      fullpage = qs.get("fullpage") === "1";
+    } catch (_) {}
     if (!targetView) return;
     if (targetView !== "settings" && targetView !== "account") return;
     const tryOpen = () => {
       if (!me) return false;
-      if (targetView === "settings" && typeof openSettings === "function") { openSettings(); }
+      if (targetView === "settings" && typeof openSettings === "function") {
+        if (fullpage) { try { document.body.classList.add("settings-fullpage"); } catch (_) {} }
+        openSettings();
+        if (fullpage) {
+          try {
+            const so = document.getElementById("settings-overlay");
+            if (so) so.classList.add("fullpage");
+            document.title = "Settings \u00b7 Relay";
+          } catch (_) {}
+        }
+      }
       else if (targetView === "account" && typeof openAccountCenter === "function") { openAccountCenter(); }
       else { return false; }
       try {
-        qs.delete("view");
-        const rest = qs.toString();
-        const newUrl = window.location.pathname + (rest ? ("?" + rest) : "") + window.location.hash;
-        window.history.replaceState({}, "", newUrl);
+        if (fullpage) {
+          // Pretty URL for the standalone-settings flow: leave the address bar
+          // showing /settings/ even though we ran via app.html?view=settings.
+          window.history.replaceState({ rsfp: 1 }, "", "/settings/");
+        } else {
+          qs.delete("view");
+          qs.delete("fullpage");
+          const rest = qs.toString();
+          const newUrl = window.location.pathname + (rest ? ("?" + rest) : "") + window.location.hash;
+          window.history.replaceState({}, "", newUrl);
+        }
       } catch (_) {}
       return true;
     };
