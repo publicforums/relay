@@ -4374,6 +4374,13 @@
     display: flex;
     animation: fadeIn .2s ease both;
   }
+  /* Standalone-page (`/settings/`) flow — runs the same overlay markup, but
+     the rest of the app is hidden so it visually replaces the chat view.
+     Body class is set when ?view=settings&fullpage=1 boot path runs. */
+  body.settings-fullpage #app { display: none !important; }
+  body.settings-fullpage #header-menu-btn,
+  body.settings-fullpage #header-menu-drawer { display: none !important; }
+  #settings-overlay.fullpage { animation: none; }
   .settings-sidebar {
     flex: 0 0 auto;
     width: 260px;
@@ -5407,3 +5414,454 @@
     body[data-page="onboarding"] .ob-actions { width: calc(100% - 28px); padding: 10px 12px; }
   }
 
+
+  /* ====================================================================
+     Voice & Audio settings tab + voice messaging UI.
+     ==================================================================== */
+  .va-section { gap: 22px; }
+  .va-block {
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+  }
+  .va-block-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .va-row {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+  }
+  .va-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .va-hint { color: var(--muted); font-weight: 400; }
+  .va-select {
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--text);
+    padding: 9px 32px 9px 12px;
+    font-size: 14px;
+    line-height: 1.3;
+    transition: border-color .18s ease, box-shadow .18s ease;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+      linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position:
+      calc(100% - 16px) 50%,
+      calc(100% - 11px) 50%;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+  }
+  .va-select:hover { border-color: color-mix(in srgb, var(--accent, #2873ce) 35%, var(--border)); }
+  .va-select:focus-visible {
+    outline: none;
+    border-color: var(--accent, #2873ce);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #2873ce) 22%, transparent);
+  }
+  .va-slider-wrap { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .va-slider-wrap input[type="range"] {
+    flex: 1 1 auto;
+    height: 4px;
+    appearance: none; -webkit-appearance: none;
+    background: linear-gradient(to right,
+      var(--accent, #2873ce) 0%, var(--accent, #2873ce) calc(var(--va-progress,0%) * 1),
+      color-mix(in srgb, var(--text, #000) 14%, transparent) calc(var(--va-progress,0%) * 1));
+    background: color-mix(in srgb, var(--text, #000) 14%, transparent);
+    border-radius: 999px;
+    outline: none;
+  }
+  .va-slider-wrap input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent, #2873ce);
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,.2);
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .va-slider-wrap input[type="range"]::-moz-range-thumb {
+    width: 16px; height: 16px;
+    border: none;
+    border-radius: 50%;
+    background: var(--accent, #2873ce);
+    cursor: pointer;
+  }
+  .va-slider-wrap input[type="range"]:hover::-webkit-slider-thumb,
+  .va-slider-wrap input[type="range"]:focus-visible::-webkit-slider-thumb {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent, #2873ce) 18%, transparent);
+  }
+  .va-slider-val {
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--muted);
+    min-width: 32px;
+    text-align: right;
+  }
+  .va-mic-test { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+  .va-mic-test-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .va-test-btn {
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease, color .15s ease;
+  }
+  .va-test-btn:hover { border-color: color-mix(in srgb, var(--accent, #2873ce) 45%, var(--border)); }
+  .va-test-btn.active {
+    background: var(--accent, #2873ce);
+    border-color: var(--accent, #2873ce);
+    color: #fff;
+  }
+  .va-mic-test-hint { font-size: 12.5px; color: var(--muted); }
+  .va-meter {
+    position: relative;
+    width: 100%;
+    height: 12px;
+    background: color-mix(in srgb, var(--text, #000) 8%, transparent);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .va-meter-fill {
+    position: absolute; inset: 0;
+    width: 0%;
+    background: linear-gradient(to right,
+      #1abc9c 0%,
+      #1abc9c 60%,
+      #f1c40f 80%,
+      #e74c3c 100%);
+    transition: width .06s linear;
+  }
+  .va-meter-fill.muted { opacity: 0.45; filter: grayscale(0.4); }
+  .va-meter-gate {
+    position: absolute;
+    top: -2px; bottom: -2px;
+    left: 25%;
+    width: 2px;
+    background: color-mix(in srgb, var(--text, #000) 55%, transparent);
+    border-radius: 1px;
+    pointer-events: none;
+  }
+  .va-perm-hint {
+    font-size: 13px;
+    color: #b54040;
+    background: color-mix(in srgb, #b54040 12%, var(--panel));
+    border: 1px solid color-mix(in srgb, #b54040 35%, var(--border));
+    padding: 10px 12px;
+    border-radius: 10px;
+  }
+  @media (max-width: 600px) {
+    .va-row { grid-template-columns: 1fr; gap: 6px; }
+    .va-label { font-size: 13.5px; }
+  }
+
+  /* ====================================================================
+     Composer mic button (between text input and send) — used in main,
+     DM, and group composers.
+     ==================================================================== */
+  .mic-btn {
+    flex: 0 0 auto;
+    width: 36px; height: 36px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background .14s ease, color .14s ease, transform .12s ease;
+    margin: 0 4px;
+  }
+  .mic-btn svg { width: 20px; height: 20px; }
+  .mic-btn:hover {
+    color: var(--accent, #2873ce);
+    background: color-mix(in srgb, var(--accent, #2873ce) 10%, transparent);
+  }
+  .mic-btn:active { transform: scale(0.96); }
+  .mic-btn:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent, #2873ce) 55%, transparent);
+    outline-offset: 2px;
+  }
+
+  /* ====================================================================
+     Voice drawer (slide-up). Backdrop covers the page; drawer slides up
+     from the bottom. Two tabs: Voice Recording + Voice to Text.
+     ==================================================================== */
+  #voice-drawer-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(8, 12, 24, 0.45);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+    z-index: 1500;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity .22s ease;
+  }
+  #voice-drawer-backdrop.open { display: flex; opacity: 1; }
+  #voice-drawer {
+    width: 100%;
+    max-width: 560px;
+    background: var(--panel);
+    color: var(--text);
+    border-top-left-radius: 18px;
+    border-top-right-radius: 18px;
+    border: 1px solid var(--border);
+    border-bottom: 0;
+    box-shadow: 0 -16px 48px rgba(0, 0, 0, 0.25);
+    transform: translateY(100%);
+    transition: transform .26s cubic-bezier(.2,.85,.2,1);
+    padding: 6px 16px 22px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  #voice-drawer-backdrop.open #voice-drawer { transform: translateY(0); }
+  .vd-grabber {
+    width: 42px; height: 4px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--text, #000) 22%, transparent);
+    margin: 8px auto 12px;
+  }
+  .vd-head {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .vd-tabs {
+    display: inline-flex;
+    background: color-mix(in srgb, var(--text, #000) 7%, transparent);
+    border-radius: 999px;
+    padding: 4px;
+    gap: 2px;
+  }
+  .vd-tab {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px;
+    background: transparent;
+    border: 0;
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .16s ease, color .16s ease;
+  }
+  .vd-tab svg { width: 16px; height: 16px; }
+  .vd-tab.active {
+    background: var(--panel);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .vd-close {
+    width: 32px; height: 32px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent;
+    border: 0;
+    border-radius: 999px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: background .14s ease, color .14s ease;
+  }
+  .vd-close:hover { background: color-mix(in srgb, var(--text, #000) 8%, transparent); color: var(--text); }
+  .vd-pane { display: flex; flex-direction: column; gap: 14px; padding: 4px 4px 8px; }
+  .vd-pane[hidden] { display: none; }
+  .vd-rec-status, .vd-stt-status {
+    text-align: center;
+    font-size: 13.5px;
+    color: var(--muted);
+  }
+  .vd-rec-meter {
+    width: 100%; height: 10px;
+    background: color-mix(in srgb, var(--text, #000) 8%, transparent);
+    border-radius: 999px; overflow: hidden;
+  }
+  .vd-rec-meter-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(to right, #1abc9c 0%, #1abc9c 60%, #f1c40f 80%, #e74c3c 100%);
+    transition: width .06s linear;
+  }
+  .vd-rec-timer {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .vd-rec-controls {
+    display: flex; align-items: center; justify-content: center;
+    gap: 18px;
+    padding: 6px 0;
+  }
+  .vd-rec-toggle, .vd-rec-cancel, .vd-rec-send {
+    width: 56px; height: 56px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    border: 0;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease, transform .15s ease, box-shadow .15s ease;
+  }
+  .vd-rec-toggle {
+    width: 72px; height: 72px;
+    background: var(--accent, #2873ce);
+    color: #fff;
+    box-shadow: 0 8px 18px color-mix(in srgb, var(--accent, #2873ce) 35%, transparent);
+  }
+  .vd-rec-toggle:hover { transform: translateY(-1px); }
+  .vd-rec-toggle .vd-rec-stop { display: none; }
+  .vd-rec-toggle.recording { background: #e74c3c; box-shadow: 0 8px 18px rgba(231, 76, 60, 0.45); animation: vd-pulse 1.4s ease-in-out infinite; }
+  .vd-rec-toggle.recording .vd-rec-mic { display: none; }
+  .vd-rec-toggle.recording .vd-rec-stop { display: block; }
+  .vd-rec-toggle svg { width: 30px; height: 30px; }
+  @keyframes vd-pulse {
+    0%,100% { box-shadow: 0 8px 18px rgba(231, 76, 60, 0.45); }
+    50%     { box-shadow: 0 8px 24px rgba(231, 76, 60, 0.7); }
+  }
+  .vd-rec-cancel, .vd-rec-send {
+    background: color-mix(in srgb, var(--text, #000) 7%, transparent);
+    color: var(--text);
+  }
+  .vd-rec-cancel svg, .vd-rec-send svg { width: 22px; height: 22px; }
+  .vd-rec-cancel:disabled, .vd-rec-send:disabled { opacity: 0.4; cursor: default; }
+  .vd-rec-send:not(:disabled) {
+    background: var(--accent, #2873ce);
+    color: #fff;
+  }
+  #vd-rec-preview {
+    width: 100%;
+  }
+  .vd-stt-output {
+    min-height: 90px;
+    max-height: 180px;
+    overflow-y: auto;
+    padding: 12px;
+    font-size: 14.5px;
+    line-height: 1.5;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+  }
+  .vd-stt-output:empty::before {
+    content: "Your transcript will appear here…";
+    color: var(--muted);
+    font-style: italic;
+  }
+  .vd-stt-interim { color: var(--muted); font-style: italic; }
+  .vd-stt-controls {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  .vd-stt-clear, .vd-stt-toggle, .vd-stt-insert {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .14s ease, color .14s ease, border-color .14s ease;
+  }
+  .vd-stt-clear:hover, .vd-stt-toggle:hover, .vd-stt-insert:hover {
+    border-color: color-mix(in srgb, var(--accent, #2873ce) 45%, var(--border));
+  }
+  .vd-stt-toggle svg, .vd-stt-insert svg { width: 16px; height: 16px; }
+  .vd-stt-toggle.active {
+    background: #e74c3c;
+    border-color: #e74c3c;
+    color: #fff;
+  }
+  .vd-stt-insert:not(:disabled) {
+    background: var(--accent, #2873ce);
+    border-color: var(--accent, #2873ce);
+    color: #fff;
+  }
+  .vd-stt-insert:disabled { opacity: 0.45; cursor: default; }
+  .vd-stt-hint {
+    font-size: 13px;
+    color: #b54040;
+    background: color-mix(in srgb, #b54040 12%, var(--panel));
+    border: 1px solid color-mix(in srgb, #b54040 35%, var(--border));
+    padding: 8px 12px;
+    border-radius: 10px;
+  }
+  @media (max-width: 600px) {
+    #voice-drawer { padding-bottom: max(22px, env(safe-area-inset-bottom)); }
+    .vd-tab span { display: none; }
+    .vd-tab svg { width: 18px; height: 18px; }
+  }
+
+  /* ====================================================================
+     Inline voice-message bubbles (rendered when m.content matches the
+     [[voice:URL:DUR]] marker).
+     ==================================================================== */
+  .voice-bubble .voice-msg {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    min-width: 200px;
+    max-width: 320px;
+  }
+  .voice-bubble .voice-play {
+    width: 36px; height: 36px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 0; border-radius: 50%;
+    background: var(--accent, #2873ce);
+    color: #fff;
+    cursor: pointer;
+    flex: 0 0 auto;
+    transition: transform .12s ease;
+  }
+  .voice-bubble .voice-play:hover { transform: scale(1.05); }
+  .voice-bubble .voice-play svg { width: 16px; height: 16px; }
+  .voice-bubble .voice-bar {
+    flex: 1 1 auto;
+    height: 4px;
+    background: color-mix(in srgb, var(--text, #000) 18%, transparent);
+    border-radius: 999px;
+    position: relative;
+    min-width: 60px;
+  }
+  .voice-bubble .voice-bar-fill {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    width: 0%;
+    background: var(--accent, #2873ce);
+    border-radius: 999px;
+  }
+  .voice-bubble .voice-dur {
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    color: var(--muted);
+    flex: 0 0 auto;
+  }
+  .bubble.is-me.voice-bubble .voice-play {
+    background: rgba(255,255,255,.22);
+    color: #fff;
+  }
+  .bubble.is-me.voice-bubble .voice-bar-fill { background: rgba(255,255,255,.95); }
+  .bubble.is-me.voice-bubble .voice-bar { background: rgba(255,255,255,.28); }
+  .bubble.is-me.voice-bubble .voice-dur { color: rgba(255,255,255,.85); }
