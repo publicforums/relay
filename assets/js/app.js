@@ -11188,6 +11188,7 @@
   let _vdMRStart = 0;        // performance.now() when recording started
   let _vdMRDuration = 0;     // captured at MediaRecorder "stop" — not "send" — so review time isn't counted
   let _vdMRBlob = null;      // Blob ready to send
+  let _vdMRAborted = false;  // user clicked Cancel — drop late dataavailable/stop events
   let _vdMRMime = "audio/webm";
   let _vdMRTimerHandle = 0;
   let _vdMRMeterCtx = null;
@@ -11302,8 +11303,25 @@
       _vdMRMime = chosen || "audio/webm";
       _vdMR = new MediaRecorder(_vdMRStream, chosen ? { mimeType: chosen } : undefined);
       _vdMRChunks = [];
-      _vdMR.addEventListener("dataavailable", (ev) => { if (ev.data && ev.data.size) _vdMRChunks.push(ev.data); });
+      _vdMRAborted = false;
+      // MediaRecorder.stop() asynchronously queues `dataavailable` then
+      // `stop` events. If the user cancels mid-recording we synchronously
+      // wipe state, but those queued events still fire afterwards — and
+      // would otherwise re-populate _vdMRChunks, build a Blob, re-enable
+      // Send, and ship the recording the user just discarded. Drop late
+      // events when the abort flag is set.
+      _vdMR.addEventListener("dataavailable", (ev) => {
+        if (_vdMRAborted) return;
+        if (ev.data && ev.data.size) _vdMRChunks.push(ev.data);
+      });
       _vdMR.addEventListener("stop", () => {
+        if (_vdMRAborted) {
+          // _vdAbortRecording already cleared state and stopped the meter;
+          // just release the underlying tracks and bail without touching UI.
+          try { if (_vdMRStream) for (const t of _vdMRStream.getTracks()) t.stop(); } catch (_) {}
+          _vdMRStream = null;
+          return;
+        }
         // Freeze the recorded duration at stop-time — the user may then preview
         // the clip for an arbitrary amount of time before clicking Send, and
         // we don't want that idle review time embedded in the [[voice:...]] marker.
@@ -11354,6 +11372,10 @@
   }
   function _vdAbortRecording() {
     if (_vdMRTimerHandle) { clearInterval(_vdMRTimerHandle); _vdMRTimerHandle = 0; }
+    // Mark BEFORE calling stop() so the queued dataavailable/stop events
+    // (which fire asynchronously per the MediaRecorder spec) drop their
+    // payloads instead of re-arming Send with the discarded recording.
+    _vdMRAborted = true;
     try { if (_vdMR && _vdMR.state === "recording") _vdMR.stop(); } catch (_) {}
     try { if (_vdMRStream) for (const t of _vdMRStream.getTracks()) t.stop(); } catch (_) {}
     _vdStopMRMeter();
@@ -11518,7 +11540,11 @@
     if (vdSttInsert) vdSttInsert.disabled = true;
   });
   if (vdSttInsert) vdSttInsert.addEventListener("click", () => {
-    const text = ((_vdSttFinal || "") + (_vdSttInterim || "")).trim();
+    // Prefer the contenteditable's textContent so any manual corrections
+    // the user typed into the transcript are preserved; fall back to the
+    // raw STT state for the headless test path where vdSttOutput is empty.
+    const edited = vdSttOutput ? (vdSttOutput.textContent || "").trim() : "";
+    const text = edited || ((_vdSttFinal || "") + (_vdSttInterim || "")).trim();
     if (!text) return;
     _voiceInjectAndSend(_vdActiveCtx, text, { send: false });
     closeVoiceDrawer();
