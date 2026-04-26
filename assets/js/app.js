@@ -11279,6 +11279,16 @@
       if (vdRecStatus) vdRecStatus.textContent = "Recording isn't supported in this browser.";
       return;
     }
+    // Synchronously park the previous recording's state so the queued
+    // `stop` event from a just-stopped recorder can't fire DURING the
+    // upcoming await getUserMedia(...) and re-arm Send with the old
+    // Blob. Marking aborted makes the late stop handler bail; clearing
+    // the Blob + disabling Send prevents any window where a Send click
+    // would ship the previous recording.
+    if (_vdMR && _vdMR.state !== "recording") _vdMRAborted = true;
+    _vdMRBlob = null;
+    if (vdRecSend) vdRecSend.disabled = true;
+    if (vdRecPrev) { vdRecPrev.style.display = "none"; vdRecPrev.removeAttribute("src"); }
     try {
       const s = (typeof getVoiceAudioSettings === "function") ? getVoiceAudioSettings() : {};
       const constraints = {
