@@ -11306,7 +11306,7 @@
         vdRecToggle.setAttribute("aria-label", "Stop recording");
       }
       if (vdRecCancel) vdRecCancel.disabled = false;
-      if (vdRecTimerHandle) clearInterval(_vdMRTimerHandle);
+      if (_vdMRTimerHandle) clearInterval(_vdMRTimerHandle);
       _vdMRTimerHandle = setInterval(() => {
         const sec = Math.floor((performance.now() - _vdMRStart) / 1000);
         if (vdRecTimer) vdRecTimer.textContent = formatVoiceDuration(sec);
