@@ -392,6 +392,15 @@
     /\b[a-z0-9-]+\.(com|net|org|io|gg|xyz|app|dev|co|me|info|biz|tv|link|site|online|shop|store|club|pro|live|fun|ly)\b/i
   ];
   const hasLink = (s) => LINK_REGEXES.some(rx => rx.test(s));
+  // Voice messages are encoded as `[[voice:<url>:<duration>]]` inside the
+  // existing `content` column. They contain a `https://...` URL by design
+  // (the storage object's public URL), so the link-detection that protects
+  // public chat from arbitrary URLs would otherwise flag every voice send
+  // and trigger the 5-hour restriction. Use a strict whole-string match so
+  // arbitrary user text wrapped in marker-looking syntax can't bypass the
+  // gate.
+  const VOICE_MARKER_BYPASS_RE = /^\[\[voice:https?:\/\/[^\]]+:[\d.]+\]\]$/;
+  const isVoiceMarkerContent = (s) => VOICE_MARKER_BYPASS_RE.test((s || "").trim());
   function hasExcessiveSpacing(s) {
     if (/\s{6,}/.test(s)) return true;
     for (const l of s.split(/\r?\n/)) if (l.length > 0 && /^\s+$/.test(l)) return true;
@@ -3739,8 +3748,8 @@
 
     if (!text && !hasPendingImage) { toast("Type a message first", "warn", 1200); return; }
     if (rawText.length > 0 && !text) { toast("Whitespace-only messages aren't allowed", "warn"); return; }
-    if (text && hasExcessiveSpacing(text)) { toast("Excessive spacing not allowed", "warn"); return; }
-    if (text && hasLink(text)) {
+    if (text && !isVoiceMarkerContent(text) && hasExcessiveSpacing(text)) { toast("Excessive spacing not allowed", "warn"); return; }
+    if (text && !isVoiceMarkerContent(text) && hasLink(text)) {
       setRestriction();
       toast("Links aren't allowed. Messaging disabled for 5 hours.", "error", 3500);
       console.warn("[Security] Link detected — restriction applied");
