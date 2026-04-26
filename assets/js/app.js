@@ -11175,6 +11175,7 @@
   let _vdMRStream = null;    // active MediaStream (kept for stop)
   let _vdMRChunks = [];      // received Blob chunks
   let _vdMRStart = 0;        // performance.now() when recording started
+  let _vdMRDuration = 0;     // captured at MediaRecorder "stop" — not "send" — so review time isn't counted
   let _vdMRBlob = null;      // Blob ready to send
   let _vdMRMime = "audio/webm";
   let _vdMRTimerHandle = 0;
@@ -11292,6 +11293,10 @@
       _vdMRChunks = [];
       _vdMR.addEventListener("dataavailable", (ev) => { if (ev.data && ev.data.size) _vdMRChunks.push(ev.data); });
       _vdMR.addEventListener("stop", () => {
+        // Freeze the recorded duration at stop-time — the user may then preview
+        // the clip for an arbitrary amount of time before clicking Send, and
+        // we don't want that idle review time embedded in the [[voice:...]] marker.
+        _vdMRDuration = (performance.now() - _vdMRStart) / 1000;
         if (_vdMRChunks.length) {
           _vdMRBlob = new Blob(_vdMRChunks, { type: _vdMRMime });
           if (vdRecPrev) {
@@ -11388,7 +11393,7 @@
       const { data } = sb.storage.from("chat-images").getPublicUrl(path);
       const url = data && data.publicUrl;
       if (!url) throw new Error("missing public URL");
-      const dur = Math.max(1, Math.round((performance.now() - _vdMRStart) / 1000)) || 1;
+      const dur = Math.max(1, Math.round(_vdMRDuration)) || 1;
       const payload = "[[voice:" + url + ":" + dur + "]]";
       const ok = _voiceInjectAndSend(_vdActiveCtx, payload, { send: true });
       if (!ok) throw new Error("composer not available");
