@@ -396,10 +396,21 @@
   // existing `content` column. They contain a `https://...` URL by design
   // (the storage object's public URL), so the link-detection that protects
   // public chat from arbitrary URLs would otherwise flag every voice send
-  // and trigger the 5-hour restriction. Use a strict whole-string match so
-  // arbitrary user text wrapped in marker-looking syntax can't bypass the
-  // gate.
-  const VOICE_MARKER_BYPASS_RE = /^\[\[voice:https?:\/\/[^\]]+:[\d.]+\]\]$/;
+  // and trigger the 5-hour restriction. Bypass that gate ONLY when the
+  // marker's URL points at our own Supabase Storage public URL for the
+  // chat-images bucket's `voice/` prefix — otherwise an attacker could
+  // type `[[voice:https://malicious.example/x:1]]` into the input box and
+  // smuggle an arbitrary URL into public chat (which the renderer would
+  // then expose as an <audio src=...> the victim's browser fetches on
+  // play). Anchored, escapes regex-special chars in the URL prefix.
+  const _VOICE_TRUSTED_PREFIX =
+    SUPABASE_URL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
+    "\\/storage\\/v1\\/object\\/public\\/" +
+    STORAGE_BUCKET.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
+    "\\/voice\\/";
+  const VOICE_MARKER_BYPASS_RE = new RegExp(
+    "^\\[\\[voice:" + _VOICE_TRUSTED_PREFIX + "[^\\]]+:[\\d.]+\\]\\]$"
+  );
   const isVoiceMarkerContent = (s) => VOICE_MARKER_BYPASS_RE.test((s || "").trim());
   function hasExcessiveSpacing(s) {
     if (/\s{6,}/.test(s)) return true;
@@ -11386,8 +11397,14 @@
                 : (_vdMRMime.indexOf("mp4") !== -1) ? "m4a"
                 : "webm";
       const path = "voice/" + (me.id || "anon") + "/" + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + "." + ext;
+      // Supabase Storage matches `allowed_mime_types` by exact string, so
+      // `audio/webm;codecs=opus` (the MediaRecorder type chosen on
+      // Chrome/Firefox) does NOT match the bucket's `audio/webm` entry
+      // and the upload would 400. Strip codec params before uploading;
+      // the Blob keeps the full type for in-browser playback.
+      const uploadMime = (_vdMRMime || "audio/webm").split(";")[0].trim() || "audio/webm";
       const { error } = await sb.storage.from("chat-images").upload(path, _vdMRBlob, {
-        cacheControl: "3600", upsert: false, contentType: _vdMRMime,
+        cacheControl: "3600", upsert: false, contentType: uploadMime,
       });
       if (error) throw error;
       const { data } = sb.storage.from("chat-images").getPublicUrl(path);
