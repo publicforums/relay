@@ -352,6 +352,9 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
     </button>
     <div class="profile-banner" id="profile-banner"></div>
+    <button class="profile-friend-indicator" id="profile-friend-indicator" type="button" aria-label="Remove friend" title="Remove friend" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
+    </button>
     <div class="profile-banner-actions">
       <button class="edit-icon" id="profile-edit" type="button" aria-label="Edit profile" title="Edit profile">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
@@ -391,6 +394,14 @@
             <line x1="16" y1="11" x2="22" y2="11"/>
           </svg>
           <span id="profile-add-friend-label">Add Friend</span>
+        </button>
+        <button class="pa-btn" id="profile-voice-call" type="button" aria-label="Voice call" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.72 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.59 2.81.72A2 2 0 0 1 22 16.92z"/></svg>
+          <span>Voice Call</span>
+        </button>
+        <button class="pa-btn" id="profile-video-call" type="button" aria-label="Video call" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+          <span>Video Call</span>
         </button>
       </div>
       <div class="profile-section" id="profile-bio-section">
@@ -630,6 +641,14 @@
         <img id="dm-room-avatar" alt="" />
         <span class="dm-peer-name" id="dm-room-name"></span>
       </button>
+      <div class="dm-call-actions" id="dm-call-actions" hidden>
+        <button class="dm-call-btn" id="dm-room-voice-call" type="button" aria-label="Voice call" title="Voice call">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.72 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.59 2.81.72A2 2 0 0 1 22 16.92z"/></svg>
+        </button>
+        <button class="dm-call-btn" id="dm-room-video-call" type="button" aria-label="Video call" title="Video call">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        </button>
+      </div>
     </div>
     <div class="dm-request-bar" id="dm-request-bar" hidden>
       <div class="drb-text" id="dm-request-text">Accept this message request to reply.</div>
@@ -879,13 +898,13 @@
 <!-- Remove-friend confirm dialog -->
 <div class="modal-backdrop" id="confirm-remove-friend-backdrop" role="dialog" aria-modal="true" aria-label="Remove friend">
   <div class="modal confirm-modal" id="confirm-remove-friend-modal">
-    <div class="confirm-head">Remove friend?</div>
+    <div class="confirm-head">Remove <span id="confirm-remove-friend-head-name">@username</span>?</div>
     <div class="confirm-body">
-      Are you sure you want to remove <strong id="confirm-remove-friend-name">this person</strong> from your friends?
+      Are you sure you want to remove <strong id="confirm-remove-friend-name">this person</strong> as a friend?
     </div>
     <div class="confirm-foot">
-      <button type="button" class="confirm-btn cancel" id="confirm-remove-friend-cancel">Cancel</button>
-      <button type="button" class="confirm-btn danger" id="confirm-remove-friend-ok">Remove</button>
+      <button type="button" class="confirm-btn cancel" id="confirm-remove-friend-cancel">Must&rsquo;ve been a mistake!</button>
+      <button type="button" class="confirm-btn danger" id="confirm-remove-friend-ok">Remove Friend</button>
     </div>
   </div>
 </div>
@@ -1312,6 +1331,53 @@
       </button>
     </div>
     <div class="verify-modal-status" id="verify-modal-status" role="status" aria-live="polite"></div>
+  </div>
+</div>
+
+<!-- Voice / Video call overlay (Discord-style full-screen) -->
+<div class="call-overlay" id="call-overlay" role="dialog" aria-modal="true" aria-label="Call" hidden>
+  <div class="call-stage" id="call-stage">
+    <video class="call-remote-video" id="call-remote-video" autoplay playsinline></video>
+    <div class="call-remote-info" id="call-remote-info">
+      <div class="call-avatar-wrap">
+        <img class="call-remote-avatar" id="call-remote-avatar" alt="" />
+      </div>
+      <div class="call-remote-name" id="call-remote-name"></div>
+      <div class="call-state-text" id="call-state-text">Ringing&hellip;</div>
+    </div>
+    <video class="call-local-video" id="call-local-video" autoplay playsinline muted></video>
+    <audio class="call-remote-audio" id="call-remote-audio" autoplay></audio>
+  </div>
+  <div class="call-controls" id="call-controls">
+    <button class="call-ctrl call-mic" id="call-btn-mute" type="button" aria-label="Mute microphone" title="Mute microphone">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+    </button>
+    <button class="call-ctrl call-cam" id="call-btn-camera" type="button" aria-label="Toggle camera" title="Toggle camera" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+    </button>
+    <button class="call-ctrl call-end" id="call-btn-end" type="button" aria-label="End call" title="End call">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.72 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.59 2.81.72A2 2 0 0 1 22 16.92z"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+    </button>
+    <button class="call-ctrl call-accept" id="call-btn-accept" type="button" aria-label="Accept call" title="Accept call" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.72 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.59 2.81.72A2 2 0 0 1 22 16.92z"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- Incoming call ringer banner (small, above all modals) -->
+<div class="incoming-call" id="incoming-call" hidden>
+  <img class="ic-avatar" id="incoming-call-avatar" alt="" />
+  <div class="ic-text">
+    <div class="ic-name" id="incoming-call-name"></div>
+    <div class="ic-kind" id="incoming-call-kind">Incoming voice call</div>
+  </div>
+  <div class="ic-actions">
+    <button class="ic-btn ic-decline" id="incoming-call-decline" type="button" aria-label="Decline">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+    </button>
+    <button class="ic-btn ic-accept" id="incoming-call-accept" type="button" aria-label="Accept">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.37 1.9.72 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.59 2.81.72A2 2 0 0 1 22 16.92z"/></svg>
+    </button>
   </div>
 </div>
 
