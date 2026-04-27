@@ -6076,6 +6076,100 @@
   .incoming-call .ic-decline { background: #d83a3a; }
   .incoming-call .ic-decline:hover { filter: brightness(1.08); }
 
+  /* ---------- Minimize button on call overlay ---------- */
+  .call-overlay .call-btn-minimize {
+    position: absolute; top: 14px; left: 14px;
+    z-index: 4;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.45);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: #fff;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background .15s ease, transform .08s ease;
+    padding: 0;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .call-overlay .call-btn-minimize:hover { background: rgba(0,0,0,0.6); }
+  .call-overlay .call-btn-minimize:active { transform: scale(0.94); }
+  .call-overlay .call-btn-minimize svg { width: 18px; height: 18px; }
+
+  /* ---------- Floating call widget (minimized call view) ---------- */
+  .call-widget {
+    position: fixed;
+    right: 16px; bottom: 16px;
+    z-index: 9050; /* above chat surfaces, below incoming-call (9100) */
+    display: inline-flex; align-items: center; gap: 10px;
+    width: 240px;
+    padding: 10px 12px;
+    background: var(--panel, #1c1e25);
+    color: var(--text, #fff);
+    border: 1px solid var(--border, rgba(255,255,255,0.12));
+    border-radius: 14px;
+    box-shadow: 0 14px 30px rgba(0,0,0,0.45);
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    opacity: 0;
+    transform: scale(0.92) translateY(8px);
+    transition: opacity .18s ease, transform .18s ease;
+  }
+  .call-widget[hidden] { display: none; }
+  .call-widget.open { opacity: 1; transform: none; }
+  .call-widget.dragging { cursor: grabbing; transition: none; }
+  .call-widget .cw-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    object-fit: cover; background: rgba(255,255,255,0.08);
+    flex-shrink: 0; pointer-events: none;
+  }
+  .call-widget .cw-info {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; gap: 1px;
+    pointer-events: none;
+  }
+  .call-widget .cw-name {
+    font-size: 13px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .call-widget .cw-state {
+    font-size: 11px; opacity: 0.72;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .call-widget[data-call-state="ringing"] .cw-state {
+    animation: relay-pulse 1.4s ease-in-out infinite;
+  }
+  .call-widget .cw-controls {
+    display: inline-flex; gap: 4px;
+    flex-shrink: 0;
+  }
+  .call-widget .cw-btn {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.10);
+    color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    transition: background .15s ease, transform .08s ease;
+  }
+  .call-widget .cw-btn:hover { background: rgba(255,255,255,0.18); }
+  .call-widget .cw-btn:active { transform: scale(0.94); }
+  .call-widget .cw-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .call-widget .cw-btn svg { width: 14px; height: 14px; }
+  .call-widget .cw-mute .cw-icon-mic-off { display: none; }
+  .call-widget .cw-mute.muted .cw-icon-mic { display: none; }
+  .call-widget .cw-mute.muted .cw-icon-mic-off { display: inline-block; color: #ff7676; }
+  .call-widget .cw-mute.muted {
+    background: rgba(255, 90, 90, 0.18);
+    border-color: rgba(255, 90, 90, 0.35);
+  }
+  .call-widget .cw-end { background: #d83a3a; border-color: #d83a3a; }
+  .call-widget .cw-end:hover { background: #b62929; border-color: #b62929; }
+
   /* ---------- Mobile responsiveness ---------- */
   @media (max-width: 480px) {
     .call-overlay .call-local-video { width: 110px; height: 70px; bottom: 12px; right: 12px; }
@@ -6083,4 +6177,7 @@
     .call-overlay .call-ctrl svg { width: 20px; height: 20px; }
     .call-overlay .call-remote-name { font-size: 18px; }
     .incoming-call { left: 12px; right: 12px; max-width: none; }
+    .call-widget { right: 10px; bottom: 10px; width: auto; max-width: calc(100vw - 20px); }
+    .call-widget .cw-btn { width: 34px; height: 34px; }
+    .call-widget .cw-btn svg { width: 16px; height: 16px; }
   }
