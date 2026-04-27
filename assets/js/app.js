@@ -12055,6 +12055,16 @@
         }
       } catch (_) { return; }
 
+      // Re-check the busy condition after the async friend lookup. A second
+      // offer arriving during the await window would have passed the
+      // synchronous guard above, so without this re-check we'd silently
+      // overwrite pendingIncoming and the first caller would hang for the
+      // full 35s ring timeout with no busy signal.
+      if (call || pendingIncoming) {
+        sendTo(payload.from, "call:busy", { callId: payload.callId, from: me.id });
+        return;
+      }
+
       pendingIncoming = {
         id: payload.callId, peerId: payload.from,
         peerName: payload.fromName || "User", peerAvatar: payload.fromAvatar || "",
@@ -12078,18 +12088,34 @@
       showOverlay(inc.kind);
       setState("connecting", "Connecting\u2026");
 
+      // If a call:cancel arrives mid-await we'd run cleanup() (which nulls
+      // call/pc/localStream) but the still-pending await would then resume
+      // and overwrite the freshly-nulled state with a brand new mic/cam
+      // stream and RTCPeerConnection — leaking the device with no UI to
+      // stop it. After every await we re-check that `call.id` still matches
+      // this acceptance attempt and bail (cleaning up any newly-acquired
+      // resources) if not.
+      let stream;
       try {
-        localStream = await getLocalStream(inc.kind);
+        stream = await getLocalStream(inc.kind);
       } catch (err) {
         toast(permErrToText(err), "error");
         sendTo(inc.peerId, "call:decline", { callId: inc.id, from: me.id, reason: "no-permission" });
         cleanup({ silent: true });
         return;
       }
+      if (!call || call.id !== inc.id) {
+        // Cancelled during getUserMedia — stop the orphan stream we just
+        // acquired before returning so the mic/cam light goes off.
+        try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+        return;
+      }
+      localStream = stream;
       pc = buildPeer(inc.kind);
       try { localStream.getTracks().forEach(t => pc.addTrack(t, localStream)); } catch (_) {}
       try {
         await pc.setRemoteDescription(inc.sdp);
+        if (!call || call.id !== inc.id) { try { pc.close(); } catch (_) {} pc = null; try { localStream.getTracks().forEach(t => t.stop()); } catch (_) {} localStream = null; return; }
         // Flush any caller-trickled ICE candidates that arrived while the
         // ring banner was up but before pc existed.
         if (pendingIce.length) {
@@ -12099,7 +12125,9 @@
           pendingIce = [];
         }
         const answer = await pc.createAnswer();
+        if (!call || call.id !== inc.id) { try { pc.close(); } catch (_) {} pc = null; try { localStream.getTracks().forEach(t => t.stop()); } catch (_) {} localStream = null; return; }
         await pc.setLocalDescription(answer);
+        if (!call || call.id !== inc.id) { try { pc.close(); } catch (_) {} pc = null; try { localStream.getTracks().forEach(t => t.stop()); } catch (_) {} localStream = null; return; }
         sendTo(inc.peerId, "call:answer", {
           callId: inc.id, from: me.id,
           sdp: { type: answer.type, sdp: answer.sdp }
