@@ -11922,7 +11922,12 @@
         if (!raw) return out;
         const j = JSON.parse(raw);
         if (j) {
-          if (j.inputDeviceId) out.audio.deviceId = { exact: j.inputDeviceId };
+          // Skip the synthetic "default" sentinel — it is not a real deviceId
+          // on every browser. Firefox throws OverconstrainedError when given
+          // { exact: "default" }, which would block the call from starting.
+          if (j.inputDeviceId && j.inputDeviceId !== "default") {
+            out.audio.deviceId = { exact: j.inputDeviceId };
+          }
           if (typeof j.echoCancellation === "boolean") out.audio.echoCancellation = j.echoCancellation;
           if (typeof j.noiseSuppression === "boolean") out.audio.noiseSuppression = j.noiseSuppression;
         }
@@ -12185,7 +12190,12 @@
     }
     function onDecline(payload) {
       if (!payload || !call || call.id !== payload.callId) return;
-      toast(payload.reason === "not-friends" ? "Call declined." : "Call declined.", "warn", 1600);
+      const msg = payload.reason === "not-friends"
+        ? "You can only call friends."
+        : payload.reason === "no-permission"
+          ? "They couldn't access their mic/camera."
+          : "Call declined.";
+      toast(msg, "warn", 1600);
       cleanup();
     }
     function onBusy(payload) {
