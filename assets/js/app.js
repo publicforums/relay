@@ -2297,6 +2297,7 @@
       await loadHistory();
       subscribeRealtime();
       initDmSidePanel();
+      try { if (typeof Calls !== "undefined" && Calls && typeof Calls.resubscribe === "function") Calls.resubscribe(); } catch (_) {}
       if (typeof initGroups === "function") initGroups();
       inputEl.focus();
       return;
@@ -2312,6 +2313,7 @@
           await loadHistory();
           subscribeRealtime();
           initDmSidePanel();
+          try { if (typeof Calls !== "undefined" && Calls && typeof Calls.resubscribe === "function") Calls.resubscribe(); } catch (_) {}
           if (typeof initGroups === "function") initGroups();
           inputEl.focus();
           return;
@@ -2610,6 +2612,7 @@
       await loadHistory();
       subscribeRealtime();
       initDmSidePanel();
+      try { if (typeof Calls !== "undefined" && Calls && typeof Calls.resubscribe === "function") Calls.resubscribe(); } catch (_) {}
       if (typeof initGroups === "function") initGroups();
       inputEl.focus();
     } finally {
@@ -3023,6 +3026,7 @@
         await loadHistory();
         subscribeRealtime();
         initDmSidePanel();
+        try { if (typeof Calls !== "undefined" && Calls && typeof Calls.resubscribe === "function") Calls.resubscribe(); } catch (_) {}
         if (typeof initGroups === "function") initGroups();
         inputEl.focus();
         return;
@@ -3382,6 +3386,7 @@
         try { loadHistory(); } catch(_) {}
         try { subscribeRealtime(); } catch(_) {}
         try { initDmSidePanel(); } catch(_) {}
+        try { if (typeof Calls !== "undefined" && Calls && typeof Calls.resubscribe === "function") Calls.resubscribe(); } catch (_) {}
         if (typeof initGroups === "function") { try { initGroups(); } catch(_) {} }
         try { inputEl.focus(); } catch(_) {}
         try { updateSendDisabled(); } catch(_) {}
@@ -11836,6 +11841,10 @@
           if (status === "SUBSCRIBED") {
             try { tmp.send({ type: "broadcast", event, payload }); } catch (_) {}
             setTimeout(() => { try { sb.removeChannel(tmp); } catch (_) {} }, 1500);
+          } else if (status === "TIMED_OUT" || status === "CHANNEL_ERROR" || status === "CLOSED") {
+            // Subscription failed (network blip, server churn). Drop the
+            // ephemeral channel so we don't leak a live socket per send.
+            try { sb.removeChannel(tmp); } catch (_) {}
           }
         });
       } catch (err) { console.warn("[Calls] sendTo failed", err); }
@@ -12192,6 +12201,14 @@
         const tick = () => { if (me) ensureUserChannel(); };
         tick();
         const iv = setInterval(() => { if (me) { ensureUserChannel(); clearInterval(iv); } }, 600);
+      },
+      // Re-subscribe the per-user inbox after a sign-out/sign-in cycle.
+      // The bootstrap interval in init() is one-shot and clears itself once
+      // it sees a logged-in user, so a second login would otherwise miss
+      // every incoming offer/answer/ICE/hangup broadcast. Called from
+      // onSignedIn() after `me` is populated.
+      resubscribe() {
+        try { ensureUserChannel(); } catch (_) {}
       },
       // Tear down all live state — used on sign-out so we don't process
       // call broadcasts after `me` has been nulled out.
