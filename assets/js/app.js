@@ -12160,7 +12160,11 @@
       if (!call || !pc || call.id !== payload.callId) return;
       try {
         await pc.setRemoteDescription(payload.sdp);
-        setState("connecting", "Connecting\u2026");
+        // ontrack can fire synchronously inside setRemoteDescription and
+        // promote the call to "active" before we resume here. If that
+        // already happened, the call is connected — do not regress the
+        // state text back to "Connecting…".
+        if (call && call.state !== "active") setState("connecting", "Connecting\u2026");
         try { Sounds.stopAll(); } catch (_) {}
       } catch (err) { console.warn("[Calls] setRemoteDescription failed", err); endCall({ remote: false }); }
     }
