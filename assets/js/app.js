@@ -2338,12 +2338,14 @@
     myEmailVerified = false;
     myEmail = "";
     try { updateVerifyBanner(); } catch(_) {}
+    // Tear down voice/video call state BEFORE nulling `me` — endCall() needs
+    // `me.id` to send the hangup broadcast so the remote peer doesn't get
+    // stuck in the call UI waiting for our ring timeout to fire.
+    try { if (typeof Calls !== "undefined" && Calls && typeof Calls.teardown === "function") Calls.teardown(); } catch (_) {}
     me = null;
     if (channel) { try { sb.removeChannel(channel); } catch(_){} channel = null; }
     if (reactChannel) { try { sb.removeChannel(reactChannel); } catch(_){} reactChannel = null; }
     if (publicTypingChannel) { try { sb.removeChannel(publicTypingChannel); } catch(_){} publicTypingChannel = null; }
-    // Tear down voice/video call state so post-logout broadcasts don't hit null `me`.
-    try { if (typeof Calls !== "undefined" && Calls && typeof Calls.teardown === "function") Calls.teardown(); } catch (_) {}
     resetDmSidePanel();
     if (typeof resetGroups === "function") resetGroups();
     clearMessages();
@@ -12118,16 +12120,17 @@
       cleanup();
     }
     function onDecline(payload) {
-      if (!call || call.id !== payload.callId) return;
-      toast(payload && payload.reason === "not-friends" ? "Call declined." : "Call declined.", "warn", 1600);
+      if (!payload || !call || call.id !== payload.callId) return;
+      toast(payload.reason === "not-friends" ? "Call declined." : "Call declined.", "warn", 1600);
       cleanup();
     }
     function onBusy(payload) {
-      if (!call || call.id !== payload.callId) return;
+      if (!payload || !call || call.id !== payload.callId) return;
       toast("They're on another call.", "warn", 1600);
       cleanup();
     }
     function onCancel(payload) {
+      if (!payload) return;
       if (pendingIncoming && pendingIncoming.id === payload.callId) {
         pendingIncoming = null; hideIncoming(); try { Sounds.stopAll(); } catch (_) {}
       }
