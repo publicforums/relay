@@ -2297,6 +2297,7 @@
       await loadHistory();
       subscribeRealtime();
       initDmSidePanel();
+      try { if (typeof Calls !== "undefined" && Calls && typeof Calls.resubscribe === "function") Calls.resubscribe(); } catch (_) {}
       if (typeof initGroups === "function") initGroups();
       inputEl.focus();
       return;
@@ -2312,6 +2313,7 @@
           await loadHistory();
           subscribeRealtime();
           initDmSidePanel();
+          try { if (typeof Calls !== "undefined" && Calls && typeof Calls.resubscribe === "function") Calls.resubscribe(); } catch (_) {}
           if (typeof initGroups === "function") initGroups();
           inputEl.focus();
           return;
@@ -2338,6 +2340,10 @@
     myEmailVerified = false;
     myEmail = "";
     try { updateVerifyBanner(); } catch(_) {}
+    // Tear down voice/video call state BEFORE nulling `me` — endCall() needs
+    // `me.id` to send the hangup broadcast so the remote peer doesn't get
+    // stuck in the call UI waiting for our ring timeout to fire.
+    try { if (typeof Calls !== "undefined" && Calls && typeof Calls.teardown === "function") Calls.teardown(); } catch (_) {}
     me = null;
     if (channel) { try { sb.removeChannel(channel); } catch(_){} channel = null; }
     if (reactChannel) { try { sb.removeChannel(reactChannel); } catch(_){} reactChannel = null; }
@@ -2606,6 +2612,7 @@
       await loadHistory();
       subscribeRealtime();
       initDmSidePanel();
+      try { if (typeof Calls !== "undefined" && Calls && typeof Calls.resubscribe === "function") Calls.resubscribe(); } catch (_) {}
       if (typeof initGroups === "function") initGroups();
       inputEl.focus();
     } finally {
@@ -3019,6 +3026,7 @@
         await loadHistory();
         subscribeRealtime();
         initDmSidePanel();
+        try { if (typeof Calls !== "undefined" && Calls && typeof Calls.resubscribe === "function") Calls.resubscribe(); } catch (_) {}
         if (typeof initGroups === "function") initGroups();
         inputEl.focus();
         return;
@@ -3378,6 +3386,7 @@
         try { loadHistory(); } catch(_) {}
         try { subscribeRealtime(); } catch(_) {}
         try { initDmSidePanel(); } catch(_) {}
+        try { if (typeof Calls !== "undefined" && Calls && typeof Calls.resubscribe === "function") Calls.resubscribe(); } catch (_) {}
         if (typeof initGroups === "function") { try { initGroups(); } catch(_) {} }
         try { inputEl.focus(); } catch(_) {}
         try { updateSendDisabled(); } catch(_) {}
@@ -4430,6 +4439,7 @@
   const friendsRequestsBadge = document.getElementById("friends-requests-badge");
   const confirmRemoveFriendBackdrop = document.getElementById("confirm-remove-friend-backdrop");
   const confirmRemoveFriendName = document.getElementById("confirm-remove-friend-name");
+  const confirmRemoveFriendHeadName = document.getElementById("confirm-remove-friend-head-name");
   const confirmRemoveFriendCancel = document.getElementById("confirm-remove-friend-cancel");
   const confirmRemoveFriendOk = document.getElementById("confirm-remove-friend-ok");
   const confirmAcceptRequestBackdrop = document.getElementById("confirm-accept-request-backdrop");
@@ -7704,6 +7714,7 @@
     if (!peerId) return;
     pendingRemoveFriend = { peerId, peerName: peerName || "this person", source: source || "profile" };
     if (confirmRemoveFriendName) confirmRemoveFriendName.textContent = pendingRemoveFriend.peerName;
+    if (confirmRemoveFriendHeadName) confirmRemoveFriendHeadName.textContent = pendingRemoveFriend.peerName;
     if (confirmRemoveFriendOk) confirmRemoveFriendOk.disabled = false;
     if (confirmRemoveFriendCancel) confirmRemoveFriendCancel.disabled = false;
     if (confirmRemoveFriendBackdrop) confirmRemoveFriendBackdrop.classList.add("open");
@@ -11597,9 +11608,795 @@
   // Bootstrap shortly after the app boots — give auth/profile-load a head start.
   setTimeout(() => { try { _voiceBootstrapPermission(); } catch (_) {} }, 1200);
 
+  // ---------- Voice & Video calling ----------
+  // Real-time peer-to-peer calls between friends, signalled over a per-user
+  // Supabase Realtime broadcast channel. WebRTC handles media transport;
+  // sounds are synthesized through the existing AudioContext.
+  //
+  // Security/safety:
+  //   - Friends-only: every call (initiate + answer) re-checks getFriendStatus
+  //     against the live DB and rejects on `state !== "accepted"`.
+  //   - Single-instance: one in-flight call per user; new offers reject `busy`.
+  //   - Cleanup: on hangup/error/pagehide we stop tracks, close peer, remove
+  //     listeners, and unsubscribe the pair channel.
+  //   - No spam: permission denial / revocation is surfaced once and ends call.
+  const Calls = (() => {
+    const STUN = [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }];
+    const SIGNAL_PREFIX = "calls:user:";
+    const PAIR_PREFIX  = "calls:pair:";
+    const RING_TIMEOUT_MS = 35000; // give-up window for outgoing ring
+
+    // ---------- Sound manager (single active loop, synthesized) ----------
+    const Sounds = (() => {
+      let outRingHandle = null; // { stop }
+      let inRingHandle = null;
+      function getCtx() { return ensureAudio(); }
+      function getMaster() {
+        // Honor the per-user output volume from Voice & Audio settings (0..100)
+        try {
+          const uid = me && me.id;
+          if (!uid) return 1.0;
+          const raw = localStorage.getItem("relay-voice-audio:" + uid);
+          if (!raw) return 1.0;
+          const j = JSON.parse(raw);
+          if (j && typeof j.outputVolume === "number") {
+            return Math.max(0, Math.min(1, j.outputVolume / 100));
+          }
+        } catch (_) {}
+        return 1.0;
+      }
+      function stopAll() {
+        if (outRingHandle) { try { outRingHandle.stop(); } catch (_) {} outRingHandle = null; }
+        if (inRingHandle)  { try { inRingHandle.stop();  } catch (_) {} inRingHandle = null; }
+      }
+      function _loop({ pattern, totalGain }) {
+        const ctx = getCtx(); if (!ctx) return { stop() {} };
+        if (ctx.state === "suspended") { try { ctx.resume(); } catch (_) {} }
+        const master = ctx.createGain();
+        master.gain.value = totalGain * getMaster();
+        master.connect(ctx.destination);
+        let stopped = false;
+        let pendingTimers = [];
+        function tick() {
+          if (stopped) return;
+          let t = ctx.currentTime;
+          for (const step of pattern) {
+            if (step.freq) {
+              const o = ctx.createOscillator(), g = ctx.createGain();
+              o.type = step.type || "sine";
+              o.frequency.setValueAtTime(step.freq, t);
+              g.gain.setValueAtTime(0.0001, t);
+              g.gain.exponentialRampToValueAtTime(step.gain || 0.6, t + 0.018);
+              g.gain.exponentialRampToValueAtTime(0.0001, t + step.dur);
+              o.connect(g).connect(master);
+              o.start(t); o.stop(t + step.dur + 0.02);
+            }
+            t += step.dur + (step.gap || 0);
+          }
+          const totalSec = pattern.reduce((s, p) => s + p.dur + (p.gap || 0), 0);
+          const h = setTimeout(tick, Math.max(50, totalSec * 1000));
+          pendingTimers.push(h);
+        }
+        tick();
+        return { stop() {
+          stopped = true;
+          for (const h of pendingTimers) clearTimeout(h);
+          try { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setValueAtTime(0, ctx.currentTime); } catch (_) {}
+          setTimeout(() => { try { master.disconnect(); } catch (_) {} }, 60);
+        } };
+      }
+      function outgoingRing() {
+        stopAll();
+        outRingHandle = _loop({
+          totalGain: 0.5,
+          pattern: [
+            { freq: 440, dur: 0.40, gap: 0.05, type: "sine", gain: 0.45 },
+            { freq: 480, dur: 0.40, gap: 1.20, type: "sine", gain: 0.45 }
+          ]
+        });
+      }
+      function incomingRing() {
+        stopAll();
+        inRingHandle = _loop({
+          totalGain: 0.6,
+          pattern: [
+            { freq: 740, dur: 0.18, gap: 0.06, type: "sine", gain: 0.55 },
+            { freq: 880, dur: 0.18, gap: 0.50, type: "sine", gain: 0.55 },
+            { freq: 740, dur: 0.18, gap: 0.06, type: "sine", gain: 0.55 },
+            { freq: 880, dur: 0.18, gap: 1.10, type: "sine", gain: 0.55 }
+          ]
+        });
+      }
+      function connected() { stopAll(); playTone({ freq: 660, freqEnd: 990, duration: 0.18, gain: 0.06 * getMaster() }); }
+      function ended()     { stopAll(); playTone({ freq: 540, freqEnd: 280, duration: 0.22, gain: 0.06 * getMaster() }); }
+      function muted()     { playTone({ freq: 380, duration: 0.07, gain: 0.05 * getMaster(), type: "square" }); }
+      function unmuted()   { playTone({ freq: 720, duration: 0.07, gain: 0.05 * getMaster(), type: "square" }); }
+      return { outgoingRing, incomingRing, connected, ended, muted, unmuted, stopAll };
+    })();
+
+    // ---------- DOM refs ----------
+    const overlay     = document.getElementById("call-overlay");
+    const stage       = document.getElementById("call-stage");
+    const remoteVid   = document.getElementById("call-remote-video");
+    const remoteAud   = document.getElementById("call-remote-audio");
+    const localVid    = document.getElementById("call-local-video");
+    const remoteName  = document.getElementById("call-remote-name");
+    const remoteAv    = document.getElementById("call-remote-avatar");
+    const stateText   = document.getElementById("call-state-text");
+    const btnMute     = document.getElementById("call-btn-mute");
+    const btnCam      = document.getElementById("call-btn-camera");
+    const btnEnd      = document.getElementById("call-btn-end");
+    const btnAccept   = document.getElementById("call-btn-accept");
+    const incoming    = document.getElementById("incoming-call");
+    const incAvatar   = document.getElementById("incoming-call-avatar");
+    const incName     = document.getElementById("incoming-call-name");
+    const incKind     = document.getElementById("incoming-call-kind");
+    const incAccept   = document.getElementById("incoming-call-accept");
+    const incDecline  = document.getElementById("incoming-call-decline");
+
+    // ---------- State ----------
+    let userChannel = null; // sb.channel for incoming offers (per-user inbox)
+    let pairChannel = null; // sb.channel for the active pair (SDP/ICE)
+    let pc = null;          // RTCPeerConnection
+    let localStream = null; // MediaStream
+    let call = null;        // { id, peerId, peerName, peerAvatar, kind, role, state }
+    let pendingIncoming = null; // { id, peerId, peerName, peerAvatar, kind, sdp }
+    let permRevokeWatcher = null;
+    // Trickled ICE candidates that arrive while we're still in the ringing
+    // phase (pendingIncoming set, pc not yet built). Flushed onto pc after
+    // setRemoteDescription succeeds in acceptIncoming(). Without this buffer
+    // the callee silently drops every caller candidate that arrives before
+    // accept, forcing connectivity to fall back to peer-reflexive discovery.
+    let pendingIce = [];
+
+    function genCallId() {
+      try { return crypto.randomUUID(); }
+      catch (_) { return "c_" + Math.random().toString(36).slice(2) + Date.now().toString(36); }
+    }
+    function pairKey(a, b) {
+      const [x, y] = [a, b].sort();
+      return PAIR_PREFIX + x + ":" + y;
+    }
+    function setState(next, label) {
+      if (!call) return;
+      call.state = next;
+      if (overlay) overlay.dataset.callState = next;
+      if (stateText) stateText.textContent = label || next;
+    }
+
+    // ---------- Cleanup ----------
+    function cleanup({ silent } = {}) {
+      try { Sounds.stopAll(); } catch (_) {}
+      if (permRevokeWatcher) { clearInterval(permRevokeWatcher); permRevokeWatcher = null; }
+      if (pc) {
+        try { pc.onicecandidate = null; pc.ontrack = null; pc.onconnectionstatechange = null; pc.oniceconnectionstatechange = null; } catch (_) {}
+        try { pc.close(); } catch (_) {}
+        pc = null;
+      }
+      if (localStream) {
+        try { localStream.getTracks().forEach(t => t.stop()); } catch (_) {}
+        localStream = null;
+      }
+      try { if (remoteVid) { remoteVid.srcObject = null; } } catch (_) {}
+      try { if (localVid)  { localVid.srcObject  = null; } } catch (_) {}
+      try { if (remoteAud) { remoteAud.srcObject = null; } } catch (_) {}
+      if (pairChannel) { try { sb.removeChannel(pairChannel); } catch (_) {} pairChannel = null; }
+      pendingIce = [];
+      hideOverlay();
+      hideIncoming();
+      call = null;
+      if (!silent) { try { Sounds.ended(); } catch (_) {} }
+    }
+
+    function hideOverlay() {
+      if (!overlay) return;
+      overlay.hidden = true;
+      overlay.classList.remove("open");
+      delete overlay.dataset.callState;
+    }
+    function showOverlay(kind) {
+      if (!overlay) return;
+      overlay.hidden = false;
+      overlay.classList.add("open");
+      // Camera button only meaningful for video calls
+      if (btnCam) btnCam.hidden = kind !== "video";
+    }
+    function hideIncoming() {
+      if (!incoming) return;
+      incoming.hidden = true;
+      incoming.classList.remove("open");
+    }
+    function showIncoming(p) {
+      if (!incoming) return;
+      if (incAvatar) incAvatar.src = resolveAvatarUrl(p.peerAvatar);
+      if (incName) incName.textContent = p.peerName || "User";
+      if (incKind) incKind.textContent = "Incoming " + (p.kind === "video" ? "video" : "voice") + " call";
+      incoming.hidden = false;
+      incoming.classList.add("open");
+    }
+    function bindUI(p) {
+      if (remoteName) remoteName.textContent = p.peerName || "User";
+      if (remoteAv) remoteAv.src = resolveAvatarUrl(p.peerAvatar);
+      // Mute/cam start in their default state
+      if (btnMute) btnMute.classList.remove("active");
+      if (btnCam) btnCam.classList.remove("active");
+    }
+
+    // ---------- Per-user signal channel (incoming inbox) ----------
+    function ensureUserChannel() {
+      if (userChannel || !me) return;
+      try {
+        userChannel = sb.channel(SIGNAL_PREFIX + me.id, { config: { broadcast: { self: false, ack: false } } })
+          .on("broadcast", { event: "call:offer" }, ({ payload }) => onOffer(payload))
+          .on("broadcast", { event: "call:answer" }, ({ payload }) => onAnswer(payload))
+          .on("broadcast", { event: "call:ice" }, ({ payload }) => onIce(payload))
+          .on("broadcast", { event: "call:hangup" }, ({ payload }) => onHangup(payload))
+          .on("broadcast", { event: "call:decline" }, ({ payload }) => onDecline(payload))
+          .on("broadcast", { event: "call:busy" }, ({ payload }) => onBusy(payload))
+          .on("broadcast", { event: "call:cancel" }, ({ payload }) => onCancel(payload))
+          .subscribe();
+      } catch (err) { console.warn("[Calls] subscribe failed", err); }
+    }
+    function dropUserChannel() {
+      if (userChannel) { try { sb.removeChannel(userChannel); } catch (_) {} userChannel = null; }
+    }
+
+    function sendTo(peerId, event, payload) {
+      try {
+        const tmp = sb.channel(SIGNAL_PREFIX + peerId, { config: { broadcast: { self: false, ack: false } } });
+        tmp.subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            try { tmp.send({ type: "broadcast", event, payload }); } catch (_) {}
+            setTimeout(() => { try { sb.removeChannel(tmp); } catch (_) {} }, 1500);
+          } else if (status === "TIMED_OUT" || status === "CHANNEL_ERROR" || status === "CLOSED") {
+            // Subscription failed (network blip, server churn). Drop the
+            // ephemeral channel so we don't leak a live socket per send.
+            try { sb.removeChannel(tmp); } catch (_) {}
+          }
+        });
+      } catch (err) { console.warn("[Calls] sendTo failed", err); }
+    }
+
+    // ---------- WebRTC helpers ----------
+    function buildPeer(kind) {
+      const peer = new RTCPeerConnection({ iceServers: STUN });
+      peer.onicecandidate = (e) => {
+        if (!call || !e.candidate) return;
+        sendTo(call.peerId, "call:ice", {
+          callId: call.id, from: me.id, candidate: e.candidate.toJSON ? e.candidate.toJSON() : e.candidate
+        });
+      };
+      peer.ontrack = (e) => {
+        const track = e.track;
+        // Route audio tracks to <audio> (so setSinkId works for output picker);
+        // route video tracks to <video> with muted=true to avoid double audio.
+        if (track && track.kind === "audio") {
+          let s = remoteAud && remoteAud.srcObject;
+          if (!(s instanceof MediaStream)) { s = new MediaStream(); if (remoteAud) remoteAud.srcObject = s; }
+          try { s.addTrack(track); } catch (_) {}
+        } else if (track && track.kind === "video") {
+          let s = remoteVid && remoteVid.srcObject;
+          if (!(s instanceof MediaStream)) { s = new MediaStream(); if (remoteVid) remoteVid.srcObject = s; }
+          try { s.addTrack(track); } catch (_) {}
+          if (remoteVid) remoteVid.muted = true; // audio handled by <audio>
+        }
+        if (call && call.state !== "active") {
+          setState("active", "Connected");
+          try { Sounds.connected(); } catch (_) {}
+          try { applyOutputDeviceToCall(); } catch (_) {}
+        }
+      };
+      peer.onconnectionstatechange = () => {
+        if (!pc) return;
+        const s = pc.connectionState;
+        // 'disconnected' is a transient state that often self-heals (brief network blips,
+        // wifi/cellular handoff). Only treat 'failed' and 'closed' as terminal.
+        if (s === "failed" || s === "closed") {
+          if (call && call.state !== "ended") endCall({ remote: false });
+        }
+      };
+      return peer;
+    }
+
+    async function getLocalStream(kind) {
+      const constraintsBase = await readMediaConstraints();
+      const constraints = {
+        audio: constraintsBase.audio,
+        video: kind === "video" ? (constraintsBase.video || true) : false
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      if (localVid) {
+        if (kind === "video") localVid.srcObject = stream;
+        else localVid.srcObject = null;
+      }
+      return stream;
+    }
+
+    async function readMediaConstraints() {
+      // Reuse Voice & Audio settings (per-user) for input device + ns/ec.
+      const out = { audio: { echoCancellation: true, noiseSuppression: true }, video: true };
+      try {
+        const uid = me && me.id;
+        if (!uid) return out;
+        const raw = localStorage.getItem("relay-voice-audio:" + uid);
+        if (!raw) return out;
+        const j = JSON.parse(raw);
+        if (j) {
+          // Skip the synthetic "default" sentinel — it is not a real deviceId
+          // on every browser. Firefox throws OverconstrainedError when given
+          // { exact: "default" }, which would block the call from starting.
+          if (j.inputDeviceId && j.inputDeviceId !== "default") {
+            out.audio.deviceId = { exact: j.inputDeviceId };
+          }
+          if (typeof j.echoCancellation === "boolean") out.audio.echoCancellation = j.echoCancellation;
+          if (typeof j.noiseSuppression === "boolean") out.audio.noiseSuppression = j.noiseSuppression;
+        }
+      } catch (_) {}
+      return out;
+    }
+
+    async function applyOutputDeviceToCall() {
+      try {
+        const uid = me && me.id;
+        if (!uid) return;
+        const raw = localStorage.getItem("relay-voice-audio:" + uid);
+        if (!raw) return;
+        const j = JSON.parse(raw);
+        if (j && j.outputDeviceId && remoteAud && typeof remoteAud.setSinkId === "function") {
+          await remoteAud.setSinkId(j.outputDeviceId);
+        }
+      } catch (_) {}
+    }
+
+    // ---------- Initiate ----------
+    async function startCall(peer, kind /* 'voice' | 'video' */) {
+      if (!me) { toast("You need to be signed in.", "warn"); return; }
+      if (call) { toast("You're already in a call.", "warn"); return; }
+      if (!peer || !peer.id || peer.id === me.id) return;
+      // Friend gate (live re-check)
+      try {
+        const status = await getFriendStatus(peer.id);
+        if (!status || status.state !== "accepted") {
+          toast("You can only call friends.", "warn");
+          return;
+        }
+      } catch (_) { toast("Couldn't verify friend status.", "error"); return; }
+
+      const callId = genCallId();
+      call = {
+        id: callId, peerId: peer.id, peerName: peer.username || "User",
+        peerAvatar: peer.avatar_url || "", kind, role: "caller", state: "ringing"
+      };
+      bindUI(call);
+      showOverlay(kind);
+      setState("ringing", "Calling " + (peer.username ? "@" + peer.username : "user") + "\u2026");
+
+      try {
+        localStream = await getLocalStream(kind);
+      } catch (err) {
+        toast(permErrToText(err), "error");
+        cleanup({ silent: true });
+        return;
+      }
+
+      pc = buildPeer(kind);
+      try { localStream.getTracks().forEach(t => pc.addTrack(t, localStream)); } catch (_) {}
+
+      // Subscribe to the pair channel for ICE relay (back-channel; primary
+      // signal flows over the per-user inboxes but a pair channel is a
+      // belt-and-braces relay path for clients on flaky networks).
+      try {
+        pairChannel = sb.channel(pairKey(me.id, peer.id), { config: { broadcast: { self: false, ack: false } } })
+          .on("broadcast", { event: "call:ice" }, ({ payload }) => onIce(payload))
+          .subscribe();
+      } catch (_) {}
+
+      try {
+        const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: kind === "video" });
+        await pc.setLocalDescription(offer);
+        sendTo(peer.id, "call:offer", {
+          callId, from: me.id, kind,
+          fromName: me.username || "", fromAvatar: me.avatar_url || "",
+          sdp: { type: offer.type, sdp: offer.sdp }
+        });
+        try { Sounds.outgoingRing(); } catch (_) {}
+      } catch (err) {
+        console.warn("[Calls] start failed", err);
+        toast("Couldn't start the call.", "error");
+        sendTo(peer.id, "call:cancel", { callId, from: me.id });
+        cleanup({ silent: true });
+        return;
+      }
+
+      // Ring timeout — give up after RING_TIMEOUT_MS if not answered.
+      setTimeout(() => {
+        if (call && call.id === callId && call.state === "ringing") {
+          sendTo(peer.id, "call:cancel", { callId, from: me.id });
+          toast("No answer.", "warn");
+          cleanup();
+        }
+      }, RING_TIMEOUT_MS);
+
+      // Permission-revocation watcher
+      armPermissionWatcher();
+    }
+
+    function permErrToText(err) {
+      const n = (err && err.name) || "";
+      if (n === "NotAllowedError" || n === "SecurityError") return "Microphone/camera permission denied.";
+      if (n === "NotFoundError") return "No microphone or camera found.";
+      if (n === "NotReadableError") return "Mic/camera is in use by another app.";
+      if (n === "OverconstrainedError") return "Selected device is no longer available.";
+      return "Couldn't access your mic/camera.";
+    }
+
+    function armPermissionWatcher() {
+      if (permRevokeWatcher) { clearInterval(permRevokeWatcher); permRevokeWatcher = null; }
+      if (!navigator.permissions || !navigator.permissions.query) return;
+      permRevokeWatcher = setInterval(async () => {
+        if (!call || !localStream) return;
+        try {
+          const m = await navigator.permissions.query({ name: "microphone" });
+          if (m && m.state === "denied") {
+            toast("Microphone access lost — ending call.", "warn");
+            endCall({ remote: false });
+          }
+        } catch (_) {}
+      }, 4000);
+    }
+
+    // ---------- Receive ----------
+    async function onOffer(payload) {
+      if (!me) return; // signed out — channel will be torn down by onSignedOut
+      if (!payload || !payload.callId || !payload.from) return;
+      // Single-instance: if already busy or already ringing for someone else, reply busy and drop.
+      if (call || pendingIncoming) { sendTo(payload.from, "call:busy", { callId: payload.callId, from: me.id }); return; }
+      // Friend gate (live)
+      try {
+        const status = await getFriendStatus(payload.from);
+        if (!status || status.state !== "accepted") {
+          sendTo(payload.from, "call:decline", { callId: payload.callId, from: me.id, reason: "not-friends" });
+          return;
+        }
+      } catch (_) { return; }
+
+      // Re-check the busy condition after the async friend lookup. A second
+      // offer arriving during the await window would have passed the
+      // synchronous guard above, so without this re-check we'd silently
+      // overwrite pendingIncoming and the first caller would hang for the
+      // full 35s ring timeout with no busy signal.
+      if (call || pendingIncoming) {
+        sendTo(payload.from, "call:busy", { callId: payload.callId, from: me.id });
+        return;
+      }
+
+      pendingIncoming = {
+        id: payload.callId, peerId: payload.from,
+        peerName: payload.fromName || "User", peerAvatar: payload.fromAvatar || "",
+        kind: payload.kind === "video" ? "video" : "voice",
+        sdp: payload.sdp
+      };
+      showIncoming(pendingIncoming);
+      try { Sounds.incomingRing(); } catch (_) {}
+      // Auto-decline if the caller cancels: handled by onCancel.
+    }
+
+    async function acceptIncoming() {
+      const inc = pendingIncoming; pendingIncoming = null;
+      if (!inc) return;
+      hideIncoming();
+      call = {
+        id: inc.id, peerId: inc.peerId, peerName: inc.peerName,
+        peerAvatar: inc.peerAvatar, kind: inc.kind, role: "callee", state: "connecting"
+      };
+      bindUI(call);
+      showOverlay(inc.kind);
+      setState("connecting", "Connecting\u2026");
+
+      // If a call:cancel arrives mid-await we'd run cleanup() (which nulls
+      // call/pc/localStream) but the still-pending await would then resume
+      // and overwrite the freshly-nulled state with a brand new mic/cam
+      // stream and RTCPeerConnection — leaking the device with no UI to
+      // stop it. After every await we re-check that `call.id` still matches
+      // this acceptance attempt and bail (cleaning up any newly-acquired
+      // resources) if not.
+      let stream;
+      try {
+        stream = await getLocalStream(inc.kind);
+      } catch (err) {
+        toast(permErrToText(err), "error");
+        sendTo(inc.peerId, "call:decline", { callId: inc.id, from: me.id, reason: "no-permission" });
+        cleanup({ silent: true });
+        return;
+      }
+      if (!call || call.id !== inc.id) {
+        // Cancelled during getUserMedia — stop the orphan stream we just
+        // acquired before returning so the mic/cam light goes off.
+        try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+        return;
+      }
+      localStream = stream;
+      pc = buildPeer(inc.kind);
+      try { localStream.getTracks().forEach(t => pc.addTrack(t, localStream)); } catch (_) {}
+      try {
+        await pc.setRemoteDescription(inc.sdp);
+        if (!call || call.id !== inc.id) { try { pc.close(); } catch (_) {} pc = null; try { localStream.getTracks().forEach(t => t.stop()); } catch (_) {} localStream = null; return; }
+        // Flush any caller-trickled ICE candidates that arrived while the
+        // ring banner was up but before pc existed.
+        if (pendingIce.length) {
+          for (const c of pendingIce) {
+            try { await pc.addIceCandidate(c); } catch (_) {}
+          }
+          pendingIce = [];
+        }
+        const answer = await pc.createAnswer();
+        if (!call || call.id !== inc.id) { try { pc.close(); } catch (_) {} pc = null; try { localStream.getTracks().forEach(t => t.stop()); } catch (_) {} localStream = null; return; }
+        await pc.setLocalDescription(answer);
+        if (!call || call.id !== inc.id) { try { pc.close(); } catch (_) {} pc = null; try { localStream.getTracks().forEach(t => t.stop()); } catch (_) {} localStream = null; return; }
+        sendTo(inc.peerId, "call:answer", {
+          callId: inc.id, from: me.id,
+          sdp: { type: answer.type, sdp: answer.sdp }
+        });
+      } catch (err) {
+        console.warn("[Calls] accept failed", err);
+        toast("Couldn't accept the call.", "error");
+        sendTo(inc.peerId, "call:decline", { callId: inc.id, from: me.id, reason: "error" });
+        cleanup({ silent: true });
+        return;
+      }
+      try { Sounds.stopAll(); } catch (_) {}
+      armPermissionWatcher();
+    }
+    function declineIncoming() {
+      const inc = pendingIncoming; pendingIncoming = null;
+      hideIncoming();
+      try { Sounds.stopAll(); } catch (_) {}
+      if (!inc) return;
+      sendTo(inc.peerId, "call:decline", { callId: inc.id, from: me.id, reason: "user-decline" });
+    }
+
+    async function onAnswer(payload) {
+      if (!me || !payload) return;
+      if (!call || !pc || call.id !== payload.callId) return;
+      try {
+        await pc.setRemoteDescription(payload.sdp);
+        setState("connecting", "Connecting\u2026");
+        try { Sounds.stopAll(); } catch (_) {}
+      } catch (err) { console.warn("[Calls] setRemoteDescription failed", err); endCall({ remote: false }); }
+    }
+    async function onIce(payload) {
+      if (!me || !payload || !payload.candidate) return;
+      // Buffer caller-trickled candidates that arrive before pc exists.
+      // Two windows produce this state:
+      //  1) Ringing phase  — pendingIncoming set, call/pc not yet built.
+      //  2) Accept gap     — pendingIncoming has been nulled and `call` is set,
+      //                      but we're still awaiting getUserMedia(...) so pc
+      //                      hasn't been built yet. The caller is trickling
+      //                      candidates during the entire await window;
+      //                      dropping them degrades connectivity behind NATs.
+      if ((pendingIncoming && pendingIncoming.id === payload.callId && !pc) ||
+          (call && !pc && call.id === payload.callId)) {
+        pendingIce.push(payload.candidate);
+        return;
+      }
+      if (!call || !pc || call.id !== payload.callId) return;
+      try { await pc.addIceCandidate(payload.candidate); } catch (_) {}
+    }
+    function onHangup(payload) {
+      if (!me || !payload) return;
+      if (!call || call.id !== payload.callId) return;
+      toast("Call ended.", "default", 1400);
+      cleanup();
+    }
+    function onDecline(payload) {
+      if (!payload || !call || call.id !== payload.callId) return;
+      const msg = payload.reason === "not-friends"
+        ? "You can only call friends."
+        : payload.reason === "no-permission"
+          ? "They couldn't access their mic/camera."
+          : "Call declined.";
+      toast(msg, "warn", 1600);
+      cleanup();
+    }
+    function onBusy(payload) {
+      if (!payload || !call || call.id !== payload.callId) return;
+      toast("They're on another call.", "warn", 1600);
+      cleanup();
+    }
+    function onCancel(payload) {
+      if (!payload) return;
+      if (pendingIncoming && pendingIncoming.id === payload.callId) {
+        pendingIncoming = null; hideIncoming(); try { Sounds.stopAll(); } catch (_) {}
+      } else if (call && call.id === payload.callId && call.state !== "active") {
+        // Caller's ring timeout fired (or they hit cancel) while the callee
+        // was mid-accept — pendingIncoming has already been nulled and
+        // call/pc setup is in flight. Tear down so the callee isn't stuck
+        // in "Connecting…" until RTCPeerConnection itself fails.
+        toast("Call was cancelled.", "warn", 1400);
+        cleanup();
+      }
+    }
+
+    // ---------- Local controls ----------
+    function toggleMute() {
+      if (!localStream) return;
+      const tracks = localStream.getAudioTracks();
+      if (!tracks.length) return;
+      const newEnabled = !tracks[0].enabled;
+      tracks.forEach(t => t.enabled = newEnabled);
+      if (btnMute) btnMute.classList.toggle("active", !newEnabled);
+      try { newEnabled ? Sounds.unmuted() : Sounds.muted(); } catch (_) {}
+    }
+    function toggleCamera() {
+      if (!localStream || !call || call.kind !== "video") return;
+      const tracks = localStream.getVideoTracks();
+      if (!tracks.length) return;
+      const newEnabled = !tracks[0].enabled;
+      tracks.forEach(t => t.enabled = newEnabled);
+      if (btnCam) btnCam.classList.toggle("active", !newEnabled);
+      if (localVid) localVid.style.display = newEnabled ? "" : "none";
+    }
+    function endCall(opts) {
+      const wasActive = !!call;
+      if (call) {
+        try { sendTo(call.peerId, "call:hangup", { callId: call.id, from: me.id }); } catch (_) {}
+      }
+      cleanup();
+      if (wasActive && opts && opts.remote) toast("Call ended.", "default", 1400);
+    }
+
+    // ---------- Bind UI ----------
+    function bindEvents() {
+      if (btnEnd)    btnEnd.addEventListener("click", () => endCall({ remote: false }));
+      if (btnMute)   btnMute.addEventListener("click", toggleMute);
+      if (btnCam)    btnCam.addEventListener("click", toggleCamera);
+      if (btnAccept) btnAccept.addEventListener("click", acceptIncoming);
+      if (incAccept) incAccept.addEventListener("click", acceptIncoming);
+      if (incDecline) incDecline.addEventListener("click", declineIncoming);
+      // Cleanup on page hide / unload to release devices and signal channels.
+      const teardown = () => { try { if (call) endCall({ remote: false }); else cleanup({ silent: true }); } catch (_) {} dropUserChannel(); };
+      window.addEventListener("pagehide", teardown);
+      window.addEventListener("beforeunload", teardown);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden" && !call) {
+          // No call running — nothing to do. Keep userChannel alive so we
+          // can still receive offers.
+        }
+      });
+    }
+
+    // ---------- Public ----------
+    return {
+      init() {
+        bindEvents();
+        // Wait for `me`, then subscribe to per-user inbox.
+        const tick = () => { if (me) ensureUserChannel(); };
+        tick();
+        const iv = setInterval(() => { if (me) { ensureUserChannel(); clearInterval(iv); } }, 600);
+      },
+      // Re-subscribe the per-user inbox after a sign-out/sign-in cycle.
+      // The bootstrap interval in init() is one-shot and clears itself once
+      // it sees a logged-in user, so a second login would otherwise miss
+      // every incoming offer/answer/ICE/hangup broadcast. Called from
+      // onSignedIn() after `me` is populated.
+      resubscribe() {
+        try { ensureUserChannel(); } catch (_) {}
+      },
+      // Tear down all live state — used on sign-out so we don't process
+      // call broadcasts after `me` has been nulled out. If a call is in
+      // flight we hang up; if only an incoming ring is pending we send a
+      // decline so the caller doesn't sit on the 35s ring timeout.
+      teardown() {
+        try {
+          if (call) { try { endCall({ remote: false }); } catch (_) {} }
+          else if (pendingIncoming) { try { declineIncoming(); } catch (_) {} }
+        } catch (_) {}
+        pendingIncoming = null;
+        cleanup({ silent: true });
+        dropUserChannel();
+      },
+      startCall,
+      endCall,
+      isActive() { return !!call; },
+      hasIncoming() { return !!pendingIncoming; }
+    };
+  })();
+
+  // ---------- Calling: wire DM header + profile buttons + friend indicator ----------
+  (function wireCallButtons() {
+    const dmCallActions = document.getElementById("dm-call-actions");
+    const dmVoiceBtn = document.getElementById("dm-room-voice-call");
+    const dmVideoBtn = document.getElementById("dm-room-video-call");
+    const profileVoiceBtn = document.getElementById("profile-voice-call");
+    const profileVideoBtn = document.getElementById("profile-video-call");
+    const profileFriendIndicator = document.getElementById("profile-friend-indicator");
+    const confirmHeadName = document.getElementById("confirm-remove-friend-head-name");
+
+    function dmPeerForCall() {
+      if (!currentDmRoom) return null;
+      const o = currentDmRoom.otherProfile || {};
+      return { id: currentDmRoom.otherId, username: o.username || "", avatar_url: o.avatar_url || "" };
+    }
+    async function applyDmCallActionsVisibility() {
+      if (!dmCallActions) return;
+      const peer = dmPeerForCall();
+      if (!peer || !peer.id || !me) { dmCallActions.hidden = true; return; }
+      try {
+        const s = await getFriendStatus(peer.id);
+        dmCallActions.hidden = !(s && s.state === "accepted");
+      } catch (_) { dmCallActions.hidden = true; }
+    }
+    // Watch for DM-room backdrop class changes to re-evaluate friend status.
+    if (dmRoomBackdrop && typeof MutationObserver !== "undefined") {
+      try {
+        new MutationObserver(() => {
+          if (dmRoomBackdrop.classList.contains("open")) applyDmCallActionsVisibility();
+          else if (dmCallActions) dmCallActions.hidden = true;
+        }).observe(dmRoomBackdrop, { attributes: true, attributeFilter: ["class"] });
+      } catch (_) {}
+    }
+    if (dmVoiceBtn) dmVoiceBtn.addEventListener("click", () => {
+      const peer = dmPeerForCall(); if (!peer) return;
+      Calls.startCall(peer, "voice");
+    });
+    if (dmVideoBtn) dmVideoBtn.addEventListener("click", () => {
+      const peer = dmPeerForCall(); if (!peer) return;
+      Calls.startCall(peer, "video");
+    });
+    if (profileVoiceBtn) profileVoiceBtn.addEventListener("click", () => {
+      const s = currentProfileSubject; if (!s) return;
+      Calls.startCall({ id: s.id, username: s.username, avatar_url: s.avatar_url }, "voice");
+      if (typeof closeProfile === "function") try { closeProfile(); } catch (_) {}
+      else if (profileBackdrop) profileBackdrop.classList.remove("open");
+    });
+    if (profileVideoBtn) profileVideoBtn.addEventListener("click", () => {
+      const s = currentProfileSubject; if (!s) return;
+      Calls.startCall({ id: s.id, username: s.username, avatar_url: s.avatar_url }, "video");
+      if (typeof closeProfile === "function") try { closeProfile(); } catch (_) {}
+      else if (profileBackdrop) profileBackdrop.classList.remove("open");
+    });
+    if (profileFriendIndicator) profileFriendIndicator.addEventListener("click", () => {
+      const s = currentProfileSubject; if (!s) return;
+      const uname = s.username ? ("@" + s.username) : "this person";
+      // Heading + body name updates are now centralised in openRemoveFriendConfirm.
+      openRemoveFriendConfirm({ peerId: s.id, peerName: uname, source: "profile-banner" });
+    });
+
+    // Override applyFriendButtonState to also drive: friend indicator + voice/video
+    // visibility + hide the Add-Friend pill when accepted.
+    if (typeof applyFriendButtonState === "function") {
+      const _orig = applyFriendButtonState;
+      // Replace the binding via property write on the closure isn't possible — instead
+      // we wrap the existing button reaction by listening for class changes on
+      // profileAddFriend. But simpler: monkey-patch via a wrapper exposed as
+      // window so the existing call site still hits the wrapped fn. Since the
+      // original is a closure-private const, we instead observe profileAddFriend.
+      if (profileAddFriend && typeof MutationObserver !== "undefined") {
+        try {
+          const reflect = () => {
+            const isFriend = profileAddFriend.classList.contains("accepted");
+            const isMine   = !!(me && currentProfileSubject && currentProfileSubject.id === me.id);
+            if (profileFriendIndicator) profileFriendIndicator.hidden = !(isFriend && !isMine);
+            if (profileVoiceBtn) profileVoiceBtn.hidden = !(isFriend && !isMine);
+            if (profileVideoBtn) profileVideoBtn.hidden = !(isFriend && !isMine);
+            // Hide the add-friend pill (now redundant) when accepted.
+            if (profileAddFriend) profileAddFriend.hidden = (isFriend && !isMine);
+          };
+          new MutationObserver(reflect).observe(profileAddFriend, { attributes: true, attributeFilter: ["class"] });
+          // Also reflect when profile re-opens (subject changes, classes reset).
+          if (profileBackdrop) {
+            new MutationObserver(reflect).observe(profileBackdrop, { attributes: true, attributeFilter: ["class"] });
+          }
+          reflect();
+        } catch (_) {}
+      }
+    }
+  })();
+
   // ---------- Init ----------
   applyRestrictionUI();
   updateSendDisabled();
+  try { Calls.init(); } catch (e) { console.warn("[Calls] init failed", e); }
 
   // ---------- Deep-link ?view= handling (Phase 2) ----------
   // Supports settings.html / account.html convenience pages, which
