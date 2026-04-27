@@ -11867,7 +11867,9 @@
       peer.onconnectionstatechange = () => {
         if (!pc) return;
         const s = pc.connectionState;
-        if (s === "failed" || s === "disconnected" || s === "closed") {
+        // 'disconnected' is a transient state that often self-heals (brief network blips,
+        // wifi/cellular handoff). Only treat 'failed' and 'closed' as terminal.
+        if (s === "failed" || s === "closed") {
           if (call && call.state !== "ended") endCall({ remote: false });
         }
       };
@@ -12019,8 +12021,8 @@
     // ---------- Receive ----------
     async function onOffer(payload) {
       if (!payload || !payload.callId || !payload.from) return;
-      // Single-instance: if already busy, reply busy and drop.
-      if (call) { sendTo(payload.from, "call:busy", { callId: payload.callId, from: me.id }); return; }
+      // Single-instance: if already busy or already ringing for someone else, reply busy and drop.
+      if (call || pendingIncoming) { sendTo(payload.from, "call:busy", { callId: payload.callId, from: me.id }); return; }
       // Friend gate (live)
       try {
         const status = await getFriendStatus(payload.from);
