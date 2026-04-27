@@ -2342,6 +2342,8 @@
     if (channel) { try { sb.removeChannel(channel); } catch(_){} channel = null; }
     if (reactChannel) { try { sb.removeChannel(reactChannel); } catch(_){} reactChannel = null; }
     if (publicTypingChannel) { try { sb.removeChannel(publicTypingChannel); } catch(_){} publicTypingChannel = null; }
+    // Tear down voice/video call state so post-logout broadcasts don't hit null `me`.
+    try { if (typeof Calls !== "undefined" && Calls && typeof Calls.teardown === "function") Calls.teardown(); } catch (_) {}
     resetDmSidePanel();
     if (typeof resetGroups === "function") resetGroups();
     clearMessages();
@@ -4430,6 +4432,7 @@
   const friendsRequestsBadge = document.getElementById("friends-requests-badge");
   const confirmRemoveFriendBackdrop = document.getElementById("confirm-remove-friend-backdrop");
   const confirmRemoveFriendName = document.getElementById("confirm-remove-friend-name");
+  const confirmRemoveFriendHeadName = document.getElementById("confirm-remove-friend-head-name");
   const confirmRemoveFriendCancel = document.getElementById("confirm-remove-friend-cancel");
   const confirmRemoveFriendOk = document.getElementById("confirm-remove-friend-ok");
   const confirmAcceptRequestBackdrop = document.getElementById("confirm-accept-request-backdrop");
@@ -7704,6 +7707,7 @@
     if (!peerId) return;
     pendingRemoveFriend = { peerId, peerName: peerName || "this person", source: source || "profile" };
     if (confirmRemoveFriendName) confirmRemoveFriendName.textContent = pendingRemoveFriend.peerName;
+    if (confirmRemoveFriendHeadName) confirmRemoveFriendHeadName.textContent = pendingRemoveFriend.peerName;
     if (confirmRemoveFriendOk) confirmRemoveFriendOk.disabled = false;
     if (confirmRemoveFriendCancel) confirmRemoveFriendCancel.disabled = false;
     if (confirmRemoveFriendBackdrop) confirmRemoveFriendBackdrop.classList.add("open");
@@ -12020,6 +12024,7 @@
 
     // ---------- Receive ----------
     async function onOffer(payload) {
+      if (!me) return; // signed out — channel will be torn down by onSignedOut
       if (!payload || !payload.callId || !payload.from) return;
       // Single-instance: if already busy or already ringing for someone else, reply busy and drop.
       if (call || pendingIncoming) { sendTo(payload.from, "call:busy", { callId: payload.callId, from: me.id }); return; }
@@ -12092,6 +12097,7 @@
     }
 
     async function onAnswer(payload) {
+      if (!me || !payload) return;
       if (!call || !pc || call.id !== payload.callId) return;
       try {
         await pc.setRemoteDescription(payload.sdp);
@@ -12100,11 +12106,13 @@
       } catch (err) { console.warn("[Calls] setRemoteDescription failed", err); endCall({ remote: false }); }
     }
     async function onIce(payload) {
+      if (!me || !payload) return;
       if (!call || !pc || call.id !== payload.callId) return;
       if (!payload.candidate) return;
       try { await pc.addIceCandidate(payload.candidate); } catch (_) {}
     }
     function onHangup(payload) {
+      if (!me || !payload) return;
       if (!call || call.id !== payload.callId) return;
       toast("Call ended.", "default", 1400);
       cleanup();
@@ -12182,6 +12190,14 @@
         tick();
         const iv = setInterval(() => { if (me) { ensureUserChannel(); clearInterval(iv); } }, 600);
       },
+      // Tear down all live state — used on sign-out so we don't process
+      // call broadcasts after `me` has been nulled out.
+      teardown() {
+        try { if (call || pendingIncoming) { try { endCall({ remote: false }); } catch (_) {} } } catch (_) {}
+        pendingIncoming = null;
+        cleanup({ silent: true });
+        dropUserChannel();
+      },
       startCall,
       endCall,
       isActive() { return !!call; },
@@ -12245,7 +12261,7 @@
     if (profileFriendIndicator) profileFriendIndicator.addEventListener("click", () => {
       const s = currentProfileSubject; if (!s) return;
       const uname = s.username ? ("@" + s.username) : "this person";
-      if (confirmHeadName) confirmHeadName.textContent = uname;
+      // Heading + body name updates are now centralised in openRemoveFriendConfirm.
       openRemoveFriendConfirm({ peerId: s.id, peerName: uname, source: "profile-banner" });
     });
 
