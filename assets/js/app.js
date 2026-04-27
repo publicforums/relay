@@ -12133,9 +12133,16 @@
     }
     async function onIce(payload) {
       if (!me || !payload || !payload.candidate) return;
-      // Buffer caller-trickled candidates that arrive during the ringing
-      // phase — pc isn't built yet, but we still need them after accept.
-      if (pendingIncoming && pendingIncoming.id === payload.callId && !pc) {
+      // Buffer caller-trickled candidates that arrive before pc exists.
+      // Two windows produce this state:
+      //  1) Ringing phase  — pendingIncoming set, call/pc not yet built.
+      //  2) Accept gap     — pendingIncoming has been nulled and `call` is set,
+      //                      but we're still awaiting getUserMedia(...) so pc
+      //                      hasn't been built yet. The caller is trickling
+      //                      candidates during the entire await window;
+      //                      dropping them degrades connectivity behind NATs.
+      if ((pendingIncoming && pendingIncoming.id === payload.callId && !pc) ||
+          (call && !pc && call.id === payload.callId)) {
         pendingIce.push(payload.candidate);
         return;
       }
