@@ -12169,6 +12169,13 @@
       if (!payload) return;
       if (pendingIncoming && pendingIncoming.id === payload.callId) {
         pendingIncoming = null; hideIncoming(); try { Sounds.stopAll(); } catch (_) {}
+      } else if (call && call.id === payload.callId && call.state !== "active") {
+        // Caller's ring timeout fired (or they hit cancel) while the callee
+        // was mid-accept — pendingIncoming has already been nulled and
+        // call/pc setup is in flight. Tear down so the callee isn't stuck
+        // in "Connecting…" until RTCPeerConnection itself fails.
+        toast("Call was cancelled.", "warn", 1400);
+        cleanup();
       }
     }
 
