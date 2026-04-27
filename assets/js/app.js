@@ -11742,6 +11742,12 @@
     let call = null;        // { id, peerId, peerName, peerAvatar, kind, role, state }
     let pendingIncoming = null; // { id, peerId, peerName, peerAvatar, kind, sdp }
     let permRevokeWatcher = null;
+    // Trickled ICE candidates that arrive while we're still in the ringing
+    // phase (pendingIncoming set, pc not yet built). Flushed onto pc after
+    // setRemoteDescription succeeds in acceptIncoming(). Without this buffer
+    // the callee silently drops every caller candidate that arrives before
+    // accept, forcing connectivity to fall back to peer-reflexive discovery.
+    let pendingIce = [];
 
     function genCallId() {
       try { return crypto.randomUUID(); }
@@ -11775,6 +11781,7 @@
       try { if (localVid)  { localVid.srcObject  = null; } } catch (_) {}
       try { if (remoteAud) { remoteAud.srcObject = null; } } catch (_) {}
       if (pairChannel) { try { sb.removeChannel(pairChannel); } catch (_) {} pairChannel = null; }
+      pendingIce = [];
       hideOverlay();
       hideIncoming();
       call = null;
@@ -12083,6 +12090,14 @@
       try { localStream.getTracks().forEach(t => pc.addTrack(t, localStream)); } catch (_) {}
       try {
         await pc.setRemoteDescription(inc.sdp);
+        // Flush any caller-trickled ICE candidates that arrived while the
+        // ring banner was up but before pc existed.
+        if (pendingIce.length) {
+          for (const c of pendingIce) {
+            try { await pc.addIceCandidate(c); } catch (_) {}
+          }
+          pendingIce = [];
+        }
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         sendTo(inc.peerId, "call:answer", {
@@ -12117,9 +12132,14 @@
       } catch (err) { console.warn("[Calls] setRemoteDescription failed", err); endCall({ remote: false }); }
     }
     async function onIce(payload) {
-      if (!me || !payload) return;
+      if (!me || !payload || !payload.candidate) return;
+      // Buffer caller-trickled candidates that arrive during the ringing
+      // phase — pc isn't built yet, but we still need them after accept.
+      if (pendingIncoming && pendingIncoming.id === payload.callId && !pc) {
+        pendingIce.push(payload.candidate);
+        return;
+      }
       if (!call || !pc || call.id !== payload.callId) return;
-      if (!payload.candidate) return;
       try { await pc.addIceCandidate(payload.candidate); } catch (_) {}
     }
     function onHangup(payload) {
@@ -12211,9 +12231,14 @@
         try { ensureUserChannel(); } catch (_) {}
       },
       // Tear down all live state — used on sign-out so we don't process
-      // call broadcasts after `me` has been nulled out.
+      // call broadcasts after `me` has been nulled out. If a call is in
+      // flight we hang up; if only an incoming ring is pending we send a
+      // decline so the caller doesn't sit on the 35s ring timeout.
       teardown() {
-        try { if (call || pendingIncoming) { try { endCall({ remote: false }); } catch (_) {} } } catch (_) {}
+        try {
+          if (call) { try { endCall({ remote: false }); } catch (_) {} }
+          else if (pendingIncoming) { try { declineIncoming(); } catch (_) {} }
+        } catch (_) {}
         pendingIncoming = null;
         cleanup({ silent: true });
         dropUserChannel();
