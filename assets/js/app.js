@@ -11733,6 +11733,16 @@
     const incKind     = document.getElementById("incoming-call-kind");
     const incAccept   = document.getElementById("incoming-call-accept");
     const incDecline  = document.getElementById("incoming-call-decline");
+    const btnMin      = document.getElementById("call-btn-minimize");
+    const widget      = document.getElementById("call-widget");
+    const wAvatar     = document.getElementById("call-widget-avatar");
+    const wName       = document.getElementById("call-widget-name");
+    const wState      = document.getElementById("call-widget-state");
+    const wMute       = document.getElementById("call-widget-mute");
+    const wEnd        = document.getElementById("call-widget-end");
+
+    const WIDGET_POS_KEY = "relay-call-widget-pos";
+    const WIDGET_MARGIN  = 8;
 
     // ---------- State ----------
     let userChannel = null; // sb.channel for incoming offers (per-user inbox)
@@ -11742,6 +11752,9 @@
     let call = null;        // { id, peerId, peerName, peerAvatar, kind, role, state }
     let pendingIncoming = null; // { id, peerId, peerName, peerAvatar, kind, sdp }
     let permRevokeWatcher = null;
+    let isMinimized = false;
+    let callConnectedAt = 0;
+    let callTimerHandle = null;
     // Trickled ICE candidates that arrive while we're still in the ringing
     // phase (pendingIncoming set, pc not yet built). Flushed onto pc after
     // setRemoteDescription succeeds in acceptIncoming(). Without this buffer
@@ -11759,14 +11772,215 @@
     }
     function setState(next, label) {
       if (!call) return;
+      const prev = call.state;
       call.state = next;
       if (overlay) overlay.dataset.callState = next;
-      if (stateText) stateText.textContent = label || next;
+      if (widget) widget.dataset.callState = next;
+      const txt = label || next;
+      if (stateText) stateText.textContent = txt;
+      if (wState) wState.textContent = txt;
+      if (next === "active" && prev !== "active") startCallTimer();
+      else if (next !== "active" && prev === "active") stopCallTimer();
+    }
+
+    // ---------- Call duration timer (mm:ss) — drives both overlay state-text
+    // and floating widget state-text after the call goes active. The widget
+    // shows the same string as the overlay so users see the same data
+    // whether the overlay is visible or minimized. ----------
+    function fmtMmSs(secs) {
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      return m + ":" + (s < 10 ? "0" + s : s);
+    }
+    function startCallTimer() {
+      if (callTimerHandle) return;
+      callConnectedAt = Date.now();
+      const tick = () => {
+        if (!call || call.state !== "active") return;
+        const secs = Math.max(0, Math.floor((Date.now() - callConnectedAt) / 1000));
+        const txt = "Connected \u00b7 " + fmtMmSs(secs);
+        if (stateText) stateText.textContent = txt;
+        if (wState) wState.textContent = txt;
+      };
+      tick();
+      callTimerHandle = setInterval(tick, 1000);
+    }
+    function stopCallTimer() {
+      if (callTimerHandle) { clearInterval(callTimerHandle); callTimerHandle = null; }
+      callConnectedAt = 0;
+    }
+
+    // ---------- Floating widget helpers ----------
+    function syncWidgetMute() {
+      if (!wMute) return;
+      const has = !!localStream && localStream.getAudioTracks().length > 0;
+      wMute.disabled = !has;
+      if (!has) { wMute.classList.remove("muted"); wMute.setAttribute("aria-pressed", "false"); return; }
+      const muted = !localStream.getAudioTracks()[0].enabled;
+      wMute.classList.toggle("muted", muted);
+      wMute.setAttribute("aria-pressed", muted ? "true" : "false");
+      wMute.title = muted ? "Unmute" : "Mute";
+    }
+    function bindWidget() {
+      if (!call) return;
+      if (wAvatar) { try { wAvatar.src = resolveAvatarUrl(call.peerAvatar); } catch (_) { wAvatar.removeAttribute("src"); } }
+      if (wName) wName.textContent = call.peerName || "User";
+      if (widget) widget.dataset.callState = call.state || "";
+      if (wState && stateText) wState.textContent = stateText.textContent || "";
+      syncWidgetMute();
+    }
+    function clampWidgetToViewport() {
+      if (!widget || widget.hidden) return;
+      const r = widget.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      const maxLeft = Math.max(WIDGET_MARGIN, window.innerWidth  - r.width  - WIDGET_MARGIN);
+      const maxTop  = Math.max(WIDGET_MARGIN, window.innerHeight - r.height - WIDGET_MARGIN);
+      let nx = Math.max(WIDGET_MARGIN, Math.min(maxLeft, r.left));
+      let ny = Math.max(WIDGET_MARGIN, Math.min(maxTop,  r.top));
+      if (nx !== r.left || ny !== r.top) {
+        widget.style.left = nx + "px";
+        widget.style.top  = ny + "px";
+        widget.style.right  = "auto";
+        widget.style.bottom = "auto";
+      }
+    }
+    function persistWidgetPos() {
+      if (!widget) return;
+      try {
+        const r = widget.getBoundingClientRect();
+        localStorage.setItem(WIDGET_POS_KEY, JSON.stringify({ x: Math.round(r.left), y: Math.round(r.top) }));
+      } catch (_) {}
+    }
+    function applySavedWidgetPos() {
+      if (!widget) return;
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem(WIDGET_POS_KEY) || "null"); } catch (_) {}
+      // Reset any prior inline position before applying defaults / saved.
+      widget.style.left = ""; widget.style.top = "";
+      widget.style.right = ""; widget.style.bottom = "";
+      if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+        widget.style.left = saved.x + "px";
+        widget.style.top  = saved.y + "px";
+        widget.style.right  = "auto";
+        widget.style.bottom = "auto";
+        // Clamp on the next frame once layout settled (width/height known).
+        requestAnimationFrame(clampWidgetToViewport);
+      }
+    }
+    function minimizeCall() {
+      if (!call || isMinimized) return;
+      isMinimized = true;
+      bindWidget();
+      // IMPORTANT: only toggling visibility — peer connection, media streams,
+      // remote <audio>, and pair/user channels stay attached so audio keeps
+      // streaming uninterrupted.
+      if (overlay) { overlay.hidden = true; overlay.classList.remove("open"); }
+      if (widget) {
+        widget.hidden = false;
+        applySavedWidgetPos();
+        // next frame triggers transition from initial transform/opacity → open
+        requestAnimationFrame(() => { if (widget) widget.classList.add("open"); });
+      }
+      try { document.body.classList.add("call-minimized"); } catch (_) {}
+    }
+    function restoreCall() {
+      if (!call || !isMinimized) return;
+      isMinimized = false;
+      if (widget) {
+        widget.classList.remove("open");
+        const w = widget;
+        setTimeout(() => { if (!isMinimized && w) w.hidden = true; }, 220);
+      }
+      if (overlay) {
+        overlay.hidden = false;
+        overlay.classList.add("open");
+        if (call) overlay.dataset.callState = call.state;
+      }
+      try { document.body.classList.remove("call-minimized"); } catch (_) {}
+    }
+    function hideWidget() {
+      if (!widget) return;
+      widget.classList.remove("open");
+      widget.hidden = true;
+      // Reset inline position so the next minimize starts from default
+      // bottom-right (or applies the user's saved position).
+      widget.style.left = ""; widget.style.top = "";
+      widget.style.right = ""; widget.style.bottom = "";
+      delete widget.dataset.callState;
+    }
+    function initWidgetDrag() {
+      if (!widget) return;
+      let startX = 0, startY = 0, startLeft = 0, startTop = 0;
+      let dragging = false, pointerId = null, moved = false;
+      const TAP_SLOP = 4;
+      widget.addEventListener("pointerdown", (e) => {
+        if (e.target.closest(".cw-btn")) return;
+        // Left-button mouse only; touch + pen always allowed.
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        const r = widget.getBoundingClientRect();
+        startX = e.clientX; startY = e.clientY;
+        startLeft = r.left; startTop = r.top;
+        dragging = true; moved = false; pointerId = e.pointerId;
+        widget.classList.add("dragging");
+        try { widget.setPointerCapture(e.pointerId); } catch (_) {}
+        e.preventDefault();
+      });
+      widget.addEventListener("pointermove", (e) => {
+        if (!dragging || e.pointerId !== pointerId) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        if (!moved && (Math.abs(dx) > TAP_SLOP || Math.abs(dy) > TAP_SLOP)) moved = true;
+        if (!moved) return;
+        const r = widget.getBoundingClientRect();
+        const maxLeft = Math.max(WIDGET_MARGIN, window.innerWidth  - r.width  - WIDGET_MARGIN);
+        const maxTop  = Math.max(WIDGET_MARGIN, window.innerHeight - r.height - WIDGET_MARGIN);
+        const nx = Math.max(WIDGET_MARGIN, Math.min(maxLeft, startLeft + dx));
+        const ny = Math.max(WIDGET_MARGIN, Math.min(maxTop,  startTop  + dy));
+        widget.style.left = nx + "px";
+        widget.style.top  = ny + "px";
+        widget.style.right  = "auto";
+        widget.style.bottom = "auto";
+      });
+      const endDrag = (e) => {
+        if (!dragging) return;
+        if (e && e.pointerId !== pointerId) return;
+        const wasMoved = moved;
+        dragging = false;
+        widget.classList.remove("dragging");
+        try { widget.releasePointerCapture(pointerId); } catch (_) {}
+        pointerId = null;
+        if (wasMoved) {
+          // Suppress the synthetic click that follows drag-release.
+          widget.dataset.suppressClick = "1";
+          setTimeout(() => { try { delete widget.dataset.suppressClick; } catch (_) {} }, 50);
+          persistWidgetPos();
+        }
+        moved = false;
+      };
+      widget.addEventListener("pointerup", endDrag);
+      widget.addEventListener("pointercancel", endDrag);
+      widget.addEventListener("click", (e) => {
+        if (widget.dataset.suppressClick === "1") {
+          e.preventDefault(); e.stopPropagation();
+          return;
+        }
+        if (e.target.closest(".cw-btn")) return;
+        restoreCall();
+      });
+      widget.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          if (e.target.closest(".cw-btn")) return;
+          e.preventDefault();
+          restoreCall();
+        }
+      });
+      window.addEventListener("resize", clampWidgetToViewport);
     }
 
     // ---------- Cleanup ----------
     function cleanup({ silent } = {}) {
       try { Sounds.stopAll(); } catch (_) {}
+      stopCallTimer();
       if (permRevokeWatcher) { clearInterval(permRevokeWatcher); permRevokeWatcher = null; }
       if (pc) {
         try { pc.onicecandidate = null; pc.ontrack = null; pc.onconnectionstatechange = null; pc.oniceconnectionstatechange = null; } catch (_) {}
@@ -11782,6 +11996,9 @@
       try { if (remoteAud) { remoteAud.srcObject = null; } } catch (_) {}
       if (pairChannel) { try { sb.removeChannel(pairChannel); } catch (_) {} pairChannel = null; }
       pendingIce = [];
+      isMinimized = false;
+      hideWidget();
+      try { document.body.classList.remove("call-minimized"); } catch (_) {}
       hideOverlay();
       hideIncoming();
       call = null;
@@ -12225,6 +12442,7 @@
       const newEnabled = !tracks[0].enabled;
       tracks.forEach(t => t.enabled = newEnabled);
       if (btnMute) btnMute.classList.toggle("active", !newEnabled);
+      syncWidgetMute();
       try { newEnabled ? Sounds.unmuted() : Sounds.muted(); } catch (_) {}
     }
     function toggleCamera() {
@@ -12253,6 +12471,10 @@
       if (btnAccept) btnAccept.addEventListener("click", acceptIncoming);
       if (incAccept) incAccept.addEventListener("click", acceptIncoming);
       if (incDecline) incDecline.addEventListener("click", declineIncoming);
+      if (btnMin)    btnMin.addEventListener("click", minimizeCall);
+      if (wMute)     wMute.addEventListener("click", (e) => { e.stopPropagation(); toggleMute(); });
+      if (wEnd)      wEnd.addEventListener("click", (e) => { e.stopPropagation(); endCall({ remote: false }); });
+      initWidgetDrag();
       // Cleanup on page hide / unload to release devices and signal channels.
       const teardown = () => { try { if (call) endCall({ remote: false }); else cleanup({ silent: true }); } catch (_) {} dropUserChannel(); };
       window.addEventListener("pagehide", teardown);
@@ -12297,7 +12519,10 @@
       },
       startCall,
       endCall,
+      minimize: minimizeCall,
+      restore: restoreCall,
       isActive() { return !!call; },
+      isMinimized() { return isMinimized; },
       hasIncoming() { return !!pendingIncoming; }
     };
   })();
