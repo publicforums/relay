@@ -4172,9 +4172,19 @@
       } else if (act === "cancel-request") {
         if (currentProfileSubject && currentProfileSubject.id && me) {
           try {
-            var filter = "and(sender_id.eq." + me.id + ",receiver_id.eq." + currentProfileSubject.id + ")";
-            var res = await sb.from("friend_requests").delete().eq("status", "pending").or(filter);
-            if (res.error) throw res.error;
+            var cached = friendStatusCache.get(currentProfileSubject.id);
+            var reqId = cached && cached.request_id ? cached.request_id : null;
+            if (!reqId) {
+              var fresh = await getFriendStatus(currentProfileSubject.id);
+              reqId = fresh && fresh.request_id ? fresh.request_id : null;
+            }
+            if (reqId) {
+              await respondFriendRequest(reqId, false);
+            } else {
+              var filter = "and(sender_id.eq." + me.id + ",receiver_id.eq." + currentProfileSubject.id + ")";
+              var res = await sb.from("friend_requests").delete().eq("status", "pending").or(filter);
+              if (res.error) throw res.error;
+            }
             friendStatusCache.set(currentProfileSubject.id, { state: "none", request_id: null });
             applyFriendButtonState("none");
             toast("Friend request cancelled", "default", 1600);
