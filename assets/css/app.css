@@ -2177,6 +2177,7 @@
   }
   .modal.profile-card .profile-actions .pa-btn:hover { background: var(--border); }
   .modal.profile-card .profile-actions .pa-btn:active { transform: scale(0.96); }
+  .modal.profile-card .profile-actions .pa-btn[hidden] { display: none; }
   .modal.profile-card .profile-actions .pa-btn svg { width: 18px; height: 18px; }
   .modal.profile-card .profile-actions .pa-btn#profile-add-friend { display: none !important; }
   /* Fix 1 — "primary" kept as a class alias for backwards-compat, but style is now identical to the default. */
