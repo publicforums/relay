@@ -8,7 +8,7 @@
   // of a hidden / blank image. Also written to the DB on onboarding save
   // and on first login for accounts with no avatar, so downstream queries
   // never see a NULL avatar_url.
-  const DEFAULT_AVATAR_URL = "emptyprofile.png";
+  const DEFAULT_AVATAR_URL = "assets/images/emptyprofile.png";
   const resolveAvatarUrl = (url) => {
     const s = (url == null ? "" : String(url)).trim();
     return s ? s : DEFAULT_AVATAR_URL;

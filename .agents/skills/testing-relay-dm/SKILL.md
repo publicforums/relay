@@ -133,7 +133,7 @@ To test persistence: flip toggles in UI, verify the localStorage JSON round-trip
 
 `public.send_friend_request(p_receiver uuid)` — `SECURITY DEFINER`, granted to `authenticated`. Returns void on happy path, raises `unique_violation` (23505) on pending duplicate, reuses rejected rows, and auto-accepts counter-requests.
 
-The "operator does not exist: text = uuid" error is triggered if any equality compares a `text`-typed column against a `uuid` local. The defensive fix is to declare every local as `uuid` and cast both operands with `::uuid` on every equality; the repo's `db/RELAY_FRIEND_REQUEST_FIX.sql` has the reference implementation.
+The "operator does not exist: text = uuid" error is triggered if any equality compares a `text`-typed column against a `uuid` local. The defensive fix is to declare every local as `uuid` and cast both operands with `::uuid` on every equality; the repo's `supabase/RELAY_FRIEND_REQUEST_FIX.sql` has the reference implementation.
 
 ### Testing it without polluting real users
 
@@ -150,7 +150,7 @@ When A sends a DM to B and they aren't friends yet, the chat goes into a **messa
 - Direct Postgres host is IPv6-only and unreachable.
 - Every Supabase pooler region responds `FATAL: Tenant or user not found` for this project.
 
-Migrations under `db/*.sql` must be applied manually via the Supabase SQL Editor (project `tkarylpzztjwgrphbwun`). Always call this out in the PR description so the user knows they still need to run it.
+Migrations under `supabase/*.sql` must be applied manually via the Supabase SQL Editor (project `tkarylpzztjwgrphbwun`). Always call this out in the PR description so the user knows they still need to run it.
 
 ## Recording tips
 

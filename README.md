@@ -6,17 +6,19 @@ served directly by the host — no build step at deploy time.
 
 ## Layout
 
-| Path                | Purpose                                            |
-| ------------------- | -------------------------------------------------- |
-| `index.html`        | Main application entry (auth, chat, DMs, groups).  |
-| `landing.html`      | Marketing landing page.                            |
-| `terms.html`        | Terms of Service.                                  |
-| `privacy.html`      | Privacy Policy.                                    |
-| `contact.html`      | Contact page.                                      |
+| Path                     | Purpose                                            |
+| ------------------------ | -------------------------------------------------- |
+| `index.html`             | Main application entry (auth, chat, DMs, groups).  |
+| `landing.html`           | Marketing landing page.                            |
+| `terms.html`             | Terms of Service.                                  |
+| `privacy.html`           | Privacy Policy.                                    |
+| `contact.html`           | Contact page.                                      |
 | `assets/css/app.css`     | Source stylesheet for `index.html` (extracted from the original inline `<style>`). |
 | `assets/css/app.min.css` | Minified stylesheet actually loaded by `index.html`. |
 | `assets/js/app.js`       | Source script for `index.html` (extracted from the original inline `<script>`). |
 | `assets/js/app.min.js`   | Minified + mangled script actually loaded by `index.html`. |
+| `assets/images/`         | Static images (logo, default avatar).              |
+| `supabase/`              | SQL migrations and schema files.                   |
 
 `index.html` references the minified assets only. The `.css` / `.js` sources
 are committed alongside for maintainability — edit those, then re-run:
