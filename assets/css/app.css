@@ -2154,28 +2154,31 @@
     opacity: 0.5; cursor: not-allowed;
   }
 
-  /* ---------- Profile action row (DM + add friend buttons) ---------- */
+  /* ---------- Profile action row (icon-only action bar) ---------- */
   .modal.profile-card .profile-actions {
-    display: flex; gap: 8px;
+    display: flex; gap: 10px;
     padding: 0;
     margin-top: 2px;
+    justify-content: center;
   }
   .modal.profile-card .profile-actions[hidden] { display: none; }
   .modal.profile-card .profile-actions .pa-btn {
-    flex: 1;
-    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    flex: 0 0 auto;
+    width: 42px; height: 42px;
+    display: inline-flex; align-items: center; justify-content: center;
     background: var(--panel-2, rgba(0,0,0,0.04));
     color: var(--text);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 9px 10px;
-    font: inherit; font-size: 13px; font-weight: 600;
+    border-radius: 50%;
+    padding: 0;
+    font-size: 0;
     cursor: pointer;
     transition: background .15s ease, border-color .15s ease, transform .08s ease;
   }
   .modal.profile-card .profile-actions .pa-btn:hover { background: var(--border); }
-  .modal.profile-card .profile-actions .pa-btn:active { transform: scale(0.98); }
-  .modal.profile-card .profile-actions .pa-btn svg { width: 16px; height: 16px; }
+  .modal.profile-card .profile-actions .pa-btn:active { transform: scale(0.96); }
+  .modal.profile-card .profile-actions .pa-btn svg { width: 18px; height: 18px; }
+  .modal.profile-card .profile-actions .pa-btn#profile-add-friend { display: none !important; }
   /* Fix 1 — "primary" kept as a class alias for backwards-compat, but style is now identical to the default. */
   .modal.profile-card .profile-actions .pa-btn.primary {
     background: var(--panel-2, rgba(0,0,0,0.04));
@@ -2929,7 +2932,9 @@
     background: var(--border);
     outline: none;
   }
-  .modal.profile-card .profile-menu button[data-act="report"] { color: var(--danger); }
+  .modal.profile-card .profile-menu button[data-act="report"],
+  .modal.profile-card .profile-menu button[data-act="unadd-friend"],
+  .modal.profile-card .profile-menu button[data-act="cancel-request"] { color: var(--danger); }
   .modal.profile-card .profile-menu button[hidden] { display: none; }
   .modal .banner-color-row {
     display: flex; align-items: center; gap: 8px;
@@ -5886,27 +5891,23 @@
   /* ---------- Profile friend indicator (top-left of banner) ---------- */
   .modal.profile-card .profile-friend-indicator {
     position: absolute;
-    top: 10px; left: 10px;
+    top: 10px; left: 48px;
     z-index: 4;
-    width: 34px; height: 34px;
+    width: 30px; height: 30px;
     border-radius: 50%;
     border: 1px solid rgba(255,255,255,0.22);
     background: rgba(0,0,0,0.42);
     color: #fff;
-    cursor: pointer;
+    cursor: default;
+    pointer-events: none;
     display: inline-flex; align-items: center; justify-content: center;
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
-    transition: background .15s ease, transform .08s ease, border-color .15s ease;
+    transition: background .15s ease, border-color .15s ease;
     padding: 0;
   }
-  .modal.profile-card .profile-friend-indicator:hover {
-    background: rgba(0,0,0,0.6);
-    border-color: rgba(255,255,255,0.36);
-  }
-  .modal.profile-card .profile-friend-indicator:active { transform: scale(0.94); }
   .modal.profile-card .profile-friend-indicator[hidden] { display: none; }
-  .modal.profile-card .profile-friend-indicator svg { width: 18px; height: 18px; }
+  .modal.profile-card .profile-friend-indicator svg { width: 16px; height: 16px; }
 
   /* ---------- Confirm-remove-friend modal (modal blur backdrop) ---------- */
   .modal-backdrop#confirm-remove-friend-backdrop {
