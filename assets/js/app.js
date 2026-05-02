@@ -115,6 +115,7 @@
   const profileBioSection = $("profile-bio-section"), profileLinkedSection = $("profile-linked-section");
   const profileClose = $("profile-close"), profileLogout = $("profile-logout"), profileEdit = $("profile-edit");
   const profileMenuBtn = $("profile-menu-btn"), profileMenu = $("profile-menu"), profileMenuReport = $("profile-menu-report");
+  const profileMenuUnadd = $("profile-menu-unadd"), profileMenuCancelRequest = $("profile-menu-cancel-request");
   const profileDiscord = $("profile-discord"), profileDiscordStatus = $("profile-discord-status");
   const profileDiscordLink = $("profile-discord-link");
   const profileDiscordErr = $("profile-discord-err");
@@ -3977,6 +3978,8 @@
     const isMine = me && uid === me.id;
     profileEdit.classList.toggle("show", !!isMine);
     if (profileMenuReport) profileMenuReport.hidden = !!isMine;
+    if (profileMenuUnadd) profileMenuUnadd.hidden = true;
+    if (profileMenuCancelRequest) profileMenuCancelRequest.hidden = true;
     if (profileActions) {
       profileActions.hidden = !!isMine || !me;
       // Reset to neutral; will be reconciled against DB state below.
@@ -4158,6 +4161,38 @@
         if (!uname) { toast("Username not available", "warn"); return; }
         const ok = await copyTextSafely(uname);
         toast(ok ? "Username copied" : "Could not copy username", ok ? "default" : "warn");
+      } else if (act === "unadd-friend") {
+        if (currentProfileSubject && currentProfileSubject.id) {
+          openRemoveFriendConfirm({
+            peerId: currentProfileSubject.id,
+            peerName: currentProfileSubject.username ? ("@" + currentProfileSubject.username) : "this person",
+            source: "profile-menu"
+          });
+        }
+      } else if (act === "cancel-request") {
+        if (currentProfileSubject && currentProfileSubject.id && me) {
+          try {
+            var cached = friendStatusCache.get(currentProfileSubject.id);
+            var reqId = cached && cached.request_id ? cached.request_id : null;
+            if (!reqId) {
+              var fresh = await getFriendStatus(currentProfileSubject.id);
+              reqId = fresh && fresh.request_id ? fresh.request_id : null;
+            }
+            if (reqId) {
+              await respondFriendRequest(reqId, false);
+            } else {
+              var filter = "and(sender_id.eq." + me.id + ",receiver_id.eq." + currentProfileSubject.id + ")";
+              var res = await sb.from("friend_requests").delete().eq("status", "pending").or(filter);
+              if (res.error) throw res.error;
+            }
+            friendStatusCache.set(currentProfileSubject.id, { state: "none", request_id: null });
+            applyFriendButtonState("none");
+            toast("Friend request cancelled", "default", 1600);
+          } catch (err) {
+            console.error("[Friends] cancel request failed", err);
+            toast("Could not cancel request: " + (err && err.message ? err.message : "error"), "error");
+          }
+        }
       } else if (act === "report") {
         const uname = resolveVisibleUsername() || "user";
         const uid = resolveVisibleUserId();
@@ -7081,6 +7116,9 @@
       if (profileAddFriendIcon) profileAddFriendIcon.innerHTML = ICON_ADD_FRIEND;
       profileAddFriend.disabled = false;
     }
+    var isMine = !!(me && currentProfileSubject && currentProfileSubject.id === me.id);
+    if (profileMenuUnadd) profileMenuUnadd.hidden = !(state === "accepted" && !isMine);
+    if (profileMenuCancelRequest) profileMenuCancelRequest.hidden = !(state === "outgoing_pending" && !isMine);
   }
 
   async function sendFriendRequestTo(receiverId) {
@@ -12355,22 +12393,11 @@
       if (typeof closeProfile === "function") try { closeProfile(); } catch (_) {}
       else if (profileBackdrop) profileBackdrop.classList.remove("open");
     });
-    if (profileFriendIndicator) profileFriendIndicator.addEventListener("click", () => {
-      const s = currentProfileSubject; if (!s) return;
-      const uname = s.username ? ("@" + s.username) : "this person";
-      // Heading + body name updates are now centralised in openRemoveFriendConfirm.
-      openRemoveFriendConfirm({ peerId: s.id, peerName: uname, source: "profile-banner" });
-    });
+    // Friend indicator is now a non-interactive visual-only element (unadd/cancel
+    // actions moved to the 3-dot menu). No click handler attached.
 
-    // Override applyFriendButtonState to also drive: friend indicator + voice/video
-    // visibility + hide the Add-Friend pill when accepted.
+    // Drive friend indicator + voice/video visibility based on friend state.
     if (typeof applyFriendButtonState === "function") {
-      const _orig = applyFriendButtonState;
-      // Replace the binding via property write on the closure isn't possible — instead
-      // we wrap the existing button reaction by listening for class changes on
-      // profileAddFriend. But simpler: monkey-patch via a wrapper exposed as
-      // window so the existing call site still hits the wrapped fn. Since the
-      // original is a closure-private const, we instead observe profileAddFriend.
       if (profileAddFriend && typeof MutationObserver !== "undefined") {
         try {
           const reflect = () => {
@@ -12379,11 +12406,8 @@
             if (profileFriendIndicator) profileFriendIndicator.hidden = !(isFriend && !isMine);
             if (profileVoiceBtn) profileVoiceBtn.hidden = !(isFriend && !isMine);
             if (profileVideoBtn) profileVideoBtn.hidden = !(isFriend && !isMine);
-            // Hide the add-friend pill (now redundant) when accepted.
-            if (profileAddFriend) profileAddFriend.hidden = (isFriend && !isMine);
           };
           new MutationObserver(reflect).observe(profileAddFriend, { attributes: true, attributeFilter: ["class"] });
-          // Also reflect when profile re-opens (subject changes, classes reset).
           if (profileBackdrop) {
             new MutationObserver(reflect).observe(profileBackdrop, { attributes: true, attributeFilter: ["class"] });
           }
