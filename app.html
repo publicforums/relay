@@ -352,9 +352,12 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
     </button>
     <div class="profile-banner" id="profile-banner"></div>
-    <button class="profile-friend-indicator" id="profile-friend-indicator" type="button" aria-label="Remove friend" title="Remove friend" hidden>
+    <button class="profile-friend-indicator" id="profile-friend-indicator" type="button" aria-label="Friend options" title="Friend options" hidden>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
     </button>
+    <div class="friend-indicator-overlay" id="friend-indicator-overlay" hidden>
+      <button type="button" class="fio-action danger" id="fio-unadd">Unadd Friend</button>
+    </div>
     <div class="profile-banner-actions">
       <button class="edit-icon" id="profile-edit" type="button" aria-label="Edit profile" title="Edit profile">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
@@ -365,7 +368,7 @@
       <div class="profile-menu" id="profile-menu" role="menu" hidden>
         <button type="button" role="menuitem" data-act="copy-uid">Copy User ID</button>
         <button type="button" role="menuitem" data-act="copy-username">Copy Username</button>
-        <button type="button" role="menuitem" data-act="unadd-friend" id="profile-menu-unadd" hidden>Unadd Friend</button>
+        <button type="button" role="menuitem" data-act="add-friend" id="profile-menu-add-friend" hidden>Add Friend</button>
         <button type="button" role="menuitem" data-act="cancel-request" id="profile-menu-cancel-request" hidden>Cancel Request</button>
         <button type="button" role="menuitem" data-act="report" id="profile-menu-report">Report User</button>
       </div>

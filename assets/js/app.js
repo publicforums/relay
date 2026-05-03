@@ -115,7 +115,8 @@
   const profileBioSection = $("profile-bio-section"), profileLinkedSection = $("profile-linked-section");
   const profileClose = $("profile-close"), profileLogout = $("profile-logout"), profileEdit = $("profile-edit");
   const profileMenuBtn = $("profile-menu-btn"), profileMenu = $("profile-menu"), profileMenuReport = $("profile-menu-report");
-  const profileMenuUnadd = $("profile-menu-unadd"), profileMenuCancelRequest = $("profile-menu-cancel-request");
+  const profileMenuAddFriend = $("profile-menu-add-friend"), profileMenuCancelRequest = $("profile-menu-cancel-request");
+  const friendIndicatorOverlay = $("friend-indicator-overlay"), fioUnadd = $("fio-unadd");
   const profileDiscord = $("profile-discord"), profileDiscordStatus = $("profile-discord-status");
   const profileDiscordLink = $("profile-discord-link");
   const profileDiscordErr = $("profile-discord-err");
@@ -4074,7 +4075,7 @@
     }
   }
   function openOwnProfile() { if (me) openProfileFor({ id: me.id, username: me.username, avatar_url: me.avatar_url }); }
-  function closeProfile() { profileBackdrop.classList.remove("open"); closeProfileMenu(); }
+  function closeProfile() { profileBackdrop.classList.remove("open"); closeProfileMenu(); if (friendIndicatorOverlay) friendIndicatorOverlay.hidden = true; }
   meBtn.addEventListener("click", openOwnProfile);
   profileClose.addEventListener("click", closeProfile);
   const profileCloseX = document.getElementById("profile-close-x");
@@ -4161,13 +4162,9 @@
         if (!uname) { toast("Username not available", "warn"); return; }
         const ok = await copyTextSafely(uname);
         toast(ok ? "Username copied" : "Could not copy username", ok ? "default" : "warn");
-      } else if (act === "unadd-friend") {
-        if (currentProfileSubject && currentProfileSubject.id) {
-          openRemoveFriendConfirm({
-            peerId: currentProfileSubject.id,
-            peerName: currentProfileSubject.username ? ("@" + currentProfileSubject.username) : "this person",
-            source: "profile-menu"
-          });
+      } else if (act === "add-friend") {
+        if (currentProfileSubject && currentProfileSubject.id && me) {
+          sendFriendRequestTo(currentProfileSubject.id);
         }
       } else if (act === "cancel-request") {
         if (currentProfileSubject && currentProfileSubject.id && me) {
@@ -7116,8 +7113,9 @@
       profileAddFriend.disabled = false;
     }
     var isMine = !!(me && currentProfileSubject && currentProfileSubject.id === me.id);
-    if (profileMenuUnadd) profileMenuUnadd.hidden = !(state === "accepted" && !isMine);
+    if (profileMenuAddFriend) profileMenuAddFriend.hidden = !(state === "none" && !isMine);
     if (profileMenuCancelRequest) profileMenuCancelRequest.hidden = !(state === "outgoing_pending" && !isMine);
+    if (friendIndicatorOverlay) friendIndicatorOverlay.hidden = true;
   }
 
   async function sendFriendRequestTo(receiverId) {
@@ -12392,8 +12390,35 @@
       if (typeof closeProfile === "function") try { closeProfile(); } catch (_) {}
       else if (profileBackdrop) profileBackdrop.classList.remove("open");
     });
-    // Friend indicator is now a non-interactive visual-only element (unadd/cancel
-    // actions moved to the 3-dot menu). No click handler attached.
+    // Friend indicator click → toggle overlay with "Unadd Friend" action.
+    if (profileFriendIndicator) {
+      profileFriendIndicator.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (friendIndicatorOverlay) {
+          friendIndicatorOverlay.hidden = !friendIndicatorOverlay.hidden;
+        }
+      });
+    }
+    if (fioUnadd) {
+      fioUnadd.addEventListener("click", function () {
+        if (friendIndicatorOverlay) friendIndicatorOverlay.hidden = true;
+        if (currentProfileSubject && currentProfileSubject.id) {
+          openRemoveFriendConfirm({
+            peerId: currentProfileSubject.id,
+            peerName: currentProfileSubject.username ? ("@" + currentProfileSubject.username) : "this person",
+            source: "friend-indicator"
+          });
+        }
+      });
+    }
+    // Close overlay when clicking outside it.
+    document.addEventListener("click", function (e) {
+      if (friendIndicatorOverlay && !friendIndicatorOverlay.hidden) {
+        if (!friendIndicatorOverlay.contains(e.target) && e.target !== profileFriendIndicator) {
+          friendIndicatorOverlay.hidden = true;
+        }
+      }
+    });
 
     // Drive friend indicator + voice/video visibility based on friend state.
     if (typeof applyFriendButtonState === "function") {

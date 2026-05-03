@@ -2934,7 +2934,6 @@
     outline: none;
   }
   .modal.profile-card .profile-menu button[data-act="report"],
-  .modal.profile-card .profile-menu button[data-act="unadd-friend"],
   .modal.profile-card .profile-menu button[data-act="cancel-request"] { color: var(--danger); }
   .modal.profile-card .profile-menu button[hidden] { display: none; }
   .modal .banner-color-row {
@@ -5899,16 +5898,57 @@
     border: 1px solid rgba(255,255,255,0.22);
     background: rgba(0,0,0,0.42);
     color: #fff;
-    cursor: default;
-    pointer-events: none;
+    cursor: pointer;
+    pointer-events: auto;
     display: inline-flex; align-items: center; justify-content: center;
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
-    transition: background .15s ease, border-color .15s ease;
+    transition: background .15s ease, border-color .15s ease, transform .08s ease;
     padding: 0;
   }
+  .modal.profile-card .profile-friend-indicator:hover {
+    background: rgba(0,0,0,0.58);
+    border-color: rgba(255,255,255,0.38);
+  }
+  .modal.profile-card .profile-friend-indicator:active { transform: scale(0.93); }
   .modal.profile-card .profile-friend-indicator[hidden] { display: none; }
   .modal.profile-card .profile-friend-indicator svg { width: 16px; height: 16px; }
+
+  /* ---------- Friend indicator overlay (mini popover) ---------- */
+  .modal.profile-card .friend-indicator-overlay {
+    position: absolute;
+    top: 44px; left: 48px;
+    z-index: 5;
+    min-width: 140px;
+    background: var(--panel, #fff);
+    border: 1px solid var(--border, rgba(0,0,0,0.12));
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    padding: 4px;
+    animation: fio-fade-in .15s ease;
+  }
+  .modal.profile-card .friend-indicator-overlay[hidden] { display: none; }
+  @keyframes fio-fade-in {
+    from { opacity: 0; transform: translateY(-6px) scale(0.95); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .fio-action {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text, #111);
+    font-size: 13px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background .12s ease;
+  }
+  .fio-action:hover { background: var(--panel-2, rgba(0,0,0,0.06)); }
+  .fio-action.danger { color: #e74c4c; }
+  .fio-action.danger:hover { background: rgba(231,76,76,0.1); }
 
   /* ---------- Confirm-remove-friend modal (modal blur backdrop) ---------- */
   .modal-backdrop#confirm-remove-friend-backdrop {
