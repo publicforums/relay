@@ -4179,11 +4179,10 @@
               reqId = fresh && fresh.request_id ? fresh.request_id : null;
             }
             if (reqId) {
-              await respondFriendRequest(reqId, false);
+              var cancelRes = await sb.rpc("cancel_friend_request", { p_request: reqId });
+              if (cancelRes.error) throw cancelRes.error;
             } else {
-              var filter = "and(sender_id.eq." + me.id + ",receiver_id.eq." + currentProfileSubject.id + ")";
-              var res = await sb.from("friend_requests").delete().eq("status", "pending").or(filter);
-              if (res.error) throw res.error;
+              throw new Error("No request ID found to cancel");
             }
             friendStatusCache.set(currentProfileSubject.id, { state: "none", request_id: null });
             applyFriendButtonState("none");
