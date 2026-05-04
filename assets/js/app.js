@@ -4082,7 +4082,6 @@
     const isMine = me && uid === me.id;
     profileEdit.classList.toggle("show", !!isMine);
     if (profileMenuReport) profileMenuReport.hidden = !!isMine;
-    if (profileMenuUnadd) profileMenuUnadd.hidden = true;
     if (profileMenuCancelRequest) profileMenuCancelRequest.hidden = true;
     if (profileActions) {
       profileActions.hidden = !!isMine || !me;
