@@ -103,10 +103,20 @@
   const obSteps = document.querySelectorAll("#onboarding .ob-step");
   const chatEl = $("chat");
   const meBtn = $("me-btn"), meAvatar = $("me-avatar"), meName = $("me-name");
-  const messagesEl = $("messages");
-  const inputEl = $("input"), sendBtn = $("send"), uploadBtn = $("upload-btn"), fileInput = $("file-input");
-  const mentionBox = $("mention-box");
-  const previewEl = $("preview"), previewImg = $("preview-img"), previewRm = $("preview-rm");
+  // Feed (replaces old public chat)
+  const feedEl = $("feed");
+  const messagesEl = feedEl; // alias for backward compat (auth flow calls scrollToBottom, etc.)
+  const feedComposerAvatar = $("feed-composer-avatar");
+  const feedInput = $("feed-input"), feedPostBtn = $("feed-post-btn"), feedAttachBtn = $("feed-attach-btn"), feedFileInput = $("feed-file-input");
+  const feedPreview = $("feed-preview"), feedPreviewImg = $("feed-preview-img"), feedPreviewRm = $("feed-preview-rm");
+  const feedCharCount = $("feed-char-count");
+  // Legacy aliases — some auth/onboarding code calls inputEl.focus() etc.
+  const inputEl = feedInput;
+  const sendBtn = feedPostBtn;
+  const uploadBtn = feedAttachBtn;
+  const fileInput = feedFileInput;
+  const mentionBox = null;
+  const previewEl = feedPreview, previewImg = feedPreviewImg, previewRm = feedPreviewRm;
   const profileBackdrop = $("profile-backdrop");
   const profileAvatar = $("profile-avatar"), profileName = $("profile-name"), profileSub = $("profile-sub");
   const profileBanner = $("profile-banner");
@@ -213,8 +223,15 @@
 
   // ---------- State ----------
   let me = null;
-  const messagesById = new Map();
-  const rowsById = new Map();
+  // Feed state (replaces old chat messages/reactions)
+  const postsById = new Map();      // post_id -> post object
+  const postElsById = new Map();    // post_id -> DOM element
+  const myLikes = new Set();        // post_ids the current user liked
+  const myFavs = new Set();         // post_ids the current user favorited
+  const myReposts = new Set();      // post_ids the current user reposted
+  // Legacy compat aliases (some downstream code references these)
+  const messagesById = postsById;
+  const rowsById = postElsById;
   const reactionsByMsg = new Map();
   const reactionsByKey = new Set();
   const profileCache = new Map(); // user_id -> { first_seen, username, avatar_url }
@@ -230,6 +247,9 @@
   let replyTo = null;
   let ctxTargetId = null, drawerTargetId = null, pickerTargetId = null;
   let activeRow = null; // row with visible inline actions on tap
+  // Feed rate-limit state
+  let lastPostTime = 0;
+  const POST_COOLDOWN_MS = 5000; // 5 seconds between posts
   // Moderation + presence state
   const moderatorIds = new Set();     // user_id -> is moderator
   const bannedIds = new Set();        // user_id -> is banned
@@ -470,44 +490,21 @@
   }
   const isRestricted = () => getRestrictionUntil() > Date.now();
 
-  // ---------- Rendering ----------
+  // ---------- Rendering (Feed) ----------
   function ensurePlaceholderCleared() {
-    const p = messagesEl.querySelector(".loading, .empty");
+    const p = feedEl.querySelector(".loading, .empty");
     if (p) p.remove();
   }
 
-  function getOrCreateSegment() {
-    // All rows live inside a single .msg-col segment
-    let col = messagesEl.querySelector(".msg-col");
-    if (!col) {
-      col = document.createElement("div");
-      col.className = "msg-col";
-      messagesEl.appendChild(col);
-    }
-    return col;
-  }
-
-  // Re-derive the invariant that each run of consecutive messages from the
-  // same sender (inside a day) is preceded by exactly one `.name-small`
-  // header. After a message is deleted we may be left with: (a) a
-  // `.name-small` that labels a row that no longer exists; or (b) a `.row`
-  // that is now the first of its sender-run but has no header because the
-  // original first row was deleted. This walks `container` once and fixes
-  // both cases. Safe to call on the public-chat container and on each
-  // group-room container; containers that never use `.name-small` are a
-  // no-op because the first pass won't find any.
+  // Kept for backward compat with group chat reconciliation
   function reconcileNameHeaders(container) {
     if (!container) return;
-    // Pass 1: drop any header not immediately followed by a row.
     const heads = container.querySelectorAll(".name-small");
     for (let i = 0; i < heads.length; i++) {
       const h = heads[i];
       const nx = h.nextElementSibling;
       if (!nx || !nx.classList || !nx.classList.contains("row")) h.remove();
     }
-    // Pass 2: walk once, track last sender (reset on day-divider), and
-    // insert a header before any row that starts a new sender-run but
-    // lacks one. Also drop duplicate consecutive headers for the same row.
     let lastUid = null;
     const kids = Array.from(container.children);
     for (let i = 0; i < kids.length; i++) {
@@ -529,282 +526,528 @@
           n.setAttribute("role", "button");
           n.tabIndex = 0;
           n.title = "View profile";
-          // A reconstructed header must behave like the one renderMessage
-          // builds (app.js ~line 694): clicking it / pressing Enter or Space
-          // opens the sender's profile. CSS already paints `cursor: pointer`
-          // on `.name-small` so without these listeners the element would
-          // look interactive but do nothing. We can't pass the original `m`
-          // here, so we build a minimal subject from the row's dataset —
-          // openProfileFor only reads `user_id` (falls back to `id`) and
-          // `username` / `avatar_url`.
-          const subject = {
-            id: uid,
-            user_id: uid,
-            username: uname,
-            avatar_url: el.dataset.avatarUrl || "",
-          };
+          const subject = { id: uid, user_id: uid, username: uname, avatar_url: el.dataset.avatarUrl || "" };
           n.addEventListener("click", () => openProfileFor(subject));
-          n.addEventListener("keydown", (e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              openProfileFor(subject);
-            }
-          });
+          n.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openProfileFor(subject); } });
           el.parentNode.insertBefore(n, el);
         }
-      } else if (!needsHead && hasHead) {
-        // Same sender as previous visible row -> extra header is noise.
-        prev.remove();
-      }
+      } else if (!needsHead && hasHead) { prev.remove(); }
       lastUid = uid;
     }
   }
 
-  function buildRow(m) {
-    const createdAt = new Date(m.created_at);
-    const isMe = me && m.user_id === me.id;
-
-    const row = document.createElement("div");
-    row.className = "row " + (isMe ? "me" : "other");
-    row.dataset.id = m.id;
-    row.dataset.userId = m.user_id;
-    row.dataset.username = m.username || "User";
-    // Store avatar on the row so reconcileNameHeaders can hand a non-empty
-    // subject to openProfileFor when it rebuilds a `.name-small` — otherwise
-    // the reconstructed header briefly flashes the default avatar before the
-    // async profile fetch resolves.
-    if (m.avatar_url) row.dataset.avatarUrl = m.avatar_url;
-
-    if (!isMe) {
-      const avBtn = document.createElement("button");
-      avBtn.className = "avatar-btn";
-      avBtn.type = "button";
-      avBtn.setAttribute("aria-label", "Open profile");
-      const img = document.createElement("img");
-      img.className = "avatar";
-      // Fix 2 — fall back to DEFAULT_AVATAR_URL when the row has no
-      // avatar_url, and swap to it on load error as well, so the letter
-      // placeholder only shows if even the default image fails to load.
-      img.alt = ""; img.loading = "lazy"; img.src = resolveAvatarUrl(m.avatar_url);
-      let _rowAvatarFallbackTried = false;
-      img.onerror = () => {
-        if (!_rowAvatarFallbackTried && img.src.indexOf(DEFAULT_AVATAR_URL) === -1) {
-          _rowAvatarFallbackTried = true;
-          img.src = DEFAULT_AVATAR_URL;
-          return;
-        }
-        console.warn("[Warning] Missing avatar for", m.user_id);
-        img.style.display = "none";
-        const fb = document.createElement("div");
-        fb.className = "avatar";
-        Object.assign(fb.style, {
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: "12px", fontWeight: "700", color: "#fff", background: "#8e8e93"
-        });
-        fb.textContent = (m.username || "?").trim().charAt(0).toUpperCase() || "?";
-        avBtn.appendChild(fb);
-      };
-      avBtn.appendChild(img);
-      // Moderator badge only on chat rows. Presence dots are reserved for the
-      // profile preview per spec — do NOT render them in the chat list.
-      if (isModeratorId(m.user_id)) {
-        const mb = document.createElement("span");
-        mb.className = "mod-badge";
-        mb.title = "Moderator";
-        mb.innerHTML =
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-          '<path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/>' +
-          '<polyline points="9 12 11 14 15 10"/></svg>';
-        avBtn.appendChild(mb);
-      }
-      avBtn.addEventListener("click", (e) => { e.stopPropagation(); openProfileFor(m); });
-      row.appendChild(avBtn);
-    }
-
-    const stack = document.createElement("div");
-    stack.className = "stack";
-
-    const wrap = document.createElement("div");
-    wrap.className = "bubble-wrap";
-
-    const hasImage = !!m.image_url;
-    const hasText = !!(m.content && m.content.length);
-    const bubble = document.createElement("div");
-    bubble.className = "bubble" + (hasImage && !hasText ? " image-only" : (hasImage && hasText ? " has-image image-with-caption" : ""));
-    bubble.dataset.id = m.id;
-
-    if (m.reply_to_id) {
-      const snip = document.createElement("button");
-      snip.type = "button";
-      snip.className = "reply-snippet";
-      const parent = messagesById.get(m.reply_to_id);
-      if (parent) {
-        snip.innerHTML =
-          `<span class="reply-to">${escapeHtml(parent.username || "User")}</span>` +
-          `<span class="reply-text">${escapeHtml(snippetFromMessage(parent))}</span>`;
-      } else {
-        snip.className += " missing";
-        snip.innerHTML = `<span class="reply-to">Reply</span><span class="reply-text">Original message unavailable</span>`;
-      }
-      snip.addEventListener("click", (e) => { e.stopPropagation(); jumpToMessage(m.reply_to_id); });
-      bubble.appendChild(snip);
-    }
-
-    if (hasImage) {
-      const mi = document.createElement("img");
-      mi.className = "msg-image";
-      mi.alt = ""; mi.loading = "lazy"; mi.src = m.image_url;
-      mi.addEventListener("click", (e) => { e.stopPropagation(); openImageViewer(m.image_url); });
-      mi.onerror = () => {
-        console.warn("[Warning] Broken image", m.image_url);
-        const fb = document.createElement("div");
-        fb.textContent = "Image failed to load";
-        fb.style.cssText = "color:var(--muted);font-size:12px;padding:8px 2px;";
-        mi.replaceWith(fb);
-      };
-      bubble.appendChild(mi);
-    }
-    if (hasText) {
-      // Voice message marker — render as inline audio bubble instead of text.
-      if (typeof renderVoiceBubble === "function" && renderVoiceBubble(bubble, m.content)) {
-        // rendered
-      } else {
-        const textNode = document.createElement("span");
-        textNode.className = "msg-text";
-        renderTextWithMentions(textNode, m.content);
-        bubble.appendChild(textNode);
-      }
-    }
-
-    // Double-click → reaction picker
-    bubble.addEventListener("dblclick", (e) => {
-      e.preventDefault();
-      const r = bubble.getBoundingClientRect();
-      openReactionPicker(m.id, r.left + r.width / 2, r.top);
-    });
-
-    wrap.appendChild(bubble);
-
-    // Inline actions (reply + overflow/3-dot)
-    const actions = document.createElement("div");
-    actions.className = "inline-actions";
-
-    const replyBtn = document.createElement("button");
-    replyBtn.type = "button"; replyBtn.title = "Reply"; replyBtn.setAttribute("aria-label", "Reply");
-    replyBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17l-5-5 5-5"/><path d="M4 12h11a5 5 0 0 1 5 5v2"/></svg>`;
-    replyBtn.addEventListener("click", (e) => { e.stopPropagation(); setReplyTo(m); });
-
-    const moreBtn = document.createElement("button");
-    moreBtn.type = "button"; moreBtn.title = "More"; moreBtn.setAttribute("aria-label", "More actions");
-    moreBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>`;
-    moreBtn.addEventListener("click", (e) => { e.stopPropagation(); openDrawerFor(m.id); });
-
-    actions.appendChild(replyBtn);
-    actions.appendChild(moreBtn);
-    wrap.appendChild(actions);
-
-    stack.appendChild(wrap);
-
-    const reactsEl = document.createElement("div");
-    reactsEl.className = "reactions";
-    reactsEl.dataset.msgId = m.id;
-    stack.appendChild(reactsEl);
-
-    row.appendChild(stack);
-
-    const rowTime = document.createElement("div");
-    rowTime.className = "row-time";
-    rowTime.textContent = fmtTime(createdAt);
-    row.appendChild(rowTime);
-
-    return row;
+  function fmtRelativeTime(d) {
+    const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (diff < 60) return "just now";
+    if (diff < 3600) return Math.floor(diff / 60) + "m";
+    if (diff < 86400) return Math.floor(diff / 3600) + "h";
+    if (diff < 604800) return Math.floor(diff / 86400) + "d";
+    return d.toLocaleDateString([], { month: "short", day: "numeric" });
   }
 
-  function renderMessage(m, { animate = true } = {}) {
-    if (rowsById.has(m.id)) {
-      console.warn("[Warning] Duplicate prevented", m.id);
-      return;
+  function buildPostCard(p) {
+    const card = document.createElement("article");
+    card.className = "fp-card";
+    card.dataset.id = p.id;
+    card.dataset.userId = p.user_id;
+    if (p.depth > 0) card.classList.add("fp-reply");
+    if (p.depth > 1) card.classList.add("fp-reply-deep");
+
+    // Repost attribution
+    if (p._repostBy) {
+      const rh = document.createElement("div");
+      rh.className = "fp-repost-header";
+      rh.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
+      rh.appendChild(document.createTextNode(" " + escapeHtml(p._repostBy) + " reposted"));
+      card.appendChild(rh);
     }
-    messagesById.set(m.id, m);
+
+    // Header: avatar + username + time
+    const hdr = document.createElement("div");
+    hdr.className = "fp-header";
+
+    const avBtn = document.createElement("button");
+    avBtn.className = "fp-avatar-btn";
+    avBtn.type = "button";
+    avBtn.setAttribute("aria-label", "Open profile");
+    const avImg = document.createElement("img");
+    avImg.className = "fp-avatar";
+    avImg.alt = ""; avImg.loading = "lazy"; avImg.src = resolveAvatarUrl(p.avatar_url);
+    avImg.onerror = () => {
+      avImg.style.display = "none";
+      const fb = document.createElement("div");
+      fb.className = "fp-avatar fp-avatar-fallback";
+      fb.textContent = (p.username || "?").charAt(0).toUpperCase();
+      avBtn.insertBefore(fb, avBtn.firstChild);
+    };
+    avBtn.appendChild(avImg);
+    avBtn.addEventListener("click", (e) => { e.stopPropagation(); openProfileFor({ id: p.user_id, user_id: p.user_id, username: p.username, avatar_url: p.avatar_url }); });
+    hdr.appendChild(avBtn);
+
+    const meta = document.createElement("div");
+    meta.className = "fp-meta";
+    const uname = document.createElement("button");
+    uname.className = "fp-username";
+    uname.type = "button";
+    uname.textContent = "@" + (p.username || "User");
+    uname.addEventListener("click", (e) => { e.stopPropagation(); openProfileFor({ id: p.user_id, user_id: p.user_id, username: p.username, avatar_url: p.avatar_url }); });
+    const time = document.createElement("span");
+    time.className = "fp-time";
+    time.textContent = fmtRelativeTime(new Date(p.created_at));
+    time.title = new Date(p.created_at).toLocaleString();
+    meta.appendChild(uname);
+    meta.appendChild(time);
+    hdr.appendChild(meta);
+
+    // Delete button for own posts
+    if (me && p.user_id === me.id) {
+      const delBtn = document.createElement("button");
+      delBtn.className = "fp-delete-btn";
+      delBtn.type = "button";
+      delBtn.title = "Delete";
+      delBtn.setAttribute("aria-label", "Delete post");
+      delBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+      delBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        if (!confirm("Delete this post?")) return;
+        const { error } = await sb.from("feed_posts").delete().eq("id", p.id).eq("user_id", me.id);
+        if (error) { toast("Delete failed", "error"); return; }
+        const el = postElsById.get(p.id);
+        if (el) el.remove();
+        postElsById.delete(p.id);
+        postsById.delete(p.id);
+      });
+      hdr.appendChild(delBtn);
+    }
+
+    card.appendChild(hdr);
+
+    // Content
+    if (p.content && p.content.trim()) {
+      const body = document.createElement("div");
+      body.className = "fp-body";
+      renderTextWithMentions(body, p.content);
+      card.appendChild(body);
+    }
+
+    // Image
+    if (p.image_url) {
+      const imgWrap = document.createElement("div");
+      imgWrap.className = "fp-image-wrap";
+      const img = document.createElement("img");
+      img.className = "fp-image";
+      img.alt = "Post image"; img.loading = "lazy"; img.src = p.image_url;
+      img.addEventListener("click", (e) => { e.stopPropagation(); openImageViewer(p.image_url); });
+      img.onerror = () => {
+        const fb = document.createElement("div");
+        fb.className = "fp-image-error";
+        fb.textContent = "Image failed to load";
+        img.replaceWith(fb);
+      };
+      imgWrap.appendChild(img);
+      card.appendChild(imgWrap);
+    }
+
+    // Engagement bar
+    const bar = document.createElement("div");
+    bar.className = "fp-engage";
+
+    const likeBtn = document.createElement("button");
+    likeBtn.className = "fp-action" + (myLikes.has(p.id) ? " active" : "");
+    likeBtn.type = "button";
+    likeBtn.dataset.act = "like";
+    likeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="' + (myLikes.has(p.id) ? "currentColor" : "none") + '" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.02-1.07a5.5 5.5 0 0 0-7.78 7.78l1.02 1.07L12 21.23l7.78-7.78 1.02-1.07a5.5 5.5 0 0 0 0-7.78z"/></svg>';
+    likeBtn.appendChild(document.createTextNode(" "));
+    const likeCt = document.createElement("span");
+    likeCt.className = "fp-count";
+    likeCt.textContent = p.like_count || "";
+    likeBtn.appendChild(likeCt);
+    likeBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleFeedLike(p.id); });
+
+    const commentBtn = document.createElement("button");
+    commentBtn.className = "fp-action";
+    commentBtn.type = "button";
+    commentBtn.dataset.act = "comment";
+    commentBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+    commentBtn.appendChild(document.createTextNode(" "));
+    const commentCt = document.createElement("span");
+    commentCt.className = "fp-count";
+    commentCt.textContent = p.comment_count || "";
+    commentBtn.appendChild(commentCt);
+    commentBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleCommentSection(p.id); });
+
+    const repostBtn = document.createElement("button");
+    repostBtn.className = "fp-action" + (myReposts.has(p.id) ? " active" : "");
+    repostBtn.type = "button";
+    repostBtn.dataset.act = "repost";
+    repostBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
+    repostBtn.appendChild(document.createTextNode(" "));
+    const repostCt = document.createElement("span");
+    repostCt.className = "fp-count";
+    repostCt.textContent = p.repost_count || "";
+    repostBtn.appendChild(repostCt);
+    repostBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleFeedRepost(p.id); });
+
+    const favBtn = document.createElement("button");
+    favBtn.className = "fp-action" + (myFavs.has(p.id) ? " active" : "");
+    favBtn.type = "button";
+    favBtn.dataset.act = "fav";
+    favBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="' + (myFavs.has(p.id) ? "currentColor" : "none") + '" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+    favBtn.appendChild(document.createTextNode(" "));
+    const favCt = document.createElement("span");
+    favCt.className = "fp-count";
+    favCt.textContent = p.fav_count || "";
+    favBtn.appendChild(favCt);
+    favBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleFeedFav(p.id); });
+
+    bar.appendChild(likeBtn);
+    bar.appendChild(commentBtn);
+    // Only show repost on root-level posts (not on replies)
+    if (p.depth === 0) bar.appendChild(repostBtn);
+    bar.appendChild(favBtn);
+    card.appendChild(bar);
+
+    // Comment section (hidden by default, toggled on click)
+    const commSec = document.createElement("div");
+    commSec.className = "fp-comments";
+    commSec.hidden = true;
+    commSec.dataset.postId = p.id;
+    card.appendChild(commSec);
+
+    return card;
+  }
+
+  function renderPost(p, { animate = true, prepend = false } = {}) {
+    if (postElsById.has(p.id)) return;
+    postsById.set(p.id, p);
     ensurePlaceholderCleared();
 
-    const col = getOrCreateSegment();
-
-    const createdAt = new Date(m.created_at);
-    const dayKey = createdAt.toDateString();
-    if (lastDateLabel !== dayKey) {
-      const div = document.createElement("div");
-      div.className = "day-divider";
-      div.innerHTML = `<strong>${escapeHtml(fmtDayLabel(createdAt))}</strong>`;
-      col.appendChild(div);
-      lastDateLabel = dayKey;
-      lastSenderId = null;
-    }
-    const isMe = me && m.user_id === me.id;
-    const showName = m.user_id !== lastSenderId;
-    lastSenderId = m.user_id;
-
-    if (showName) {
-      const n = document.createElement("div");
-      n.className = "name-small" + (isMe ? " me" : "");
-      n.textContent = m.username || "User";
-      n.role = "button";
-      n.tabIndex = 0;
-      n.title = "View profile";
-      n.addEventListener("click", () => openProfileFor(m));
-      n.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openProfileFor(m); } });
-      col.appendChild(n);
-    }
-
-    const row = buildRow(m);
-    if (!animate) row.style.animation = "none";
-    col.appendChild(row);
-    rowsById.set(m.id, row);
-
-    renderReactionsFor(m.id);
+    const card = buildPostCard(p);
+    if (animate) card.classList.add("fp-anim-in");
+    if (prepend) feedEl.prepend(card);
+    else feedEl.appendChild(card);
+    postElsById.set(p.id, card);
   }
+  // Alias for legacy code paths that call renderMessage
+  const renderMessage = renderPost;
 
   function clearMessages() {
-    rowsById.clear();
-    messagesById.clear();
-    reactionsByMsg.clear();
-    reactionsByKey.clear();
+    postElsById.clear();
+    postsById.clear();
+    myLikes.clear();
+    myFavs.clear();
+    myReposts.clear();
     lastDateLabel = null;
     lastSenderId = null;
-    messagesEl.innerHTML = "";
+    feedEl.innerHTML = "";
   }
 
   async function loadHistory() {
-    messagesEl.innerHTML = '<div class="loading">Loading messages…</div>';
-    // Moderation + presence loading runs in parallel with message history so the
-    // chat still renders even if one of the new tables is missing / unreachable.
+    feedEl.innerHTML = '<div class="loading">Loading feed…</div>';
     loadModerators().catch(()=>{});
     loadBannedSelf().catch(()=>{});
     startPresenceLoop();
-    const [msgsRes, reactsRes] = await Promise.all([
-      sb.from("messages").select("*").order("created_at", { ascending: true }).limit(500),
-      sb.from("message_reactions").select("*").limit(5000)
+
+    // Load top-level posts (depth=0), newest first
+    const [postsRes, likesRes, favsRes, repostsRes] = await Promise.all([
+      sb.from("feed_posts").select("*").eq("depth", 0).order("created_at", { ascending: false }).limit(100),
+      me ? sb.from("post_likes").select("post_id").eq("user_id", me.id) : Promise.resolve({ data: [] }),
+      me ? sb.from("post_favorites").select("post_id").eq("user_id", me.id) : Promise.resolve({ data: [] }),
+      me ? sb.from("post_reposts").select("original_post_id").eq("user_id", me.id) : Promise.resolve({ data: [] })
     ]);
+
     clearMessages();
-    if (msgsRes.error) {
-      console.error("[Error] Load failed", msgsRes.error);
-      messagesEl.innerHTML = '<div class="empty">Could not load messages: ' + escapeHtml(msgsRes.error.message) + '</div>';
+
+    if (postsRes.error) {
+      console.error("[Error] Feed load failed", postsRes.error);
+      feedEl.innerHTML = '<div class="empty">Could not load feed: ' + escapeHtml(postsRes.error.message) + '</div>';
       return;
     }
-    const msgs = msgsRes.data || [];
-    for (const m of msgs) messagesById.set(m.id, m);
-    if (reactsRes.data) for (const r of reactsRes.data) addReactionToState(r);
-    if (msgs.length === 0) {
-      messagesEl.innerHTML = '<div class="empty">No messages yet. Say hi!</div>';
+
+    // Populate engagement state
+    if (likesRes.data) for (const r of likesRes.data) myLikes.add(r.post_id);
+    if (favsRes.data) for (const r of favsRes.data) myFavs.add(r.post_id);
+    if (repostsRes.data) for (const r of repostsRes.data) myReposts.add(r.original_post_id);
+
+    const posts = postsRes.data || [];
+    if (posts.length === 0) {
+      feedEl.innerHTML = '<div class="empty">No posts yet. Be the first to share something!</div>';
       return;
     }
-    for (const m of msgs) renderMessage(m, { animate: false });
-    // Always show the "add emoji" chip for every rendered row
-    for (const id of rowsById.keys()) renderReactionsFor(id);
-    scrollToBottom();
+
+    for (const p of posts) renderPost(p, { animate: false });
+
+    // Update composer avatar
+    if (me && feedComposerAvatar) feedComposerAvatar.src = resolveAvatarUrl(me.avatar_url);
   }
 
-  // ---------- Reactions ----------
+  // ---------- Feed engagement ----------
+  async function toggleFeedLike(postId) {
+    if (!me) return;
+    if (!myEmailVerified) { toast("Verify your email first", "warn"); return; }
+    const { data, error } = await sb.rpc("toggle_like", { p_post_id: postId });
+    if (error) { toast("Could not toggle like", "error"); return; }
+    const liked = data && data.liked;
+    if (liked) myLikes.add(postId); else myLikes.delete(postId);
+    const p = postsById.get(postId);
+    if (p) p.like_count = Math.max(0, (p.like_count || 0) + (liked ? 1 : -1));
+    refreshPostEngagement(postId);
+  }
+
+  async function toggleFeedFav(postId) {
+    if (!me) return;
+    if (!myEmailVerified) { toast("Verify your email first", "warn"); return; }
+    const { data, error } = await sb.rpc("toggle_favorite", { p_post_id: postId });
+    if (error) { toast("Could not toggle favorite", "error"); return; }
+    const faved = data && data.favorited;
+    if (faved) myFavs.add(postId); else myFavs.delete(postId);
+    const p = postsById.get(postId);
+    if (p) p.fav_count = Math.max(0, (p.fav_count || 0) + (faved ? 1 : -1));
+    refreshPostEngagement(postId);
+  }
+
+  async function toggleFeedRepost(postId) {
+    if (!me) return;
+    if (!myEmailVerified) { toast("Verify your email first", "warn"); return; }
+    const { data, error } = await sb.rpc("toggle_repost", { p_post_id: postId });
+    if (error) { toast("Could not toggle repost", "error"); return; }
+    const reposted = data && data.reposted;
+    if (reposted) { myReposts.add(postId); toast("Reposted!", "default", 1200); }
+    else { myReposts.delete(postId); toast("Repost removed", "default", 1200); }
+    const p = postsById.get(postId);
+    if (p) p.repost_count = Math.max(0, (p.repost_count || 0) + (reposted ? 1 : -1));
+    refreshPostEngagement(postId);
+  }
+
+  function refreshPostEngagement(postId) {
+    const card = postElsById.get(postId);
+    if (!card) return;
+    const p = postsById.get(postId);
+    if (!p) return;
+    const bar = card.querySelector(".fp-engage");
+    if (!bar) return;
+
+    const likeBtn = bar.querySelector('[data-act="like"]');
+    if (likeBtn) {
+      likeBtn.classList.toggle("active", myLikes.has(postId));
+      const svg = likeBtn.querySelector("svg");
+      if (svg) svg.setAttribute("fill", myLikes.has(postId) ? "currentColor" : "none");
+      const ct = likeBtn.querySelector(".fp-count");
+      if (ct) ct.textContent = p.like_count || "";
+    }
+    const favBtn = bar.querySelector('[data-act="fav"]');
+    if (favBtn) {
+      favBtn.classList.toggle("active", myFavs.has(postId));
+      const svg = favBtn.querySelector("svg");
+      if (svg) svg.setAttribute("fill", myFavs.has(postId) ? "currentColor" : "none");
+      const ct = favBtn.querySelector(".fp-count");
+      if (ct) ct.textContent = p.fav_count || "";
+    }
+    const repostBtn = bar.querySelector('[data-act="repost"]');
+    if (repostBtn) {
+      repostBtn.classList.toggle("active", myReposts.has(postId));
+      const ct = repostBtn.querySelector(".fp-count");
+      if (ct) ct.textContent = p.repost_count || "";
+    }
+    const commentBtn = bar.querySelector('[data-act="comment"]');
+    if (commentBtn) {
+      const ct = commentBtn.querySelector(".fp-count");
+      if (ct) ct.textContent = p.comment_count || "";
+    }
+  }
+
+  // ---------- Comment section (threaded replies) ----------
+  async function toggleCommentSection(postId) {
+    const card = postElsById.get(postId);
+    if (!card) return;
+    const sec = card.querySelector(".fp-comments");
+    if (!sec) return;
+
+    if (!sec.hidden) { sec.hidden = true; return; }
+
+    sec.hidden = false;
+    sec.innerHTML = '<div class="fp-comments-loading">Loading comments…</div>';
+
+    const { data, error } = await sb.from("feed_posts")
+      .select("*")
+      .eq("parent_id", postId)
+      .order("created_at", { ascending: true })
+      .limit(50);
+
+    sec.innerHTML = "";
+
+    // Comment input
+    if (me) {
+      const ci = document.createElement("div");
+      ci.className = "fp-comment-input";
+      const cInput = document.createElement("input");
+      cInput.type = "text";
+      cInput.placeholder = "Write a comment…";
+      cInput.maxLength = 500;
+      cInput.autocomplete = "off";
+      const cSend = document.createElement("button");
+      cSend.type = "button";
+      cSend.textContent = "Reply";
+      cSend.disabled = true;
+      cInput.addEventListener("input", () => { cSend.disabled = !cInput.value.trim(); });
+      cInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey && cInput.value.trim()) {
+          e.preventDefault();
+          submitComment(postId, cInput, cSend, sec);
+        }
+      });
+      cSend.addEventListener("click", () => submitComment(postId, cInput, cSend, sec));
+      ci.appendChild(cInput);
+      ci.appendChild(cSend);
+      sec.appendChild(ci);
+    }
+
+    if (error) {
+      const err = document.createElement("div");
+      err.className = "fp-comments-error";
+      err.textContent = "Could not load comments";
+      sec.appendChild(err);
+      return;
+    }
+
+    const comments = data || [];
+    for (const c of comments) {
+      postsById.set(c.id, c);
+      const cEl = buildCommentEl(c, postId);
+      sec.appendChild(cEl);
+    }
+  }
+
+  function buildCommentEl(c, rootPostId) {
+    const el = document.createElement("div");
+    el.className = "fp-comment" + (c.depth > 1 ? " fp-comment-nested" : "");
+    el.dataset.id = c.id;
+
+    const hdr = document.createElement("div");
+    hdr.className = "fp-comment-header";
+    const avImg = document.createElement("img");
+    avImg.className = "fp-comment-avatar";
+    avImg.src = resolveAvatarUrl(c.avatar_url);
+    avImg.alt = "";
+    avImg.addEventListener("click", () => openProfileFor({ id: c.user_id, user_id: c.user_id, username: c.username, avatar_url: c.avatar_url }));
+    const name = document.createElement("button");
+    name.className = "fp-comment-name";
+    name.type = "button";
+    name.textContent = "@" + (c.username || "User");
+    name.addEventListener("click", () => openProfileFor({ id: c.user_id, user_id: c.user_id, username: c.username, avatar_url: c.avatar_url }));
+    const time = document.createElement("span");
+    time.className = "fp-comment-time";
+    time.textContent = fmtRelativeTime(new Date(c.created_at));
+    hdr.appendChild(avImg);
+    hdr.appendChild(name);
+    hdr.appendChild(time);
+
+    // Delete own comment
+    if (me && c.user_id === me.id) {
+      const del = document.createElement("button");
+      del.className = "fp-comment-delete";
+      del.type = "button";
+      del.title = "Delete";
+      del.innerHTML = "×";
+      del.addEventListener("click", async () => {
+        if (!confirm("Delete this comment?")) return;
+        const { error } = await sb.from("feed_posts").delete().eq("id", c.id).eq("user_id", me.id);
+        if (error) { toast("Delete failed", "error"); return; }
+        el.remove();
+        postsById.delete(c.id);
+        // Decrement comment count on root post
+        const root = postsById.get(rootPostId);
+        if (root) { root.comment_count = Math.max(0, (root.comment_count || 0) - 1); refreshPostEngagement(rootPostId); }
+      });
+      hdr.appendChild(del);
+    }
+
+    el.appendChild(hdr);
+
+    const body = document.createElement("div");
+    body.className = "fp-comment-body";
+    renderTextWithMentions(body, c.content);
+    el.appendChild(body);
+
+    // Nested reply button (only if depth < 2)
+    if (me && c.depth < 2) {
+      const replyBtn = document.createElement("button");
+      replyBtn.className = "fp-comment-reply-btn";
+      replyBtn.type = "button";
+      replyBtn.textContent = "Reply";
+      replyBtn.addEventListener("click", () => {
+        // Show inline reply input for this comment
+        let existing = el.querySelector(".fp-comment-input");
+        if (existing) { existing.remove(); return; }
+        const ci = document.createElement("div");
+        ci.className = "fp-comment-input";
+        const cInput = document.createElement("input");
+        cInput.type = "text";
+        cInput.placeholder = "Reply to @" + (c.username || "User") + "…";
+        cInput.maxLength = 500;
+        cInput.autocomplete = "off";
+        const cSend = document.createElement("button");
+        cSend.type = "button";
+        cSend.textContent = "Reply";
+        cSend.disabled = true;
+        cInput.addEventListener("input", () => { cSend.disabled = !cInput.value.trim(); });
+        cInput.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" && !e.shiftKey && cInput.value.trim()) {
+            e.preventDefault();
+            submitComment(c.id, cInput, cSend, el.parentNode, rootPostId);
+          }
+        });
+        cSend.addEventListener("click", () => submitComment(c.id, cInput, cSend, el.parentNode, rootPostId));
+        ci.appendChild(cInput);
+        ci.appendChild(cSend);
+        el.appendChild(ci);
+        cInput.focus();
+      });
+      el.appendChild(replyBtn);
+    }
+
+    return el;
+  }
+
+  async function submitComment(parentId, inputEl, sendBtn, container, rootPostId) {
+    const text = inputEl.value.trim();
+    if (!text || !me) return;
+    sendBtn.disabled = true;
+
+    const parentPost = postsById.get(parentId);
+    const actualRootId = rootPostId || (parentPost && parentPost.depth === 0 ? parentId : (parentPost ? parentPost.parent_id : parentId));
+
+    const { data: newId, error } = await sb.rpc("add_comment", { p_parent_id: parentId, p_content: text });
+    if (error) {
+      toast(error.message || "Comment failed", "error");
+      sendBtn.disabled = false;
+      return;
+    }
+
+    inputEl.value = "";
+    sendBtn.disabled = true;
+
+    // Fetch the newly created comment
+    const { data: rows } = await sb.from("feed_posts").select("*").eq("id", newId).limit(1);
+    if (rows && rows[0]) {
+      const c = rows[0];
+      postsById.set(c.id, c);
+      const cEl = buildCommentEl(c, actualRootId);
+      // Insert after the parent comment or at end of comment section
+      const parentEl = container.querySelector('[data-id="' + parentId + '"]');
+      if (parentEl && parentEl.nextSibling) {
+        container.insertBefore(cEl, parentEl.nextSibling);
+      } else {
+        container.appendChild(cEl);
+      }
+    }
+
+    // Increment comment count on root post
+    const root = postsById.get(actualRootId);
+    if (root) { root.comment_count = (root.comment_count || 0) + 1; refreshPostEngagement(actualRootId); }
+  }
+
+  // Legacy stubs for reaction functions (used by DM/group code)
   function addReactionToState(r) {
     const key = `${r.message_id}|${r.user_id}|${r.emoji}`;
     if (reactionsByKey.has(key)) return false;
@@ -830,37 +1073,7 @@
     return true;
   }
   function renderReactionsFor(msgId) {
-    const row = rowsById.get(msgId);
-    if (!row) return;
-    const container = row.querySelector(".reactions");
-    if (!container) return;
-    container.innerHTML = "";
-    const byEmoji = reactionsByMsg.get(msgId);
-    if (byEmoji && byEmoji.size > 0) {
-      for (const [emoji, users] of byEmoji) {
-        if (users.size === 0) continue;
-        const chip = document.createElement("button");
-        chip.type = "button";
-        chip.className = "reaction" + (me && users.has(me.id) ? " mine" : "");
-        chip.title = Array.from(users).join(", ");
-        chip.innerHTML = `<span>${emoji}</span><span class="count">${users.size}</span>`;
-        chip.addEventListener("click", (e) => { e.stopPropagation(); toggleReaction(msgId, emoji); });
-        container.appendChild(chip);
-      }
-    }
-    // Always append the gray "add emoji" chip
-    const add = document.createElement("button");
-    add.type = "button";
-    add.className = "reaction add-emoji";
-    add.setAttribute("aria-label", "Add reaction");
-    add.title = "Add reaction";
-    add.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/><path d="M19 3v4M21 5h-4" stroke-linecap="round"/></svg>`;
-    add.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const r = add.getBoundingClientRect();
-      openReactionPicker(msgId, r.left + r.width / 2, r.top, { full: true });
-    });
-    container.appendChild(add);
+    // No-op for feed; reactions are replaced by likes/favs/reposts
   }
   // Context for action menus / pickers: 'main' (public chat) or 'dm' (private).
   // Set by the row that opened the picker/menu. toggleReaction + handleAction
@@ -1106,72 +1319,57 @@
     if (currentActionMode === "group" && typeof handleGroupAction === "function") {
       return handleGroupAction(act, id);
     }
-    const m = messagesById.get(id);
+    // Feed context: posts use feed_posts table
+    const m = postsById.get(id);
     if (!m) return;
-    if (act === "reply") setReplyTo(m);
-    else if (act === "react") {
-      const row = rowsById.get(id);
-      const bubble = row && row.querySelector(".bubble");
-      const target = bubble || row;
-      const r = target.getBoundingClientRect();
-      openReactionPicker(id, r.left + r.width / 2, r.top);
-    } else if (act === "download") {
-      // Logic-level guard: only image messages are downloadable.
-      if (!m.image_url) return;
-      downloadMessageImage(m);
-    } else if (act === "report") {
-      toast("Message reported. Thanks for letting us know.", "default", 2200);
+    if (act === "report") {
+      toast("Post reported. Thanks for letting us know.", "default", 2200);
       console.log("[Report]", m);
+    } else if (act === "react") {
+      // Feed uses like instead of reactions
+      toggleFeedLike(id);
+    } else if (act === "reply") {
+      toggleCommentSection(id);
+    } else if (act === "self-delete") {
+      if (!me || m.user_id !== me.id) return;
+      selfDeletePost(m);
     } else if (act === "mod-delete") {
-      // Logic-level guard: only moderators can mod-delete.
       if (!myIsModerator) return;
       moderatorDeleteMessage(m);
     } else if (act === "mod-ban") {
       if (!myIsModerator) return;
       moderatorBanUser(m);
-    } else if (act === "self-delete") {
-      // Logic-level guard: only the owner can self-delete.
-      if (!me || m.user_id !== me.id) return;
-      selfDeleteMessage(m);
     }
   }
 
-  async function selfDeleteMessage(m) {
+  async function selfDeletePost(m) {
     if (!m || !me || m.user_id !== me.id) return;
-    if (!confirm("Delete this message? This cannot be undone.")) return;
+    if (!confirm("Delete this post? This cannot be undone.")) return;
     try {
-      const { error } = await sb.from("messages").delete().eq("id", m.id).eq("user_id", me.id);
+      const { error } = await sb.from("feed_posts").delete().eq("id", m.id).eq("user_id", me.id);
       if (error) throw error;
-      // Optimistic removal; realtime DELETE will reconcile for other clients.
-      const row = rowsById.get(m.id);
-      if (row) row.remove();
-      rowsById.delete(m.id);
-      messagesById.delete(m.id);
-      // Fix 4: clean up the sender-label block above the bubble so a
-      // deleted message never leaves an orphan username behind, and
-      // recompute `lastSenderId` from whatever is still rendered. Public
-      // chat rows live inside the `.msg-col` wrapper, so reconcile against
-      // that container — not `messagesEl` directly.
-      reconcileNameHeaders(messagesEl.querySelector(".msg-col") || messagesEl);
-      { const rs = messagesEl.querySelectorAll(".row"); lastSenderId = rs.length ? (rs[rs.length - 1].dataset.userId || null) : null; }
+      const el = postElsById.get(m.id);
+      if (el) el.remove();
+      postElsById.delete(m.id);
+      postsById.delete(m.id);
     } catch (err) {
       console.error("[Self] delete failed", err);
       toast("Could not delete: " + (err && err.message ? err.message : "error"), "error");
     }
   }
+  // Legacy alias for code that calls selfDeleteMessage
+  const selfDeleteMessage = selfDeletePost;
 
   async function moderatorDeleteMessage(m) {
     if (!myIsModerator || !m) return;
-    if (!confirm("Delete this message?\n\nThis action is logged.")) return;
-    const { error } = await sb.rpc("moderator_delete_message", { p_message: m.id });
+    if (!confirm("Delete this post?\n\nThis action is logged.")) return;
+    // Try feed_posts first; fall back to messages RPC for DM/group compat
+    const { error } = await sb.from("feed_posts").delete().eq("id", m.id);
     if (error) { console.error("[Mod] delete failed", error); toast(error.message || "Delete failed", "error"); return; }
-    // Optimistically remove from UI; realtime DELETE event will confirm.
-    const row = rowsById.get(m.id);
-    if (row) row.remove();
-    rowsById.delete(m.id);
-    messagesById.delete(m.id);
-    reconcileNameHeaders(messagesEl.querySelector(".msg-col") || messagesEl);
-    { const rs = messagesEl.querySelectorAll(".row"); lastSenderId = rs.length ? (rs[rs.length - 1].dataset.userId || null) : null; }
+    const el = postElsById.get(m.id);
+    if (el) el.remove();
+    postElsById.delete(m.id);
+    postsById.delete(m.id);
     // Best-effort audit log for the moderator panel. Ignored if the table
     // isn't set up; never blocks the user-facing action.
     try {
@@ -1263,35 +1461,37 @@
     if (activeRow) { activeRow.classList.remove("show-actions"); activeRow = null; }
   });
 
-  // ---------- Reply ----------
+  // ---------- Reply (feed uses comment system; stubs for DM/group compat) ----------
   function setReplyTo(m) {
+    // Feed: open comment section for the post
+    if (m && m.id && currentActionMode === "main") {
+      toggleCommentSection(m.id);
+      return;
+    }
     replyTo = m;
-    rpName.textContent = m.username || "User";
-    rpText.textContent = snippetFromMessage(m);
-    replyPreview.classList.add("open");
-    inputEl.focus();
-    updateSendDisabled();
+    if (typeof rpName !== "undefined" && rpName) rpName.textContent = m.username || "User";
+    if (typeof rpText !== "undefined" && rpText) rpText.textContent = snippetFromMessage(m);
+    if (typeof replyPreview !== "undefined" && replyPreview) replyPreview.classList.add("open");
+    if (inputEl) inputEl.focus();
   }
   function cancelReply() {
     if (!replyTo) return;
     replyTo = null;
-    replyPreview.classList.remove("open");
-    updateSendDisabled();
+    if (typeof replyPreview !== "undefined" && replyPreview) replyPreview.classList.remove("open");
   }
-  rpClose.addEventListener("click", cancelReply);
 
   function jumpToMessage(id) {
-    const row = rowsById.get(id);
-    if (!row) {
-      console.warn("[Warning] Missing reply target", id);
-      toast("Original message not found", "warn", 1400);
+    const el = postElsById.get(id);
+    if (!el) {
+      console.warn("[Warning] Missing target", id);
+      toast("Original post not found", "warn", 1400);
       return;
     }
-    row.scrollIntoView({ behavior: "smooth", block: "center" });
-    row.classList.remove("msg-highlight");
-    void row.offsetWidth;
-    row.classList.add("msg-highlight");
-    setTimeout(() => row.classList.remove("msg-highlight"), 1400);
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.remove("msg-highlight");
+    void el.offsetWidth;
+    el.classList.add("msg-highlight");
+    setTimeout(() => el.classList.remove("msg-highlight"), 1400);
   }
 
   // ---------- Swipe-to-reveal (fixed cap, snap back on release) ----------
@@ -1398,71 +1598,53 @@
     activeRow = row.classList.contains("show-actions") ? row : null;
   });
 
-  // ---------- Realtime ----------
+  // ---------- Realtime (Feed) ----------
   function subscribeRealtime() {
     if (channel) { try { sb.removeChannel(channel); } catch(_){} channel = null; }
     if (reactChannel) { try { sb.removeChannel(reactChannel); } catch(_){} reactChannel = null; }
 
-    channel = sb.channel("public:messages")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
-        const m = payload.new;
-        if (!m || rowsById.has(m.id)) { if (m) console.warn("[Warning] Duplicate prevented", m.id); return; }
-        const wasAtBottom = atBottom(messagesEl);
-        const isMine = me && m.user_id === me.id;
-        renderMessage(m);
-        if (wasAtBottom || isMine) scrollToBottom();
+    // Subscribe to feed_posts: new top-level posts + deletions
+    channel = sb.channel("public:feed")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "feed_posts" }, (payload) => {
+        const p = payload.new;
+        if (!p || postElsById.has(p.id)) return;
+        // Only auto-render top-level posts; comments are loaded on demand
+        if (p.depth > 0) return;
+        const isMine = me && p.user_id === me.id;
+        renderPost(p, { animate: true, prepend: true });
         if (!isMine) playReceived();
-        // Author just sent a message → clear any lingering typing indicator
-        // for them immediately (server broadcast may still be in flight).
-        if (m && m.user_id) publicTyping.handleBroadcast("typing:stop", { user_id: m.user_id });
       })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages" }, (payload) => {
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "feed_posts" }, (payload) => {
         const old = payload.old;
         if (!old || !old.id) return;
-        const row = rowsById.get(old.id);
-        if (row) row.remove();
-        rowsById.delete(old.id);
-        messagesById.delete(old.id);
-        reconcileNameHeaders(messagesEl.querySelector(".msg-col") || messagesEl);
-        { const rs = messagesEl.querySelectorAll(".row"); lastSenderId = rs.length ? (rs[rs.length - 1].dataset.userId || null) : null; }
+        const el = postElsById.get(old.id);
+        if (el) el.remove();
+        postElsById.delete(old.id);
+        postsById.delete(old.id);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "feed_posts" }, (payload) => {
+        const p = payload.new;
+        if (!p) return;
+        const existing = postsById.get(p.id);
+        if (existing) {
+          existing.like_count = p.like_count;
+          existing.fav_count = p.fav_count;
+          existing.comment_count = p.comment_count;
+          existing.repost_count = p.repost_count;
+          refreshPostEngagement(p.id);
+        }
       })
       .subscribe((status) => {
-        if (status === "SUBSCRIBED") console.log("[Realtime] Connected (messages)");
+        if (status === "SUBSCRIBED") console.log("[Realtime] Connected (feed)");
         else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          console.warn("[Realtime] Disconnected:", status);
+          console.warn("[Realtime] Feed disconnected:", status);
           toast("Reconnecting to realtime…", "warn", 1500);
           setTimeout(subscribeRealtime, 1500);
         }
       });
 
-    // Public-chat typing: ephemeral realtime broadcasts — no DB writes.
+    // No typing indicator for feed (not a chat)
     if (publicTypingChannel) { try { sb.removeChannel(publicTypingChannel); } catch (_) {} publicTypingChannel = null; }
-    publicTyping.clearAllRemote();
-    publicTypingChannel = sb.channel("public:typing", { config: { broadcast: { self: false, ack: false } } })
-      .on("broadcast", { event: "typing:start" }, ({ payload }) => publicTyping.handleBroadcast("typing:start", payload))
-      .on("broadcast", { event: "typing:stop"  }, ({ payload }) => publicTyping.handleBroadcast("typing:stop",  payload))
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") console.log("[Realtime] Connected (typing)");
-      });
-
-    reactChannel = sb.channel("public:reactions")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "message_reactions" }, (payload) => {
-        const r = payload.new;
-        if (!r) return;
-        if (addReactionToState(r)) renderReactionsFor(r.message_id);
-        else console.warn("[Warning] Duplicate reaction prevented");
-      })
-      .on("postgres_changes", { event: "DELETE", schema: "public", table: "message_reactions" }, (payload) => {
-        const r = payload.old;
-        if (!r) return;
-        if (removeReactionFromState(r)) renderReactionsFor(r.message_id);
-      })
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") console.log("[Realtime] Connected (reactions)");
-        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          console.warn("[Realtime] Reactions disconnected:", status);
-        }
-      });
   }
 
   // ---------- Auth ----------
@@ -3588,162 +3770,83 @@
     getMyUsername: () => (me && me.username) || ""
   });
 
-  // ---------- Composer ----------
+  // ---------- Feed Composer ----------
   function updateSendDisabled() {
-    if (isRestricted()) { sendBtn.disabled = true; return; }
-    // Email-verification gate: unverified accounts cannot send.
-    if (me && !myEmailVerified) { sendBtn.disabled = true; return; }
-    const textOk = inputEl.value.trim().length > 0;
-    sendBtn.disabled = !(textOk || pendingImage) || uploading;
+    if (!feedPostBtn) return;
+    if (isRestricted()) { feedPostBtn.disabled = true; return; }
+    if (me && !myEmailVerified) { feedPostBtn.disabled = true; return; }
+    const textOk = feedInput && feedInput.value.trim().length > 0;
+    feedPostBtn.disabled = !(textOk || pendingImage) || uploading;
   }
-  inputEl.addEventListener("input", () => {
-    updateSendDisabled();
-    updateMentionBox();
-    // Announce typing over ephemeral realtime (no DB writes).
-    if (me && !isRestricted() && inputEl.value.length > 0) publicTyping.onLocalInput();
-  });
-  inputEl.addEventListener("keydown", (e) => {
-    if (mentionState.open) {
-      if (e.key === "ArrowDown") { e.preventDefault(); moveMentionSelection(1); return; }
-      if (e.key === "ArrowUp") { e.preventDefault(); moveMentionSelection(-1); return; }
-      if (e.key === "Enter" || e.key === "Tab") {
-        if (mentionState.results.length) { e.preventDefault(); applyMention(mentionState.results[mentionState.index]); return; }
-      }
-      if (e.key === "Escape") { e.preventDefault(); closeMentionBox(); return; }
-    }
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-  });
-  inputEl.addEventListener("blur", () => { setTimeout(closeMentionBox, 120); });
 
-  // ----- Mention autocomplete -----
+  // No mention autocomplete for feed — stubs for backward compat
   const mentionState = { open: false, results: [], index: 0, start: -1, query: "" };
-  let mentionSearchToken = 0;
+  function closeMentionBox() { mentionState.open = false; }
+  function updateMentionBox() {}
+  function renderMentionBox() {}
+  function moveMentionSelection() {}
+  function applyMention() {}
 
-  function detectMentionAtCursor() {
-    const pos = inputEl.selectionStart || 0;
-    const value = inputEl.value.slice(0, pos);
-    const m = value.match(/(?:^|\s)@([A-Za-z0-9_.]{0,32})$/);
-    if (!m) return null;
-    return { start: pos - m[1].length - 1, query: m[1] };
-  }
-
-  function closeMentionBox() {
-    mentionState.open = false;
-    mentionState.results = [];
-    mentionState.index = 0;
-    mentionState.start = -1;
-    mentionState.query = "";
-    mentionBox.hidden = true;
-    mentionBox.textContent = "";
-  }
-
-  async function updateMentionBox() {
-    const ctx = detectMentionAtCursor();
-    if (!ctx) { closeMentionBox(); return; }
-    mentionState.start = ctx.start;
-    mentionState.query = ctx.query;
-    const token = ++mentionSearchToken;
-    const query = sb.from("profiles").select("user_id, username, avatar_url").not("username", "is", null).limit(8);
-    const q = ctx.query.trim();
-    const { data, error } = q
-      ? await query.ilike("username", q + "%")
-      : await query.order("username", { ascending: true });
-    if (token !== mentionSearchToken) return;
-    if (error) { console.error("[Error] Mention search failed", error); closeMentionBox(); return; }
-    const rows = (data || []).filter(r => r && r.username && (!me || r.user_id !== me.id));
-    mentionState.results = rows;
-    mentionState.index = 0;
-    if (!rows.length) {
-      mentionBox.hidden = false;
-      mentionBox.textContent = "";
-      const empty = document.createElement("div");
-      empty.className = "mb-empty";
-      empty.textContent = q ? "No users matching @" + q : "No users yet";
-      mentionBox.appendChild(empty);
-      mentionState.open = true;
-      return;
-    }
-    renderMentionBox();
-    mentionState.open = true;
-    mentionBox.hidden = false;
-  }
-
-  function renderMentionBox() {
-    mentionBox.textContent = "";
-    mentionState.results.forEach((row, i) => {
-      const item = document.createElement("div");
-      item.className = "mb-item" + (i === mentionState.index ? " active" : "");
-      item.setAttribute("role", "option");
-      const img = document.createElement("img");
-      img.alt = "";
-      if (row.avatar_url) img.src = row.avatar_url;
-      img.onerror = () => { img.style.visibility = "hidden"; };
-      const name = document.createElement("span");
-      name.className = "mb-name";
-      name.textContent = "@" + row.username;
-      item.appendChild(img);
-      item.appendChild(name);
-      item.addEventListener("mousedown", (e) => { e.preventDefault(); applyMention(row); });
-      mentionBox.appendChild(item);
+  if (feedInput) {
+    feedInput.addEventListener("input", () => {
+      updateSendDisabled();
+      // Auto-resize textarea
+      feedInput.style.height = "auto";
+      feedInput.style.height = Math.min(200, feedInput.scrollHeight) + "px";
+      // Character count
+      if (feedCharCount) {
+        const len = feedInput.value.length;
+        feedCharCount.textContent = len > 1800 ? (2000 - len) + "" : "";
+        feedCharCount.classList.toggle("warn", len > 1900);
+      }
+    });
+    feedInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        sendMessage();
+      }
     });
   }
+  if (feedPostBtn) feedPostBtn.addEventListener("click", sendMessage);
 
-  function moveMentionSelection(dir) {
-    if (!mentionState.results.length) return;
-    const n = mentionState.results.length;
-    mentionState.index = (mentionState.index + dir + n) % n;
-    renderMentionBox();
+  if (feedAttachBtn && feedFileInput) {
+    feedAttachBtn.addEventListener("click", () => {
+      if (isRestricted()) { toast("Posting disabled", "warn"); return; }
+      if (uploading) return;
+      feedFileInput.click();
+    });
+    feedFileInput.addEventListener("change", () => {
+      const f = feedFileInput.files && feedFileInput.files[0];
+      feedFileInput.value = "";
+      if (!f) return;
+      // Only allow jpg, png, webp (stricter than old chat)
+      if (!/^image\/(png|jpe?g|webp)$/i.test(f.type)) { toast("Only JPG, PNG, and WebP images are allowed", "error"); return; }
+      if (f.size > 5 * 1024 * 1024) { toast("Image too large (max 5MB)", "error"); return; }
+      clearPendingImage();
+      pendingImage = { file: f, objectUrl: URL.createObjectURL(f) };
+      if (feedPreviewImg) feedPreviewImg.src = pendingImage.objectUrl;
+      if (feedPreview) feedPreview.hidden = false;
+      updateSendDisabled();
+    });
   }
-
-  function applyMention(row) {
-    if (!row || !row.username) { closeMentionBox(); return; }
-    const start = mentionState.start;
-    const pos = inputEl.selectionStart || 0;
-    if (start < 0) { closeMentionBox(); return; }
-    const before = inputEl.value.slice(0, start);
-    const after = inputEl.value.slice(pos);
-    const insert = "@" + row.username + " ";
-    inputEl.value = before + insert + after;
-    const caret = before.length + insert.length;
-    inputEl.setSelectionRange(caret, caret);
-    closeMentionBox();
-    updateSendDisabled();
-    inputEl.focus();
-  }
-  sendBtn.addEventListener("click", sendMessage);
-
-  uploadBtn.addEventListener("click", () => {
-    if (isRestricted()) { toast("Messaging disabled", "warn"); return; }
-    if (uploading) return;
-    fileInput.click();
-  });
-  fileInput.addEventListener("change", () => {
-    const f = fileInput.files && fileInput.files[0];
-    fileInput.value = "";
-    if (!f) return;
-    if (!/^image\/(png|jpe?g|gif|webp)$/i.test(f.type)) { toast("Unsupported image type", "error"); return; }
-    if (f.size > 8 * 1024 * 1024) { toast("Image too large (max 8MB)", "error"); return; }
-    clearPendingImage();
-    pendingImage = { file: f, objectUrl: URL.createObjectURL(f) };
-    previewImg.src = pendingImage.objectUrl;
-    previewEl.classList.add("open");
-    updateSendDisabled();
-  });
-  previewRm.addEventListener("click", clearPendingImage);
+  if (feedPreviewRm) feedPreviewRm.addEventListener("click", clearPendingImage);
 
   function clearPendingImage() {
     if (pendingImage && pendingImage.objectUrl) URL.revokeObjectURL(pendingImage.objectUrl);
     pendingImage = null;
-    previewImg.src = "";
-    previewEl.classList.remove("open");
+    if (feedPreviewImg) feedPreviewImg.src = "";
+    if (feedPreview) feedPreview.hidden = true;
     updateSendDisabled();
   }
 
   async function uploadPendingImage() {
     if (!pendingImage || !me) return null;
     const f = pendingImage.file;
-    const ext = (f.name.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]+/g,"");
-    const path = `${me.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext || "bin"}`;
+    // Validate MIME type again server-side
+    if (!/^image\/(png|jpe?g|webp)$/i.test(f.type)) { toast("Invalid image type", "error"); return null; }
+    // Rename file (no user-controlled filenames)
+    const ext = ({ "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" })[f.type] || "bin";
+    const path = `${me.id}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.${ext}`;
     uploading = true; updateSendDisabled();
     const { error } = await sb.storage.from(STORAGE_BUCKET).upload(path, f, {
       cacheControl: "3600", upsert: false, contentType: f.type
@@ -3761,27 +3864,25 @@
 
   async function sendMessage() {
     if (!me) return;
-    if (isRestricted()) { toast("Messaging disabled", "warn"); return; }
-    if (!myEmailVerified) { toast("Verify your email to send messages", "warn"); updateVerifyBanner(); return; }
+    if (isRestricted()) { toast("Posting disabled", "warn"); return; }
+    if (!myEmailVerified) { toast("Verify your email to post", "warn"); updateVerifyBanner(); return; }
 
-    const rawText = inputEl.value;
-    const text = rawText.trim();
-    const hasPendingImage = !!pendingImage;
-
-    if (!text && !hasPendingImage) { toast("Type a message first", "warn", 1200); return; }
-    if (rawText.length > 0 && !text) { toast("Whitespace-only messages aren't allowed", "warn"); return; }
-    if (text && !isVoiceMarkerContent(text) && hasExcessiveSpacing(text)) { toast("Excessive spacing not allowed", "warn"); return; }
-    if (text && !isVoiceMarkerContent(text) && hasLink(text)) {
-      setRestriction();
-      toast("Links aren't allowed. Messaging disabled for 5 hours.", "error", 3500);
-      console.warn("[Security] Link detected — restriction applied");
-      inputEl.value = ""; clearPendingImage(); cancelReply();
+    // Rate limiting
+    const now = Date.now();
+    if (now - lastPostTime < POST_COOLDOWN_MS) {
+      toast("Please wait a few seconds before posting again", "warn", 1500);
       return;
     }
 
-    sendBtn.disabled = true;
-    // Clear any outbound typing signal — we're sending a message now.
-    publicTyping.onLocalSend();
+    const rawText = feedInput ? feedInput.value : "";
+    const text = rawText.trim();
+    const hasPendingImage = !!pendingImage;
+
+    if (!text && !hasPendingImage) { toast("Write something first", "warn", 1200); return; }
+    if (rawText.length > 0 && !text) { toast("Whitespace-only posts aren't allowed", "warn"); return; }
+    if (text.length > 2000) { toast("Post is too long (max 2000 characters)", "warn"); return; }
+
+    if (feedPostBtn) feedPostBtn.disabled = true;
     let imageUrl = null;
     if (hasPendingImage) {
       imageUrl = await uploadPendingImage();
@@ -3789,27 +3890,29 @@
     }
 
     const prevText = rawText;
-    const replyId = replyTo ? replyTo.id : null;
-    inputEl.value = ""; clearPendingImage(); cancelReply();
+    if (feedInput) { feedInput.value = ""; feedInput.style.height = "auto"; }
+    clearPendingImage();
+    if (feedCharCount) feedCharCount.textContent = "";
     updateSendDisabled();
 
-    const { error } = await sb.from("messages").insert({
+    const { error } = await sb.from("feed_posts").insert({
       user_id: me.id,
       username: me.username,
       avatar_url: me.avatar_url,
       content: text,
       image_url: imageUrl,
-      reply_to_id: replyId
+      depth: 0
     });
     if (error) {
-      console.error("[Error] Insert failed", error);
-      toast("Failed to send: " + error.message, "error");
-      inputEl.value = prevText;
+      console.error("[Error] Post failed", error);
+      toast("Failed to post: " + error.message, "error");
+      if (feedInput) feedInput.value = prevText;
       updateSendDisabled();
     } else {
+      lastPostTime = Date.now();
       playSent();
     }
-    inputEl.focus();
+    if (feedInput) feedInput.focus();
   }
 
   // ---------- Profile ----------
