@@ -1,11 +1,11 @@
 ---
 name: testing-relay-dm
-description: Test Relay features scoped to DMs, friend system, profile preview UI, and Settings. Use when verifying friend-request flows, profile modal changes, read receipts, or Settings overlay.
+description: Test Relay features scoped to DMs, friend system, profile preview UI, Settings, and the Threads-style feed. Use when verifying friend-request flows, profile modal changes, read receipts, Settings overlay, or feed post/engagement features.
 ---
 
-# Testing Relay — DM read receipts + friend-request RPC + Profile Preview + Settings
+# Testing Relay — DM read receipts + friend-request RPC + Profile Preview + Settings + Feed
 
-Generic recipe for testing anything in Relay that's scoped to DMs (read-receipt UI, Delivered/Seen labels, friend-request RPC, blocking, etc.), the profile preview modal (friend indicator, action buttons, overlay), or the Settings overlay (Appearance, Opt Preferences) against the live deployment or a local server of the PR branch. Extend this file for new DM- or Settings-scoped features; don't create a new skill per fix.
+Generic recipe for testing anything in Relay that's scoped to DMs (read-receipt UI, Delivered/Seen labels, friend-request RPC, blocking, etc.), the profile preview modal (friend indicator, action buttons, overlay), the Settings overlay (Appearance, Opt Preferences), or the Threads-style feed (posts, engagement, comments, images) against the live deployment or a local server of the PR branch. Extend this file for new features; don't create a new skill per fix.
 
 ## Where the app runs
 
@@ -221,6 +221,86 @@ Run from repo root: `python3 nocache_server.py &`
 - Maximize Chrome before `record_start` — on this VM use `wmctrl -r :ACTIVE: -b add,maximized_vert,maximized_horz` (install via `sudo apt-get install -y wmctrl` if missing; `Super+Up` tiles to half-screen only).
 - Annotate with `type="setup"` before signing in, `test_start` per assertion, `assertion` with `test_result="passed"|"failed"|"untested"`.
 - Mark group-chat regression as `untested` if the test user has no groups — don't block the run on it.
+
+## Threads-style feed testing
+
+The public chat was replaced with a Threads-style social feed (PR #34). The feed uses Supabase tables `feed_posts`, `post_likes`, `post_favorites`, `post_reposts` — all created by `supabase/RELAY_FEED_TABLES.sql`. This migration must be deployed before the feed will work.
+
+### Feed DOM structure
+
+```
+.feed-composer
+  img.feed-avatar
+  textarea#feed-input[placeholder="Message..."]
+  img#feed-preview              ← image preview (hidden until file selected)
+  button#feed-remove-preview    ← × to remove preview
+  input#feed-file-input[type=file][accept="image/jpeg,image/png,image/webp"]
+  button#feed-post-btn          ← disabled when textarea empty AND no image
+
+#feed[aria-label="Posts"]       ← scrollable feed area
+  article.fp-card               ← each post card
+    .fp-header                  ← avatar + username + timestamp + delete btn
+    .fp-body                    ← text content
+    .fp-img                     ← optional image (from Supabase Storage)
+    .fp-engage                  ← engagement bar (4 buttons)
+      button[data-action=like]
+      button[data-action=comment]
+      button[data-action=repost]
+      button[data-action=fav]
+    .fp-comments                ← comment section (expanded on comment click)
+```
+
+### Key test flows
+
+1. **Post creation**: Type text → Post button enables → click Post → post appears at top with avatar, @username, "just now", text, engagement bar. Textarea clears, button disables.
+2. **Image post**: Use JS to set file on `#feed-file-input` (file picker can't be driven via computer tool). Canvas-generated PNG works well. Preview appears with × button. Post button enables even without text.
+3. **Like/Favorite/Repost toggles**: Click icon → count increments to 1, icon changes style. Click again → count disappears, icon reverts. Each persisted via Supabase RPC (`toggle_like`, `toggle_favorite`, `toggle_repost`).
+4. **Comments**: Click comment icon → section expands with input + Reply button. Type text → Reply enables → submit → reply appears indented with avatar/username/text. Comment count updates on parent.
+5. **XSS**: Post `<script>alert('xss')</script>` → renders as escaped text, no execution. `escapeHtml()` sanitizes all user input.
+6. **Rate limiting**: 5s cooldown between posts (`POST_COOLDOWN_MS = 5000`). Shows toast "Please wait a few seconds before posting again". Hard to trigger via UI (typing takes >5s); verify via code inspection at `app.js` line ~3872.
+
+### Auth form workaround
+
+The Terms checkbox on `/auth.html` may not reliably sync its `checked` property with JS when clicked via computer tool. Workaround: use the browser console to sign in programmatically:
+
+```js
+const client = window.supabase.createClient(
+  'https://tkarylpzztjwgrphbwun.supabase.co',
+  '<ANON_KEY from app.js>'
+);
+const { data, error } = await client.auth.signInWithPassword({
+  email: '...', password: '...'
+});
+if (!error) window.location.href = '/app.html';
+```
+
+This creates a second GoTrueClient instance (harmless warning) but properly sets the auth session.
+
+### Image upload via JS (no file picker)
+
+```js
+const canvas = document.createElement('canvas');
+canvas.width = 200; canvas.height = 200;
+const ctx = canvas.getContext('2d');
+ctx.fillStyle = 'blue'; ctx.fillRect(0,0,200,200);
+ctx.fillStyle = 'white'; ctx.font = '24px sans-serif';
+ctx.fillText('Test', 50, 110);
+canvas.toBlob(blob => {
+  const file = new File([blob], 'test.png', {type:'image/png'});
+  const dt = new DataTransfer(); dt.items.add(file);
+  const input = document.getElementById('feed-file-input');
+  input.files = dt.files;
+  input.dispatchEvent(new Event('change', {bubbles:true}));
+}, 'image/png');
+```
+
+### Supabase Realtime
+
+Feed subscribes to `postgres_changes` on `feed_posts` table for INSERT/DELETE/UPDATE. Console log `[Realtime] Connected (feed)` confirms subscription. Testing real-time cross-user updates requires a second browser session or REST-based inserts with another user's token.
+
+### Feed + DM coexistence
+
+The feed replaced only the public chat panel. DMs sidebar (`aside[aria-label="Direct messages"]`) coexists on the right. All three tabs (All, Requests, Groups) should remain functional. Verify tab switching as a regression check.
 
 ## Clean-up
 
