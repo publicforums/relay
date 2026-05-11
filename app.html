@@ -263,26 +263,6 @@
 
     <div class="shell-inner">
       <div class="chat-col feed-col">
-        <!-- Feed composer (top of feed) -->
-        <div class="feed-composer" id="feed-composer">
-          <img class="feed-composer-avatar" id="feed-composer-avatar" alt="" />
-          <div class="feed-composer-body">
-            <textarea id="feed-input" placeholder="What's on your mind?" maxlength="2000" rows="1"></textarea>
-            <div class="feed-composer-preview" id="feed-preview" hidden>
-              <img id="feed-preview-img" alt="" />
-              <button class="feed-preview-rm" id="feed-preview-rm" type="button" aria-label="Remove image">×</button>
-            </div>
-            <div class="feed-composer-actions">
-              <button class="feed-attach-btn" id="feed-attach-btn" type="button" aria-label="Add image" title="Add image">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-              </button>
-              <input type="file" id="feed-file-input" accept="image/png,image/jpeg,image/webp" style="display:none" />
-              <span class="feed-char-count" id="feed-char-count"></span>
-              <button class="feed-post-btn" id="feed-post-btn" type="button" disabled>Post</button>
-            </div>
-          </div>
-        </div>
-
         <!-- Feed scroll area -->
         <div id="feed" class="feed-scroll" role="feed" aria-label="Posts">
           <div class="loading">Loading feed…</div>
@@ -292,6 +272,41 @@
           <span id="restriction-text"></span>
           &nbsp;·&nbsp;
           <a id="support-link" href="https://discord.gg/dFv2tYRNH8/dFv2tYRNH8/" target="_blank" rel="noopener noreferrer">Support server</a>
+        </div>
+
+        <!-- FAB for creating posts -->
+        <button class="feed-fab" id="feed-fab" type="button" aria-label="Create post" title="Create post">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+
+        <!-- Post creation modal overlay -->
+        <div class="feed-compose-overlay" id="feed-compose-overlay">
+          <div class="feed-compose-modal">
+            <div class="feed-compose-modal-head">
+              <span class="feed-compose-modal-title">Create post</span>
+              <button class="feed-compose-modal-close" id="feed-compose-close" type="button" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div class="feed-composer" id="feed-composer">
+              <img class="feed-composer-avatar" id="feed-composer-avatar" alt="" />
+              <div class="feed-composer-body">
+                <textarea id="feed-input" placeholder="What's on your mind?" maxlength="2000" rows="1"></textarea>
+                <div class="feed-composer-preview" id="feed-preview" hidden>
+                  <img id="feed-preview-img" alt="" />
+                  <button class="feed-preview-rm" id="feed-preview-rm" type="button" aria-label="Remove image">×</button>
+                </div>
+                <div class="feed-composer-actions">
+                  <button class="feed-attach-btn" id="feed-attach-btn" type="button" aria-label="Add image" title="Add image">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                  </button>
+                  <input type="file" id="feed-file-input" accept="image/png,image/jpeg,image/webp" style="display:none" />
+                  <span class="feed-char-count" id="feed-char-count"></span>
+                  <button class="feed-post-btn" id="feed-post-btn" type="button" disabled>Post</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
