@@ -653,7 +653,7 @@
     bar.className = "fp-engage";
 
     const likeBtn = document.createElement("button");
-    likeBtn.className = "fp-action" + (myLikes.has(p.id) ? " active" : "");
+    likeBtn.className = "fp-action liked" + (myLikes.has(p.id) ? " active" : "");
     likeBtn.type = "button";
     likeBtn.dataset.act = "like";
     likeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="' + (myLikes.has(p.id) ? "currentColor" : "none") + '" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.02-1.07a5.5 5.5 0 0 0-7.78 7.78l1.02 1.07L12 21.23l7.78-7.78 1.02-1.07a5.5 5.5 0 0 0 0-7.78z"/></svg>';
@@ -677,7 +677,7 @@
     commentBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleCommentSection(p.id); });
 
     const repostBtn = document.createElement("button");
-    repostBtn.className = "fp-action" + (myReposts.has(p.id) ? " active" : "");
+    repostBtn.className = "fp-action reposted" + (myReposts.has(p.id) ? " active" : "");
     repostBtn.type = "button";
     repostBtn.dataset.act = "repost";
     repostBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
@@ -689,7 +689,7 @@
     repostBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleFeedRepost(p.id); });
 
     const favBtn = document.createElement("button");
-    favBtn.className = "fp-action" + (myFavs.has(p.id) ? " active" : "");
+    favBtn.className = "fp-action faved" + (myFavs.has(p.id) ? " active" : "");
     favBtn.type = "button";
     favBtn.dataset.act = "fav";
     favBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="' + (myFavs.has(p.id) ? "currentColor" : "none") + '" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
