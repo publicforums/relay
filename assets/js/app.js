@@ -1456,7 +1456,7 @@
       if (activeRow) { activeRow.classList.remove("show-actions"); activeRow = null; }
     }
   });
-  messagesEl.addEventListener("scroll", () => {
+  if (messagesEl) messagesEl.addEventListener("scroll", () => {
     closeCtxMenu(); closeReactionPicker();
     if (activeRow) { activeRow.classList.remove("show-actions"); activeRow = null; }
   });
@@ -1588,7 +1588,7 @@
   if (_groupMsgsEl) attachSwipeReveal(_groupMsgsEl);
 
   // ---------- Tap-to-show-actions (mobile friendly) ----------
-  messagesEl.addEventListener("click", (e) => {
+  if (messagesEl) messagesEl.addEventListener("click", (e) => {
     // Avoid toggling when clicking interactive children
     if (e.target.closest(".reaction, .reply-snippet, .avatar-btn, .inline-actions, button, a, img.msg-image")) return;
     const row = e.target.closest(".row[data-id]");
@@ -1995,14 +1995,20 @@
     loginBtn.disabled = true;
     loginLabel.textContent = "Redirecting…";
     ensureAudio();
-    const { error } = await sb.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin + window.location.pathname }
-    });
-    if (error) {
-      console.error("[Error] Sign-in failed", error);
-      const mapped = mapAuthError(error, authMode);
-      setLoginError(mapped.text);
+    try {
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin + window.location.pathname }
+      });
+      if (error) {
+        console.error("[Error] Sign-in failed", error);
+        const mapped = mapAuthError(error, authMode);
+        setLoginError(mapped.text);
+      }
+    } catch (err) {
+      console.error("[Error] OAuth exception", err);
+      setLoginError("Something went wrong. Please try again.");
+    } finally {
       loginBtn.disabled = false;
       loginLabel.textContent = "Continue with Google";
       refreshAuthTermsState();
