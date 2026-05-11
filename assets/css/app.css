@@ -714,16 +714,11 @@
 
   /* ---------- Feed (Threads-style) ---------- */
   .feed-composer {
-    display: flex; gap: 14px; padding: 18px 20px 14px;
-    border-bottom: 1px solid var(--border);
-    background: var(--panel);
-    position: sticky; top: 0; z-index: 2;
-    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-    background: color-mix(in srgb, var(--panel) 85%, transparent);
-    transition: box-shadow .2s ease;
+    display: none; gap: 14px; padding: 0;
+    background: transparent; border: none;
   }
-  .feed-composer:focus-within {
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  .feed-compose-overlay.open .feed-composer {
+    display: flex;
   }
   .feed-composer-avatar {
     width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
@@ -840,12 +835,16 @@
   .fp-username {
     font-size: 14px; font-weight: 600; color: var(--text);
     cursor: pointer; text-decoration: none;
+    background: none; border: none; padding: 0; font-family: inherit;
     transition: color .15s ease;
   }
   .fp-username:hover { color: var(--accent); text-decoration: none; }
   .fp-time {
-    font-size: 12px; color: var(--muted); margin-left: auto; flex: none;
+    font-size: 12px; color: var(--muted); flex: none;
     font-variant-numeric: tabular-nums;
+  }
+  .fp-time::before {
+    content: "·"; margin-right: 8px; color: var(--muted);
   }
   .fp-delete-btn {
     background: none; border: none; cursor: pointer; padding: 6px;
@@ -898,18 +897,11 @@
   .fp-action svg { width: 18px; height: 18px; flex: none; transition: transform .2s ease; }
   .fp-action:hover svg { transform: scale(1.1); }
   .fp-action.active { color: var(--accent); }
-  .fp-action.liked { transition: color .2s ease, background .2s ease; }
-  .fp-action.liked:hover { background: color-mix(in srgb, #ff453a 10%, transparent); }
-  .fp-action.liked.active { color: #ff453a; }
-  .fp-action.faved:hover { background: color-mix(in srgb, #ffcc00 10%, transparent); }
-  .fp-action.faved.active { color: #ffcc00; }
-  .fp-action.reposted:hover { background: color-mix(in srgb, #30d158 10%, transparent); }
-  .fp-action.reposted.active { color: #30d158; }
   .fp-action .fp-count { font-variant-numeric: tabular-nums; font-weight: 500; }
 
   /* Engagement micro-animation */
-  @keyframes fpPop { 0%{transform:scale(1)} 30%{transform:scale(1.35)} 60%{transform:scale(0.9)} 100%{transform:scale(1)} }
-  .fp-action.pop svg { animation: fpPop .35s cubic-bezier(.2,.8,.3,1); }
+  @keyframes fpPop { 0%{transform:scale(1)} 25%{transform:scale(1.18)} 50%{transform:scale(0.95)} 100%{transform:scale(1)} }
+  .fp-action.pop svg { animation: fpPop .3s cubic-bezier(.22,.68,.36,1); }
 
   /* Comment / reply section */
   .fp-comments {
@@ -925,12 +917,32 @@
     display: flex; align-items: center; gap: 8px; margin-top: 10px;
   }
   .fp-comment-input {
-    flex: 1; border: 1px solid var(--border); border-radius: 999px;
-    padding: 9px 16px; font-size: 13px; background: var(--bg);
-    color: var(--text); outline: none; font-family: inherit;
-    transition: border-color .2s ease, box-shadow .2s ease;
+    display: flex; align-items: center; gap: 8px; margin-top: 10px;
+    padding: 8px 12px; border-radius: 12px;
+    background: color-mix(in srgb, var(--border) 25%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+    transition: border-color .2s ease, background .2s ease;
   }
-  .fp-comment-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); }
+  .fp-comment-input:focus-within {
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+    background: color-mix(in srgb, var(--border) 15%, transparent);
+  }
+  .fp-comment-input input {
+    flex: 1; border: none; outline: none; padding: 6px 8px;
+    font-size: 13px; background: transparent; color: var(--text);
+    font-family: inherit; min-width: 0;
+  }
+  .fp-comment-input input::placeholder { color: var(--muted); }
+  .fp-comment-input button {
+    background: var(--accent); color: var(--accent-text);
+    border: none; border-radius: 8px; padding: 5px 14px;
+    font-size: 12px; font-weight: 600; cursor: pointer; flex: none;
+    font-family: inherit;
+    transition: opacity .15s ease, transform .15s ease;
+  }
+  .fp-comment-input button:disabled { opacity: 0.35; cursor: default; }
+  .fp-comment-input button:not(:disabled):hover { opacity: 0.85; transform: scale(1.03); }
+  .fp-comment-input button:not(:disabled):active { transform: scale(0.96); }
   .fp-comment-send {
     background: var(--accent); color: var(--accent-text);
     border: none; border-radius: 50%; width: 34px; height: 34px;
@@ -984,14 +996,14 @@
     font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 5px;
     padding: 0 0 8px; font-weight: 500;
   }
-  .fp-repost-header svg { width: 14px; height: 14px; flex: none; color: #30d158; }
+  .fp-repost-header svg { width: 14px; height: 14px; flex: none; color: var(--accent); }
 
   .fp-avatar-btn {
     background: none; border: none; padding: 0; cursor: pointer; flex: none;
     border-radius: 50%; display: flex;
   }
   .fp-meta {
-    display: flex; flex-direction: column; gap: 1px; min-width: 0;
+    display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 1;
   }
   .fp-image-wrap { margin-bottom: 8px; }
   .fp-image-error {
@@ -1008,6 +1020,124 @@
   }
   .fp-avatar-fallback:hover { transform: scale(1.08); }
 
+  /* OP (Original Poster) tag */
+  .fp-op-tag {
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border-radius: 4px; padding: 1px 5px; line-height: 1.4;
+    letter-spacing: 0.03em; flex: none;
+  }
+
+  /* Comment/reply nesting */
+  .fp-comment {
+    padding: 10px 0; position: relative;
+    animation: fpCmtIn .2s ease both;
+  }
+  .fp-comment + .fp-comment {
+    border-top: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
+  }
+  .fp-comment-nested {
+    margin-left: 28px; padding-left: 14px;
+    border-left: 2px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+  .fp-comment-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+  }
+  .fp-comment-avatar {
+    width: 24px; height: 24px; border-radius: 50%; object-fit: cover;
+    flex: none; cursor: pointer; background: var(--border);
+    transition: transform .15s ease;
+  }
+  .fp-comment-avatar:hover { transform: scale(1.1); }
+  .fp-comment-name {
+    font-size: 13px; font-weight: 600; color: var(--text);
+    cursor: pointer; background: none; border: none; padding: 0;
+    font-family: inherit; transition: color .15s ease;
+  }
+  .fp-comment-name:hover { color: var(--accent); }
+  .fp-comment-time {
+    font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+  .fp-comment-time::before {
+    content: "·"; margin-right: 6px; color: var(--muted);
+  }
+  .fp-comment-delete {
+    background: none; border: none; cursor: pointer; padding: 2px 6px;
+    color: var(--muted); font-size: 16px; line-height: 1; border-radius: 4px;
+    opacity: 0; margin-left: auto;
+    transition: opacity .15s ease, color .15s ease;
+  }
+  .fp-comment:hover .fp-comment-delete { opacity: 0.6; }
+  .fp-comment-delete:hover { color: #ff453a; opacity: 1 !important; }
+  .fp-comment-body {
+    font-size: 14px; color: var(--text); line-height: 1.45;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+    padding-left: 32px;
+  }
+  .fp-comment-reply-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 12px; color: var(--muted); padding: 2px 0;
+    margin-left: 32px; margin-top: 4px; font-family: inherit;
+    transition: color .15s ease;
+  }
+  .fp-comment-reply-btn:hover { color: var(--accent); }
+
+  /* Post creation FAB + Modal */
+  .feed-fab {
+    position: fixed; bottom: 24px; right: 24px; z-index: 90;
+    width: 52px; height: 52px; border-radius: 50%;
+    background: var(--accent); color: var(--accent-text);
+    border: none; cursor: pointer; display: flex;
+    align-items: center; justify-content: center;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .feed-fab:hover {
+    transform: scale(1.08);
+    box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+  }
+  .feed-fab:active { transform: scale(0.94); }
+  .feed-fab svg { width: 24px; height: 24px; }
+
+  .feed-compose-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.45); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity .2s ease;
+  }
+  .feed-compose-overlay.open {
+    opacity: 1; pointer-events: auto;
+  }
+  .feed-compose-modal {
+    width: 90%; max-width: 520px;
+    background: var(--panel); border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+    padding: 20px; position: relative;
+    transform: scale(0.95) translateY(10px);
+    transition: transform .25s cubic-bezier(.22,.68,.36,1);
+  }
+  .feed-compose-overlay.open .feed-compose-modal {
+    transform: scale(1) translateY(0);
+  }
+  .feed-compose-modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .feed-compose-modal-title {
+    font-size: 16px; font-weight: 600; color: var(--text);
+  }
+  .feed-compose-modal-close {
+    background: none; border: none; cursor: pointer; padding: 4px;
+    color: var(--muted); border-radius: 8px; display: flex;
+    transition: color .15s ease, background .15s ease;
+  }
+  .feed-compose-modal-close:hover {
+    color: var(--text); background: color-mix(in srgb, var(--border) 50%, transparent);
+  }
+  .feed-compose-modal-close svg { width: 20px; height: 20px; }
+
   /* Feed responsive adjustments */
   @media (max-width: 600px) {
     .feed-composer { padding: 14px 14px 10px; gap: 10px; }
@@ -1020,6 +1150,11 @@
     .fp-engage { gap: 2px; }
     .fp-card.fp-reply { padding-left: 32px; margin-left: 14px; }
     .fp-card.fp-reply-deep { margin-left: 32px; }
+    .fp-comment-nested { margin-left: 18px; padding-left: 10px; }
+    .fp-comment-body { padding-left: 32px; }
+    .feed-fab { width: 46px; height: 46px; bottom: 18px; right: 18px; }
+    .feed-fab svg { width: 22px; height: 22px; }
+    .feed-compose-modal { padding: 16px; }
   }
 
   /* PC split layout: chat flush-left, persistent DM inbox on the right.
